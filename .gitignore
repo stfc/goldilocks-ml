@@ -1,0 +1,26 @@
+.DS_Store
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Local data, model artifacts, and experiment state
+local_data/
+artifacts/
+checkpoints/
+mlruns/
+wandb/
+outputs/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*token*
