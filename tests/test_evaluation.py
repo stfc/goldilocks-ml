@@ -6,7 +6,7 @@ import math
 
 import pytest
 
-from goldilocks_ml.core.evaluation import (
+from goldilocks_ml.evaluation import (
     Prediction,
     default_positive_label,
     evaluate,
@@ -15,7 +15,7 @@ from goldilocks_ml.core.evaluation import (
     train_majority,
     train_median,
 )
-from goldilocks_ml.core.snapshot import Sample
+from goldilocks_ml.snapshot import Sample
 
 
 def _sample(sample_id: str, target: float | str) -> Sample:

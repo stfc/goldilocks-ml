@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
-    from goldilocks_ml.core.protocol import TrainingProtocol
-    from goldilocks_ml.core.snapshot import Sample, Snapshot
+    from goldilocks_ml.protocol import TrainingProtocol
+    from goldilocks_ml.snapshot import Sample, Snapshot
 
 
 @dataclass(frozen=True, slots=True)

@@ -14,9 +14,9 @@ from conftest import (
 )
 from pipeline.baseline import Standardizer
 
-from goldilocks_ml.core.cli import build_features
-from goldilocks_ml.core.protocol import load_protocol
-from goldilocks_ml.core.registry import (
+from goldilocks_ml.cli import build_features
+from goldilocks_ml.protocol import load_protocol
+from goldilocks_ml.registry import (
     FeatureMatrix,
     FittedModel,
     TrainingContext,
@@ -27,7 +27,7 @@ from goldilocks_ml.core.registry import (
     register_trainer,
     trainer_names,
 )
-from goldilocks_ml.core.snapshot import Sample, load_snapshot
+from goldilocks_ml.snapshot import Sample, load_snapshot
 
 
 def _setup(

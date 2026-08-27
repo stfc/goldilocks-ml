@@ -14,14 +14,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from goldilocks_ml.core.protocol import TrainingProtocol
-from goldilocks_ml.core.registry import (
+from goldilocks_ml.protocol import TrainingProtocol
+from goldilocks_ml.registry import (
     FeatureMatrix,
     FittedModel,
     TrainingContext,
     register_trainer,
 )
-from goldilocks_ml.core.snapshot import Sample
+from goldilocks_ml.snapshot import Sample
 
 
 @dataclass(frozen=True, slots=True)

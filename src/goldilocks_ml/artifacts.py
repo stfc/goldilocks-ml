@@ -6,8 +6,8 @@ import os
 from collections.abc import Sequence
 from pathlib import Path
 
-from goldilocks_ml.core.hashing import sha256_file
-from goldilocks_ml.core.protocol import ArtifactDependency
+from goldilocks_ml.hashing import sha256_file
+from goldilocks_ml.protocol import ArtifactDependency
 
 ENVIRONMENT_VARIABLE = "GOLDILOCKS_ARTIFACTS"
 DEFAULT_DIRECTORY = Path("local_data/artifacts")

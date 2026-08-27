@@ -10,14 +10,14 @@ from typing import Any
 import pipeline  # noqa: F401  (registers the fixture trainer and contract)
 import pytest
 
-from goldilocks_ml.core.cli import seal
-from goldilocks_ml.core.runs import dumps_toml
+from goldilocks_ml.cli import seal
+from goldilocks_ml.runs import dumps_toml
 
 FIXTURES = Path(__file__).parent / "fixtures"
 KDIST_SNAPSHOT = FIXTURES / "kdist"
 METALLIC_SNAPSHOT = FIXTURES / "metallic"
 PROTOCOLS = Path(__file__).parent / "protocols"
-MODELS = Path(__file__).parents[1] / "src" / "goldilocks_ml" / "models"
+PACKAGE = Path(__file__).parents[1] / "src" / "goldilocks_ml"
 
 FEATURE_COLUMNS = ("x1", "x2", "x3")
 

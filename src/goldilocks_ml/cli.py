@@ -10,9 +10,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import goldilocks_ml.models  # noqa: F401  (each model registers itself)
-from goldilocks_ml.core import artifacts as artifact_store
-from goldilocks_ml.core.evaluation import (
+import goldilocks_ml.kmesh  # noqa: F401  (each model registers itself)
+import goldilocks_ml.metallicity  # noqa: F401
+from goldilocks_ml import artifacts as artifact_store
+from goldilocks_ml.evaluation import (
     Prediction,
     default_positive_label,
     evaluate,
@@ -21,15 +22,15 @@ from goldilocks_ml.core.evaluation import (
     train_majority,
     train_median,
 )
-from goldilocks_ml.core.hashing import sha256_file
-from goldilocks_ml.core.protocol import TrainingProtocol, load_protocol
-from goldilocks_ml.core.registry import (
+from goldilocks_ml.hashing import sha256_file
+from goldilocks_ml.protocol import TrainingProtocol, load_protocol
+from goldilocks_ml.registry import (
     FittedModel,
     TrainingContext,
     get_feature_contract,
     get_trainer,
 )
-from goldilocks_ml.core.runs import (
+from goldilocks_ml.runs import (
     dumps_toml,
     environment_record,
     prepare_directory,
@@ -39,7 +40,7 @@ from goldilocks_ml.core.runs import (
     write_manifest,
     write_predictions,
 )
-from goldilocks_ml.core.snapshot import (
+from goldilocks_ml.snapshot import (
     FEATURES_NAME,
     ID_PROP_NAME,
     MANIFEST_NAME,
@@ -48,7 +49,7 @@ from goldilocks_ml.core.snapshot import (
     load_snapshot,
     read_sample_ids,
 )
-from goldilocks_ml.core.splitting import (
+from goldilocks_ml.splitting import (
     assign_splits,
     partition,
     read_splits,

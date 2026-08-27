@@ -15,9 +15,9 @@ from importlib import metadata
 from pathlib import Path
 from typing import Any
 
-from goldilocks_ml.core.evaluation import Prediction
-from goldilocks_ml.core.hashing import sha256_file
-from goldilocks_ml.core.protocol import TrainingProtocol
+from goldilocks_ml.evaluation import Prediction
+from goldilocks_ml.hashing import sha256_file
+from goldilocks_ml.protocol import TrainingProtocol
 
 MANIFEST_NAME = "manifest.json"
 PREDICTIONS_HEADER = ("sample_id", "split", "source", "truth", "prediction", "score")

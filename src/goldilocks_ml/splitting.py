@@ -6,8 +6,8 @@ import csv
 import random
 from pathlib import Path
 
-from goldilocks_ml.core.protocol import SPLIT_NAMES, TrainingProtocol
-from goldilocks_ml.core.snapshot import Sample, Snapshot
+from goldilocks_ml.protocol import SPLIT_NAMES, TrainingProtocol
+from goldilocks_ml.snapshot import Sample, Snapshot
 
 SPLITS_HEADER = ("sample_id", "split")
 

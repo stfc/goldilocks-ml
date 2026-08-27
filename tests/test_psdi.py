@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from goldilocks_ml.publish.psdi import (
+from goldilocks_ml.psdi import (
     PSDI_API,
     Deposition,
     DraftCleanupError,
@@ -427,7 +427,7 @@ def test_upload_cli_creates_draft_without_submitting_review(
         calls.append((deposition, token))
         return "draft-2"
 
-    monkeypatch.setattr("goldilocks_ml.publish.psdi.create_deposition", fake_create)
+    monkeypatch.setattr("goldilocks_ml.psdi.create_deposition", fake_create)
     monkeypatch.setattr(
         "sys.argv",
         [

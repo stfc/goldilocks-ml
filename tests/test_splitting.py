@@ -15,9 +15,9 @@ from conftest import (
     write_protocol,
 )
 
-from goldilocks_ml.core.protocol import load_protocol
-from goldilocks_ml.core.snapshot import load_snapshot
-from goldilocks_ml.core.splitting import (
+from goldilocks_ml.protocol import load_protocol
+from goldilocks_ml.snapshot import load_snapshot
+from goldilocks_ml.splitting import (
     assign_splits,
     check_assignment,
     partition,

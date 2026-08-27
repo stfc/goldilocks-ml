@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, cast
 
-from goldilocks_ml.core.hashing import is_sha256
+from goldilocks_ml.hashing import is_sha256
 
 Task = Literal["regression", "classification"]
 SplitMethod = Literal["random", "group"]

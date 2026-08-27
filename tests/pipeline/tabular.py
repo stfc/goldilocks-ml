@@ -12,9 +12,9 @@ import math
 from collections.abc import Mapping
 from pathlib import Path
 
-from goldilocks_ml.core.protocol import TrainingProtocol
-from goldilocks_ml.core.registry import FeatureMatrix, register_feature_contract
-from goldilocks_ml.core.snapshot import Snapshot
+from goldilocks_ml.protocol import TrainingProtocol
+from goldilocks_ml.registry import FeatureMatrix, register_feature_contract
+from goldilocks_ml.snapshot import Snapshot
 
 SCHEMA = "tabular"
 

@@ -8,10 +8,10 @@ from pathlib import Path
 import pytest
 from conftest import build_snapshot, regression_document, write_protocol
 
-from goldilocks_ml.core.evaluation import Prediction
-from goldilocks_ml.core.hashing import sha256_file
-from goldilocks_ml.core.protocol import load_protocol
-from goldilocks_ml.core.runs import (
+from goldilocks_ml.evaluation import Prediction
+from goldilocks_ml.hashing import sha256_file
+from goldilocks_ml.protocol import load_protocol
+from goldilocks_ml.runs import (
     NON_DETERMINISTIC_FILES,
     dumps_toml,
     environment_record,

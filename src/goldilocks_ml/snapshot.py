@@ -21,8 +21,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from goldilocks_ml.core.hashing import is_sha256, sha256_file
-from goldilocks_ml.core.protocol import TrainingProtocol
+from goldilocks_ml.hashing import is_sha256, sha256_file
+from goldilocks_ml.protocol import TrainingProtocol
 
 MANIFEST_NAME = "manifest.json"
 ID_PROP_NAME = "id_prop.csv"

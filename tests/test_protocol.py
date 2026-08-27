@@ -7,14 +7,14 @@ from typing import Any
 
 import pytest
 from conftest import (
-    MODELS,
+    PACKAGE,
     PROTOCOLS,
     classification_document,
     regression_document,
     write_protocol,
 )
 
-from goldilocks_ml.core.protocol import load_protocol
+from goldilocks_ml.protocol import load_protocol
 
 DIGEST = "a" * 64
 
@@ -219,7 +219,7 @@ def test_regression_rejects_classification_only_evaluation(tmp_path: Path) -> No
 
 @pytest.mark.parametrize(
     "path",
-    sorted(PROTOCOLS.rglob("*.toml")) + sorted(MODELS.rglob("protocol.toml")),
+    sorted(PROTOCOLS.rglob("*.toml")) + sorted(PACKAGE.rglob("protocol.toml")),
     ids=lambda path: "/".join(path.parts[-3:]),
 )
 def test_every_committed_protocol_loads(path: Path) -> None:

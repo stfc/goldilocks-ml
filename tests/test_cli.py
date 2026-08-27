@@ -20,8 +20,8 @@ from conftest import (
     write_protocol,
 )
 
-from goldilocks_ml.core.cli import cli, seal
-from goldilocks_ml.core.runs import MANIFEST_NAME
+from goldilocks_ml.cli import cli, seal
+from goldilocks_ml.runs import MANIFEST_NAME
 
 BUNDLE_FILES = {
     "dataset.json",
@@ -395,7 +395,7 @@ def test_preprocessing_is_fitted_on_the_train_split_only(
 def test_classification_selects_its_threshold_on_validation_only(
     tmp_path: Path, snapshot_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    import goldilocks_ml.core.cli as core_cli
+    import goldilocks_ml.cli as core_cli
 
     protocol = _setup(
         tmp_path,

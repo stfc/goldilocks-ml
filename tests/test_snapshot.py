@@ -16,9 +16,9 @@ from conftest import (
     write_protocol,
 )
 
-from goldilocks_ml.core.hashing import sha256_file
-from goldilocks_ml.core.protocol import load_protocol
-from goldilocks_ml.core.snapshot import Snapshot, load_snapshot
+from goldilocks_ml.hashing import sha256_file
+from goldilocks_ml.protocol import load_protocol
+from goldilocks_ml.snapshot import Snapshot, load_snapshot
 
 
 def _load(
