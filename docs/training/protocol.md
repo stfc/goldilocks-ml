@@ -1,72 +1,8 @@
-# Train a model
+# Protocol reference
 
-A training protocol in this repository is executable, not a README. You bring a
-dataset in the layout below, run one documented command, and get a
-self-describing run bundle recording what data was used, how it was split, what
-was fitted, and how it scored.
+Each model owns its protocol next to its code. Unknown fields are rejected, so a protocol cannot quietly carry settings nothing reads.
 
-## Status
-
-Two models are in scope, one folder each:
-
-| Model | Protocol | Trainer |
-| --- | --- | --- |
-| [k-mesh QRF95](https://github.com/stfc/goldilocks-ml/tree/main/src/goldilocks_ml/models/kmesh/qrf95) | written | not implemented |
-| [Metallicity CGCNN](https://github.com/stfc/goldilocks-ml/tree/main/src/goldilocks_ml/models/metallicity/cgcnn) | written | not implemented |
-
-Each folder's `README.md` records the exact training method the trainer must
-reproduce, read from `stfc/goldilocks_kpoints`. Until a trainer lands,
-`goldilocks-train run` has nothing to run; `seal` works today.
-
-## Your data
-
-Convert your data into the layout the project already uses. Nothing here
-converts it for you.
-
-```text
-snapshot/
-├── id_prop.csv          # sample_id, target[, group]  -- no header row
-├── <sample_id>.cif      # one per sample, if the protocol needs structures
-└── manifest.json        # written by `seal`
-```
-
-```csv
-mp-149,0.2143,Si-diamond
-mp-2534,0.1872,GaAs-zincblende
-```
-
-- **`sample_id` must be a stable identifier**, not a row number. A split derived
-  from row positions changes whenever rows are reordered, deduplicated, or
-  filtered, which makes the run irreproducible. Consecutive integers are
-  rejected for that reason; use the source database id.
-- **The third column is optional** and names each sample's group. Group
-  splitting needs it, so that a structure, composition, prototype, or
-  calculation family cannot straddle two splits.
-
-Then seal it, which records a SHA-256 for every file:
-
-```bash
-uv run goldilocks-train seal snapshots/mine --record-id my-data --version v1
-```
-
-## Running a protocol
-
-```bash
-uv run goldilocks-train validate PROTOCOL --dataset snapshots/mine
-
-uv run goldilocks-train run PROTOCOL --dataset snapshots/mine \
-  --output local_runs/mine-v1
-```
-
-`validate` checks the protocol, the snapshot's digests and contents, the pinned
-feature dependencies, and the derived split. It trains nothing and makes no
-network request. `run` repeats every one of those checks, then trains. There is
-no notebook-only step.
-
-## Protocol files
-
-Each model owns its protocol next to its code. Unknown fields are rejected, so a
-protocol cannot quietly carry settings nothing reads.
+## Schema
 
 ```toml
 schema_version = 1
@@ -120,9 +56,8 @@ the trainer or feature contract that consumes it.
 `[features.depends_on]` pins a released model artifact that a feature contract
 needs. The k-mesh feature vector embeds the metallicity model's learned
 representation, so a different checkpoint silently produces different features.
-Artifacts are read from `local_data/artifacts/<record_id>/<file>`, overridable
-with `--artifact-directory` or `GOLDILOCKS_ARTIFACTS`, and their SHA-256 is
-verified before anything is computed.
+Their SHA-256 is verified before anything is computed. See
+[Prepare your data](your-data.md#pinned-artifacts) for where the files live.
 
 ### Pinning a snapshot
 

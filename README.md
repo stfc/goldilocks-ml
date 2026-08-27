@@ -34,7 +34,7 @@ file. Two models are in scope, under `src/goldilocks_ml/models/kmesh/qrf95/` and
 their trainers are not implemented yet.
 
 The data layout, split rules, and reproducibility limits are in the
-[training guide](https://stfc.github.io/goldilocks-ml/training-protocols/).
+[training guide](https://stfc.github.io/goldilocks-ml/training/).
 
 ## PSDI deposit CLI
 

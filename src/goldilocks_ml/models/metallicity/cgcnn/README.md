@@ -5,7 +5,7 @@ insulating. Class 0 is `insulator`, class 1 is `metal`.
 
 Published as PSDI record [ptc95-vbq12](https://data-collections.psdi.ac.uk/records/ptc95-vbq12).
 
-Its learned representation is an input to [k-mesh QRF95](../../kmesh/qrf95/README.md),
+Its learned representation is an input to [k-mesh QRF95](https://stfc.github.io/goldilocks-ml/training/kmesh/qrf95/),
 so a change here changes that model's features. That is why the QRF protocol
 pins this checkpoint's SHA-256.
 

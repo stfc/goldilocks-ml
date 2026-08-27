@@ -25,7 +25,7 @@ bundle to `OUTPUT`. `--splits` replays an existing `splits.csv` instead of
 deriving one. `--overwrite` replaces an existing output directory; without it
 the command refuses rather than clobber a previous run.
 
-See [Train a model](training-protocols.md) for the protocol schema, the
+See [Train a model](training/index.md) for the protocol schema, the
 snapshot contract, and the bundle layout.
 
 ## `goldilocks-psdi checksum`

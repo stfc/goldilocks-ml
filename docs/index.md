@@ -50,6 +50,6 @@ examples. The large artifact files remain under ignored local storage.
 - Upload starts only after metadata, size, and SHA-256 validation succeeds.
 - A failed metadata, file, or community-binding step removes the partial draft.
 
-[Train a model](training-protocols.md){ .md-button .md-button--primary }
+[Train a model](training/index.md){ .md-button .md-button--primary }
 [Publish a model](getting-started.md){ .md-button }
 [Understand the deposit files](deposit-format.md){ .md-button }

@@ -34,11 +34,22 @@ markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.superfences
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
 
 nav:
   - Home: index.md
-  - Train a model: training-protocols.md
-  - Publish a model: getting-started.md
-  - Deposit format: deposit-format.md
+  - Train a model:
+      - Overview: training/index.md
+      - Prepare your data: training/your-data.md
+      - Protocol reference: training/protocol.md
+      - k-mesh:
+          - QRF95: training/kmesh/qrf95.md
+      - Metallicity:
+          - CGCNN: training/metallicity/cgcnn.md
+  - Publish a model:
+      - Workflow: getting-started.md
+      - Deposit format: deposit-format.md
   - CLI reference: cli-reference.md
   - Troubleshooting: troubleshooting.md
