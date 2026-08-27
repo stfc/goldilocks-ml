@@ -24,17 +24,19 @@ seed = 42
 schema = "comp_struct_soap_lattice_metal"
 
 [features.parameters]
-composition = ["ElementProperty", "Stoichiometry", "ValenceOrbital"]
-structure = ["GlobalSymmetryFeatures", "DensityFeatures"]
-lattice = true
 soap = { r_cut = 10.0, n_max = 8, l_max = 6, sigma = 1.0 }
 
 # The feature vector embeds the metallicity model's learned representation, so
 # the exact checkpoint is part of the feature definition.
-[features.depends_on.metallicity]
+[features.depends_on.metallicity_checkpoint]
 record_id = "ptc95-vbq12"
 file = "is_metal.ckpt"
 sha256 = "964d818de8a155e3219d1bff9f7fca12137a003c5c71ff6b4f1d68d472d4c9d1"
+
+[features.depends_on.metallicity_atom_init]
+record_id = "ptc95-vbq12"
+file = "atom_init.json"
+sha256 = "cb90bd2257dbf8cfc4e6b2b6d4348d4616e8e9680f1339b1461137032e0f1894"
 
 [model]
 seed = 42

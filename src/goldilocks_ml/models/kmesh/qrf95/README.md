@@ -70,6 +70,24 @@ silently produces a different feature vector.
 - **No conformal step in a notebook.** Historical conformal correction lived in
   `notebooks/RF-CQR.ipynb`. Calibration is a split here.
 
+## The feature pipeline is verified
+
+`features.py` reproduces all 483 columns. Feeding them to the published
+`QRF95.pkl` over 500 structures, most of which it was fitted on:
+
+| Target | MAE | Median abs. error | 90% interval coverage |
+| --- | --- | --- | --- |
+| `legacy`, recomputed `max(\|b_i\| / n_i)` | 0.0194 | **0.0031** | 86.2% |
+| `aiida`, the dataset's own column | 0.1479 | 0.1040 | 45.4% |
+
+A median absolute error of 0.003 is the released model reproducing its own
+training data, which it cannot do unless every block is present, correctly
+ordered, and correctly scaled. The 7.6-fold gap between the two targets also
+settles empirically which one the model was trained on: the recomputed lower
+bound, not the column the model card describes.
+
+Reproduce with `uv run python scripts/verify_qrf95_features.py`.
+
 ## Reproducibility ceiling
 
 The published `QRF95.pkl` was pickled with `random_state=None`. A random forest
