@@ -54,8 +54,8 @@ set.
   weaker checksum.
 - Record exact loader/runtime dependency versions for pickle and joblib files.
 - Never load an untrusted pickle or checkpoint merely to inspect metadata.
-- Rehearse PSDI deposits on staging before production. Never print or commit an
-  API token.
+- Validate PSDI deposits offline before creating a remote draft. Never print or
+  commit an API token.
 
 ## Tests
 
