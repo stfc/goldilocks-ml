@@ -31,13 +31,13 @@ uv run goldilocks-psdi upload DEPOSITION \
 ```
 
 The command validates, creates, populates, and binds a PSDI draft, then stops
-without submitting it for review. It
-prints the draft identifier. Open that draft in the PSDI web interface, inspect
-the preview, and use the web interface to submit it for review. The CLI has no
-review-submission command.
+without submitting it for review. It prints the draft identifier. Open that
+draft in the PSDI web interface, inspect the preview, and use the web interface
+to submit it for review. The CLI has no review-submission command.
 
 If metadata update, file upload, or community binding fails, the partial draft
-is deleted.
+is deleted. If both the upload and deletion fail, the error reports both causes
+and the draft identifier so the partial draft can be removed in PSDI.
 
 ## Exit behavior
 

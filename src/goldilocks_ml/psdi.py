@@ -16,6 +16,7 @@ from data_collections_api.invenio import InvenioRepository
 from data_collections_api.metadata import validate_metadata
 
 PSDI_API = "https://data-collections.psdi.ac.uk/api"
+RESERVED_FILE_NAMES = frozenset({"README.md", "manifest.json", "metadata.json"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +37,25 @@ class Deposition:
     community: str
     artifacts: tuple[Artifact, ...]
     files: dict[str, Path]
+
+
+class DraftCleanupError(RuntimeError):
+    """An upload failed and the resulting partial draft could not be deleted."""
+
+    def __init__(
+        self,
+        draft_id: str | None,
+        upload_error: Exception,
+        cleanup_error: Exception,
+    ) -> None:
+        self.draft_id = draft_id
+        self.upload_error = upload_error
+        self.cleanup_error = cleanup_error
+        draft_label = draft_id or "unknown"
+        super().__init__(
+            f"PSDI draft {draft_label} upload failed ({upload_error}); "
+            f"cleanup also failed ({cleanup_error}); remove the partial draft in PSDI"
+        )
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -152,9 +172,6 @@ def load_deposition(directory: Path, artifact_directory: Path) -> Deposition:
 
     if manifest.get("schema_version") != 1:
         raise ValueError("manifest schema_version must be 1")
-    record_key = manifest.get("record_key")
-    if not isinstance(record_key, str) or not record_key:
-        raise ValueError("manifest record_key must be a non-empty string")
     community = manifest.get("community")
     if not isinstance(community, str) or not community:
         raise ValueError("manifest community must be a non-empty string")
@@ -165,6 +182,10 @@ def load_deposition(directory: Path, artifact_directory: Path) -> Deposition:
     artifact_names = [artifact.name for artifact in artifacts]
     if len(artifact_names) != len(set(artifact_names)):
         raise ValueError("manifest artifact names must be unique")
+    collisions = sorted(set(artifact_names) & RESERVED_FILE_NAMES)
+    if collisions:
+        names = ", ".join(collisions)
+        raise ValueError(f"manifest artifact names are reserved upload files: {names}")
     inference_requirements = manifest.get("inference_requirements")
     if not isinstance(inference_requirements, dict) or not inference_requirements:
         raise ValueError("manifest inference_requirements must be a non-empty object")
@@ -231,13 +252,23 @@ def create_deposition(
     """Create, populate, and bind one PSDI draft without submitting it."""
     repository = repository_factory(url=PSDI_API, api_key=token)
     draft = repository.depositions.create()
-    draft_id = draft.get()["id"]
+    draft_id = None
     try:
+        draft_id = draft.get()["id"]
+        if not isinstance(draft_id, str) or not draft_id:
+            raise ValueError("PSDI draft response has no valid id")
         draft.update(deposition.metadata)
         draft.files.upload(deposition.files)
         draft.bind(deposition.community)
-    except Exception:
-        draft.delete()
+    except Exception as upload_error:
+        try:
+            draft.delete()
+        except Exception as cleanup_error:
+            raise DraftCleanupError(
+                draft_id,
+                upload_error,
+                cleanup_error,
+            ) from upload_error
         raise
     return draft_id
 

@@ -41,6 +41,10 @@ Before community binding, the CLI attempts to delete the partial draft and then
 re-raises the original error. Correct the local or network problem and start a
 new upload.
 
+If deletion also fails, the error includes the original upload failure, the
+cleanup failure, and the PSDI draft identifier. Remove that partial draft in the
+PSDI web interface before retrying.
+
 Large artifacts can take several minutes. Do not interrupt the process merely
 because the terminal is quiet.
 

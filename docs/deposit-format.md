@@ -22,7 +22,6 @@ The manifest binds filenames to exact bytes:
 ```json
 {
   "schema_version": 1,
-  "record_key": "task-model-name",
   "community": "data-to-knowledge",
   "artifacts": [
     {
@@ -53,7 +52,8 @@ per file.
 
 Artifact names must be basenames, not paths. Generate each entry from the final
 file with `goldilocks-psdi checksum`; do not reuse a digest from an unverified or
-re-serialized copy.
+re-serialized copy. Artifact names must not be `README.md`, `manifest.json`, or
+`metadata.json`, which are reserved for the deposit sidecars.
 
 `inference_requirements` records what is needed to use the model for inference.
 It is not a PSDI field and it does not run any code. It tells a consumer what
@@ -71,7 +71,7 @@ Its content is model-specific and is preserved in the uploaded manifest.
 The reviewed examples are the best schema reference:
 
 - `deposits/kmesh/qrf95/metadata.json`
-- `deposits/metallicity/metadata.json`
+- `deposits/metallicity/cgcnn/metadata.json`
 
 At minimum, check these fields for every release:
 
