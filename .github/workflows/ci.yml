@@ -26,7 +26,7 @@ jobs:
           enable-cache: true
 
       - name: Install development dependencies
-        run: uv sync --frozen --group dev
+        run: uv sync --frozen --group dev --extra qrf95
 
       - name: Check formatting
         run: uv run --frozen ruff format --check .

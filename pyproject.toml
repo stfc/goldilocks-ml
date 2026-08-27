@@ -11,6 +11,18 @@ dependencies = [
     "data-collections-api==0.1.0",
 ]
 
+[project.optional-dependencies]
+qrf95 = [
+    "dscribe==2.1.2",
+    "matminer==0.10.1",
+    "numpy==2.5.2",
+    "pymatgen==2026.5.4",
+    "scikit-learn==1.7.2",
+    "sklearn-quantile==0.1.1",
+    "torch==2.13.0",
+    "torch-geometric==2.8.0.post1",
+]
+
 [project.scripts]
 goldilocks-psdi = "goldilocks_ml.psdi:cli"
 goldilocks-train = "goldilocks_ml.cli:cli"

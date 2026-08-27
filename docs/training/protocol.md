@@ -103,7 +103,7 @@ local_runs/<run-id>/
 ├── environment.json  # Python, packages, lock digest, hardware facts
 ├── splits.csv        # stable sample-to-split assignment
 ├── metrics.json      # baseline and model metrics for every split
-├── predictions.csv   # sample id, split, source, truth, prediction, score
+├── predictions.csv   # point/score and optional lower/upper interval
 ├── model/            # model artifacts
 ├── .goldilocks-run   # safety marker required before --overwrite may delete files
 └── manifest.json     # size and SHA-256 for every file above
@@ -128,6 +128,7 @@ commit, and locked environment are available. Byte-identical model artifacts are
 promised only for trainers documented as deterministic; each model's
 `model.json` records whether it is.
 
-The shared workflow does not claim that historical QRF95 or CGCNN artifacts can
-be reproduced. Their model-specific protocols must document any recovered data,
-label, split, dependency, and determinism limitations.
+The QRF95 protocol reproduces a seeded training method, not the exact historical
+artifact: the published forest has no random seed. CGCNN training is not
+implemented yet. Model-specific documentation records recovered data, target,
+split, dependency, and determinism limits.
