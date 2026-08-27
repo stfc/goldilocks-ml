@@ -8,7 +8,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from goldilocks_ml.datasets import Sample
+from goldilocks_ml.core.snapshot import Sample
 
 THRESHOLD_METRICS = frozenset(
     {"accuracy", "balanced_accuracy", "precision", "recall", "f1", "mcc"}

@@ -6,8 +6,8 @@ import csv
 import random
 from pathlib import Path
 
-from goldilocks_ml.datasets import Sample, Snapshot
-from goldilocks_ml.protocol import SPLIT_NAMES, TrainingProtocol
+from goldilocks_ml.core.protocol import SPLIT_NAMES, TrainingProtocol
+from goldilocks_ml.core.snapshot import Sample, Snapshot
 
 SPLITS_HEADER = ("sample_id", "split")
 
@@ -17,7 +17,8 @@ def _units(snapshot: Snapshot, protocol: TrainingProtocol) -> dict[str, list[Sam
     units: dict[str, list[Sample]] = {}
     for sample in snapshot.samples:
         if protocol.split.method == "group":
-            assert sample.group is not None
+            if sample.group is None:
+                raise ValueError(f"{sample.sample_id} has no group")
             key = sample.group
         else:
             key = sample.sample_id
@@ -114,7 +115,8 @@ def check_assignment(
         return
     groups: dict[str, set[str]] = {}
     for sample in snapshot.samples:
-        assert sample.group is not None
+        if sample.group is None:
+            raise ValueError(f"{sample.sample_id} has no group")
         groups.setdefault(sample.group, set()).add(assignment[sample.sample_id])
     leaked = sorted(group for group, names in groups.items() if len(names) > 1)
     if leaked:

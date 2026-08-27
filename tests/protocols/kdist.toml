@@ -1,0 +1,37 @@
+# Pinned to the committed synthetic fixture, so a clean checkout can run the
+# complete workflow offline. Pinning is what makes a run a reproduction; a
+# template that pins nothing is still auditable through its run bundle.
+schema_version = 1
+id = "synthetic-kdist-v1"
+task = "regression"
+trainer = "linear_regression"
+
+[dataset]
+target = "k_distance"
+target_units = "1/angstrom"
+requires = ["features", "groups"]
+record_id = "synthetic-kdist"
+snapshot_version = "v1"
+manifest_sha256 = "31bdff4622c8f591884caaac7ab2cabc90b2c27e88f94a45f52aaae9b59c60ea"
+
+[split]
+method = "group"
+train = 0.7
+validation = 0.1
+calibration = 0.1
+test = 0.1
+seed = 42
+
+[features]
+schema = "tabular"
+
+[model]
+seed = 42
+
+[model.parameters]
+l2 = 1e-6
+
+[evaluation]
+primary_metric = "mae"
+metrics = ["mae", "rmse", "r2"]
+baseline = "train_median"

@@ -1,15 +1,18 @@
-"""Validate protocols and execute reproducible training runs."""
+"""Seal a snapshot, validate a protocol against it, and run one training job."""
 
 from __future__ import annotations
 
 import argparse
+import json
+import sys
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from goldilocks_ml.datasets import Sample, Snapshot, load_snapshot
-from goldilocks_ml.evaluation import (
+import goldilocks_ml.models  # noqa: F401  (each model registers itself)
+from goldilocks_ml.core import artifacts as artifact_store
+from goldilocks_ml.core.evaluation import (
     Prediction,
     default_positive_label,
     evaluate,
@@ -18,8 +21,15 @@ from goldilocks_ml.evaluation import (
     train_majority,
     train_median,
 )
-from goldilocks_ml.protocol import TrainingProtocol, load_protocol
-from goldilocks_ml.runs import (
+from goldilocks_ml.core.hashing import sha256_file
+from goldilocks_ml.core.protocol import TrainingProtocol, load_protocol
+from goldilocks_ml.core.registry import (
+    FittedModel,
+    TrainingContext,
+    get_feature_contract,
+    get_trainer,
+)
+from goldilocks_ml.core.runs import (
     dumps_toml,
     environment_record,
     prepare_directory,
@@ -29,16 +39,80 @@ from goldilocks_ml.runs import (
     write_manifest,
     write_predictions,
 )
-from goldilocks_ml.splitting import (
+from goldilocks_ml.core.snapshot import (
+    FEATURES_NAME,
+    ID_PROP_NAME,
+    MANIFEST_NAME,
+    Sample,
+    Snapshot,
+    load_snapshot,
+    read_sample_ids,
+)
+from goldilocks_ml.core.splitting import (
     assign_splits,
     partition,
     read_splits,
     write_splits,
 )
-from goldilocks_ml.trainers import FittedModel, get_trainer
 
 # The test split is scored once, after every choice has already been made.
 SELECTION_SPLIT = "validation"
+
+
+def seal(
+    directory: Path,
+    *,
+    record_id: str,
+    snapshot_version: str,
+    structure_suffix: str,
+) -> dict[str, Any]:
+    """Write the manifest that turns a converted directory into a snapshot."""
+    directory = directory.resolve()
+    id_prop = directory / ID_PROP_NAME
+    if not id_prop.is_file():
+        raise FileNotFoundError(
+            f"{id_prop} is missing; a snapshot needs {ID_PROP_NAME} with "
+            "sample_id,target and an optional group column"
+        )
+    sample_ids = read_sample_ids(id_prop)
+
+    names = [ID_PROP_NAME]
+    features_file = None
+    if (directory / FEATURES_NAME).is_file():
+        features_file = FEATURES_NAME
+        names.append(FEATURES_NAME)
+
+    structures = [f"{sample_id}{structure_suffix}" for sample_id in sample_ids]
+    present = [name for name in structures if (directory / name).is_file()]
+    if present and len(present) != len(structures):
+        missing = sorted(set(structures) - set(present))
+        raise FileNotFoundError(
+            f"{len(missing)} structure file(s) are missing, starting with "
+            f"{missing[0]}; every sample needs one or none may have one"
+        )
+    if present:
+        names.extend(structures)
+
+    manifest = {
+        "schema_version": 1,
+        "record_id": record_id,
+        "snapshot_version": snapshot_version,
+        "structure_suffix": structure_suffix if present else None,
+        "features_file": features_file,
+        "files": [
+            {
+                "name": name,
+                "size_bytes": (directory / name).stat().st_size,
+                "sha256": sha256_file(directory / name),
+            }
+            for name in names
+        ],
+    }
+    path = directory / MANIFEST_NAME
+    path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return {"manifest": manifest, "manifest_sha256": sha256_file(path)}
 
 
 def _regression_predictions(
@@ -90,19 +164,14 @@ def _score_all(
 ) -> dict[str, dict[str, Any]]:
     return {
         name: evaluate(
-            protocol.task,
-            items,
-            protocol.evaluation.metrics,
-            positive_label=positive,
+            protocol.task, items, protocol.evaluation.metrics, positive_label=positive
         )
         for name, items in sorted(_by_split(predictions).items())
     }
 
 
 def _train_regression(
-    protocol: TrainingProtocol,
-    parts: dict[str, tuple[Sample, ...]],
-    model: FittedModel,
+    parts: dict[str, tuple[Sample, ...]], model: FittedModel
 ) -> tuple[dict[str, list[Prediction]], dict[str, Any]]:
     constant = train_median(parts["train"])
     baseline = _regression_predictions(
@@ -111,10 +180,7 @@ def _train_regression(
     fitted = _regression_predictions(
         parts, {name: model.predict(samples) for name, samples in parts.items()}
     )
-    return (
-        {"baseline": baseline, "model": fitted},
-        {"baseline_constant": constant},
-    )
+    return {"baseline": baseline, "model": fitted}, {"baseline_constant": constant}
 
 
 def _train_classification(
@@ -177,16 +243,29 @@ def _train_classification(
     )
 
 
+def build_features(
+    protocol: TrainingProtocol, snapshot: Snapshot, artifact_dir: Path
+) -> tuple[Any, dict[str, Path]]:
+    """Resolve pinned artifacts, then build features for the whole snapshot."""
+    resolved = artifact_store.resolve(protocol.features.depends_on, artifact_dir)
+    contract = get_feature_contract(protocol.features.schema)
+    features = contract(protocol, snapshot, resolved)
+    features.validate(snapshot)
+    return features, resolved
+
+
 def execute(
     protocol: TrainingProtocol,
     snapshot: Snapshot,
     output: Path,
     *,
+    artifact_dir: Path,
     splits_source: Path | None,
     overwrite: bool,
 ) -> dict[str, Any]:
     """Run one protocol end to end and write its complete bundle."""
     started_at = datetime.now(UTC)
+    features, resolved = build_features(protocol, snapshot, artifact_dir)
     directory = prepare_directory(output, overwrite=overwrite)
     run_id = directory.name
 
@@ -197,12 +276,18 @@ def execute(
     write_splits(directory / "splits.csv", assignment)
     parts = partition(assignment, snapshot)
 
+    context = TrainingContext(
+        snapshot=snapshot,
+        features=features,
+        artifacts=resolved,
+        output_dir=directory / "model",
+    )
     # Only the training split ever reaches the trainer or its preprocessing.
-    model = get_trainer(protocol.trainer)(protocol, parts["train"])
+    model = get_trainer(protocol.trainer)(protocol, parts["train"], context)
     model.save(directory / "model")
 
     if protocol.task == "regression":
-        predictions, summary = _train_regression(protocol, parts, model)
+        predictions, summary = _train_regression(parts, model)
         positive = None
     else:
         predictions, summary = _train_classification(protocol, parts, model)
@@ -210,6 +295,7 @@ def execute(
 
     metrics = {
         "task": protocol.task,
+        "target": protocol.dataset.target,
         "primary_metric": protocol.evaluation.primary_metric,
         "baseline": protocol.evaluation.baseline,
         **summary,
@@ -223,7 +309,23 @@ def execute(
     (directory / "protocol.toml").write_text(
         dumps_toml(resolved_document(protocol)), encoding="utf-8"
     )
-    write_json(directory / "dataset.json", snapshot.identity())
+    write_json(
+        directory / "dataset.json",
+        {
+            **snapshot.identity(),
+            "pinned_by_protocol": protocol.dataset.pinned is not None,
+            "feature_schema": protocol.features.schema,
+            "feature_columns": list(features.columns),
+            "artifacts": {
+                dependency.name: {
+                    "record_id": dependency.record_id,
+                    "file": dependency.file,
+                    "sha256": dependency.sha256,
+                }
+                for dependency in protocol.features.depends_on
+            },
+        },
+    )
     write_json(directory / "environment.json", environment_record())
     write_json(directory / "metrics.json", metrics)
     write_predictions(directory / "predictions.csv", predictions)
@@ -243,21 +345,30 @@ def execute(
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description=__doc__,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    seal_parser = subparsers.add_parser(
+        "seal", help="write manifest.json for a converted snapshot directory"
+    )
+    seal_parser.add_argument("snapshot", type=Path)
+    seal_parser.add_argument("--record-id", required=True)
+    seal_parser.add_argument("--version", required=True, dest="snapshot_version")
+    seal_parser.add_argument("--structure-suffix", default=".cif")
+
     validate = subparsers.add_parser(
-        "validate", help="check a protocol and dataset snapshot without training"
+        "validate", help="check a protocol and snapshot without training"
     )
     validate.add_argument("protocol", type=Path)
     validate.add_argument("--dataset", type=Path, required=True)
+    validate.add_argument("--artifact-directory", type=Path, default=None)
 
     run = subparsers.add_parser("run", help="train, evaluate, and write a run bundle")
     run.add_argument("protocol", type=Path)
     run.add_argument("--dataset", type=Path, required=True)
     run.add_argument("--output", type=Path, required=True)
+    run.add_argument("--artifact-directory", type=Path, default=None)
     run.add_argument(
         "--splits",
         type=Path,
@@ -265,29 +376,44 @@ def _parser() -> argparse.ArgumentParser:
         help="reuse an existing splits.csv instead of deriving one",
     )
     run.add_argument(
-        "--overwrite",
-        action="store_true",
-        help="replace an existing output directory",
+        "--overwrite", action="store_true", help="replace an existing output directory"
     )
     return parser
 
 
-def cli() -> None:
-    """Run the training protocol command-line interface."""
-    args = _parser().parse_args()
+def _run(args: argparse.Namespace) -> None:
+
+    if args.command == "seal":
+        result = seal(
+            args.snapshot,
+            record_id=args.record_id,
+            snapshot_version=args.snapshot_version,
+            structure_suffix=args.structure_suffix,
+        )
+        count = len(result["manifest"]["files"])
+        print(
+            f"Sealed {args.snapshot} as "
+            f"{args.record_id}@{args.snapshot_version}: {count} file(s), "
+            f"manifest SHA-256 {result['manifest_sha256']}"
+        )
+        return
+
     protocol = load_protocol(args.protocol)
     snapshot = load_snapshot(args.dataset, protocol)
+    artifact_dir = artifact_store.artifact_directory(args.artifact_directory)
 
     if args.command == "validate":
+        features, _ = build_features(protocol, snapshot, artifact_dir)
         assignment = assign_splits(snapshot, protocol)
-        sizes = {}
+        sizes: dict[str, int] = {}
         for name in assignment.values():
             sizes[name] = sizes.get(name, 0) + 1
         summary = ", ".join(f"{name}={sizes[name]}" for name in sorted(sizes))
         print(
             f"Valid protocol {protocol.id} against "
             f"{snapshot.record_id}@{snapshot.snapshot_version}: "
-            f"{len(snapshot.samples)} samples ({summary})"
+            f"{len(snapshot.samples)} samples, {len(features.columns)} features "
+            f"({summary})"
         )
         return
 
@@ -295,6 +421,7 @@ def cli() -> None:
         protocol,
         snapshot,
         args.output,
+        artifact_dir=artifact_dir,
         splits_source=args.splits,
         overwrite=args.overwrite,
     )
@@ -305,6 +432,22 @@ def cli() -> None:
         f"(test {primary}: model {scores['model']['test'][primary]:.6g}, "
         f"baseline {scores['baseline']['test'][primary]:.6g})"
     )
+
+
+def cli() -> None:
+    """Run the training protocol command-line interface."""
+    args = _parser().parse_args()
+    try:
+        _run(args)
+    except (
+        ValueError,
+        FileNotFoundError,
+        FileExistsError,
+        NotADirectoryError,
+    ) as error:
+        # These carry an actionable message; a traceback would only bury it.
+        print(f"error: {error}", file=sys.stderr)
+        raise SystemExit(2) from error
 
 
 if __name__ == "__main__":

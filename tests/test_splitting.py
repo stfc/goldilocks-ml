@@ -15,9 +15,9 @@ from conftest import (
     write_protocol,
 )
 
-from goldilocks_ml.datasets import load_snapshot
-from goldilocks_ml.protocol import load_protocol
-from goldilocks_ml.splitting import (
+from goldilocks_ml.core.protocol import load_protocol
+from goldilocks_ml.core.snapshot import load_snapshot
+from goldilocks_ml.core.splitting import (
     assign_splits,
     check_assignment,
     partition,
@@ -25,7 +25,7 @@ from goldilocks_ml.splitting import (
     write_splits,
 )
 
-GROUP_SPLIT = {"method": "group", "group_column": "structure_group_id"}
+GROUP_SPLIT = {"method": "group"}
 
 
 def _setup(
@@ -36,11 +36,11 @@ def _setup(
     classification: bool = False,
     **overrides: Any,
 ):
-    digest = build_snapshot(snapshot_dir, rows)
+    build_snapshot(snapshot_dir, rows, target="label" if classification else "value")
     document = (
-        classification_document(digest, **overrides)
+        classification_document(**overrides)
         if classification
-        else regression_document(digest, **overrides)
+        else regression_document(**overrides)
     )
     protocol = load_protocol(write_protocol(tmp_path / "protocol.toml", document))
     return protocol, load_snapshot(snapshot_dir, protocol)
@@ -118,7 +118,6 @@ def test_group_splitting_keeps_every_group_in_one_split(
 
     placements: dict[str, set[str]] = {}
     for sample in snapshot.samples:
-        assert sample.group is not None
         placements.setdefault(sample.group, set()).add(assignment[sample.sample_id])
     assert all(len(names) == 1 for names in placements.values())
 
@@ -160,7 +159,7 @@ def test_check_assignment_rejects_missing_samples(
 ) -> None:
     protocol, snapshot = _setup(tmp_path, snapshot_dir)
     assignment = assign_splits(snapshot, protocol)
-    del assignment["s000"]
+    del assignment["syn-000"]
 
     with pytest.raises(ValueError, match="missing 1 sample"):
         check_assignment(assignment, snapshot, protocol)
@@ -171,7 +170,7 @@ def test_check_assignment_rejects_unknown_samples(
 ) -> None:
     protocol, snapshot = _setup(tmp_path, snapshot_dir)
     assignment = assign_splits(snapshot, protocol)
-    assignment["s999"] = "test"
+    assignment["syn-999"] = "test"
 
     with pytest.raises(ValueError, match="1 unknown sample"):
         check_assignment(assignment, snapshot, protocol)
@@ -186,7 +185,7 @@ def test_check_assignment_rejects_unrequested_split(
         split={"train": 0.6, "validation": 0.2, "calibration": 0.0, "test": 0.2},
     )
     assignment = assign_splits(snapshot, protocol)
-    assignment["s000"] = "calibration"
+    assignment["syn-000"] = "calibration"
 
     with pytest.raises(ValueError, match="unrequested split\\(s\\): calibration"):
         check_assignment(assignment, snapshot, protocol)
@@ -221,7 +220,7 @@ def test_split_manifest_round_trips(tmp_path: Path, snapshot_dir: Path) -> None:
     assert read_splits(path, snapshot, protocol) == assignment
     lines = path.read_text(encoding="utf-8").splitlines()
     assert lines[0] == "sample_id,split"
-    assert lines[1].startswith("s000,")
+    assert lines[1].startswith("syn-000,")
 
 
 def test_read_splits_rejects_a_manifest_for_other_data(

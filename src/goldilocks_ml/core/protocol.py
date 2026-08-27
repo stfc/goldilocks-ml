@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, cast
 
-from goldilocks_ml.hashing import is_sha256
+from goldilocks_ml.core.hashing import is_sha256
 
 Task = Literal["regression", "classification"]
 SplitMethod = Literal["random", "group"]
@@ -15,6 +15,7 @@ SplitMethod = Literal["random", "group"]
 TASKS: frozenset[str] = frozenset({"regression", "classification"})
 SPLIT_METHODS: frozenset[str] = frozenset({"random", "group"})
 SPLIT_NAMES: tuple[str, ...] = ("train", "validation", "calibration", "test")
+CAPABILITIES: frozenset[str] = frozenset({"structures", "features", "groups"})
 
 REGRESSION_METRICS: frozenset[str] = frozenset({"mae", "rmse", "r2"})
 CLASSIFICATION_METRICS: frozenset[str] = frozenset(
@@ -36,14 +37,26 @@ BASELINES: dict[str, str] = {
 
 
 @dataclass(frozen=True, slots=True)
-class DatasetSpec:
-    """Identity and columns required from an immutable dataset snapshot."""
+class PinnedSnapshot:
+    """One exact snapshot a protocol reproduces rather than merely accepts."""
 
     record_id: str
     snapshot_version: str
     manifest_sha256: str
-    sample_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class DatasetSpec:
+    """What a protocol needs from a snapshot, and optionally which snapshot.
+
+    A template leaves ``pinned`` unset so it runs against any conforming
+    snapshot; the run bundle still records the snapshot's real digest.
+    """
+
     target: str
+    requires: tuple[str, ...]
+    target_units: str | None = None
+    pinned: PinnedSnapshot | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,7 +69,6 @@ class SplitSpec:
     calibration: float
     test: float
     seed: int
-    group_column: str | None = None
     stratify: bool = False
 
     @property
@@ -71,16 +83,30 @@ class SplitSpec:
 
 
 @dataclass(frozen=True, slots=True)
-class FeatureSpec:
-    """Versioned feature contract selected by a trainer.
+class ArtifactDependency:
+    """A released model artifact a feature contract needs, pinned by digest.
 
-    ``schema`` names a reviewed contract. ``columns`` is set only by contracts
-    that read model inputs straight from snapshot columns; contracts that derive
-    features from structures resolve them inside their own trainer.
+    The k-mesh feature contract embeds the metallicity model's learned
+    representation, so the exact checkpoint is part of the feature definition.
+    """
+
+    name: str
+    record_id: str
+    file: str
+    sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class FeatureSpec:
+    """The feature contract a protocol selects, and how it is configured.
+
+    ``parameters`` is validated by the contract, not by this schema, for the
+    same reason ``model.parameters`` is validated by the trainer.
     """
 
     schema: str
-    columns: tuple[str, ...] = ()
+    parameters: dict[str, Any]
+    depends_on: tuple[ArtifactDependency, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,18 +147,6 @@ class TrainingProtocol:
     evaluation: EvaluationSpec
     source: Path
 
-    @property
-    def required_columns(self) -> tuple[str, ...]:
-        """Return every snapshot column this protocol reads."""
-        columns = [self.dataset.sample_id, self.dataset.target]
-        if self.split.group_column is not None:
-            columns.append(self.split.group_column)
-        columns.extend(self.features.columns)
-        seen: dict[str, None] = {}
-        for column in columns:
-            seen.setdefault(column, None)
-        return tuple(seen)
-
 
 _ROOT_KEYS = {
     "schema_version",
@@ -146,15 +160,16 @@ _ROOT_KEYS = {
     "evaluation",
 }
 _DATASET_KEYS = {
+    "target",
+    "target_units",
+    "requires",
     "record_id",
     "snapshot_version",
     "manifest_sha256",
-    "sample_id",
-    "target",
 }
+_PIN_KEYS = ("record_id", "snapshot_version", "manifest_sha256")
 _SPLIT_KEYS = {
     "method",
-    "group_column",
     "stratify",
     "train",
     "validation",
@@ -162,7 +177,8 @@ _SPLIT_KEYS = {
     "test",
     "seed",
 }
-_FEATURE_KEYS = {"schema", "columns"}
+_FEATURE_KEYS = {"schema", "parameters", "depends_on"}
+_DEPENDENCY_KEYS = {"record_id", "file", "sha256"}
 _MODEL_KEYS = {"seed", "parameters"}
 _EVALUATION_KEYS = {
     "primary_metric",
@@ -212,15 +228,53 @@ def _ratio(table: dict[str, Any], field: str) -> float:
 def _load_dataset(root: dict[str, Any]) -> DatasetSpec:
     table = _table(root.get("dataset"), "dataset")
     _reject_unknown(table, _DATASET_KEYS, "dataset")
-    manifest_sha256 = _string(table, "manifest_sha256", "dataset")
-    if not is_sha256(manifest_sha256):
-        raise ValueError("dataset.manifest_sha256 must be a lowercase SHA-256 digest")
+
+    raw_requires = table.get("requires", [])
+    if not isinstance(raw_requires, list) or any(
+        not isinstance(item, str) for item in raw_requires
+    ):
+        raise ValueError("dataset.requires must be an array of strings")
+    requires = tuple(raw_requires)
+    if len(requires) != len(set(requires)):
+        raise ValueError("dataset.requires must be unique")
+    unknown = sorted(set(requires) - CAPABILITIES)
+    if unknown:
+        raise ValueError(
+            f"unknown dataset.requires value(s): {', '.join(unknown)}; "
+            f"known: {', '.join(sorted(CAPABILITIES))}"
+        )
+
+    target_units = table.get("target_units")
+    if target_units is not None and (
+        not isinstance(target_units, str) or not target_units.strip()
+    ):
+        raise ValueError("dataset.target_units must be a non-empty string")
+
+    present = [field for field in _PIN_KEYS if field in table]
+    if present and len(present) != len(_PIN_KEYS):
+        missing = [field for field in _PIN_KEYS if field not in table]
+        raise ValueError(
+            "pinning a snapshot needs every one of "
+            f"{', '.join(_PIN_KEYS)}; missing {', '.join(missing)}"
+        )
+    pinned = None
+    if present:
+        manifest_sha256 = _string(table, "manifest_sha256", "dataset")
+        if not is_sha256(manifest_sha256):
+            raise ValueError(
+                "dataset.manifest_sha256 must be a lowercase SHA-256 digest"
+            )
+        pinned = PinnedSnapshot(
+            record_id=_string(table, "record_id", "dataset"),
+            snapshot_version=_string(table, "snapshot_version", "dataset"),
+            manifest_sha256=manifest_sha256,
+        )
+
     return DatasetSpec(
-        record_id=_string(table, "record_id", "dataset"),
-        snapshot_version=_string(table, "snapshot_version", "dataset"),
-        manifest_sha256=manifest_sha256,
-        sample_id=_string(table, "sample_id", "dataset"),
         target=_string(table, "target", "dataset"),
+        requires=requires,
+        target_units=target_units,
+        pinned=pinned,
     )
 
 
@@ -230,15 +284,6 @@ def _load_split(root: dict[str, Any], task: str) -> SplitSpec:
     method = _string(table, "method", "split")
     if method not in SPLIT_METHODS:
         raise ValueError("split.method must be random or group")
-    group_column = table.get("group_column")
-    if group_column is not None and (
-        not isinstance(group_column, str) or not group_column.strip()
-    ):
-        raise ValueError("split.group_column must be a non-empty string")
-    if method == "group" and group_column is None:
-        raise ValueError("split.group_column is required for group splitting")
-    if method == "random" and group_column is not None:
-        raise ValueError("split.group_column is only valid for group splitting")
     stratify = table.get("stratify", False)
     if not isinstance(stratify, bool):
         raise ValueError("split.stratify must be a boolean")
@@ -246,7 +291,6 @@ def _load_split(root: dict[str, Any], task: str) -> SplitSpec:
         raise ValueError("split.stratify is only valid for classification")
     split = SplitSpec(
         method=cast(SplitMethod, method),
-        group_column=group_column,
         stratify=stratify,
         train=_ratio(table, "train"),
         validation=_ratio(table, "validation"),
@@ -261,18 +305,42 @@ def _load_split(root: dict[str, Any], task: str) -> SplitSpec:
     return split
 
 
+def _load_dependency(name: str, value: object) -> ArtifactDependency:
+    table = _table(value, f"features.depends_on.{name}")
+    _reject_unknown(table, _DEPENDENCY_KEYS, f"features.depends_on.{name}")
+    section = f"features.depends_on.{name}"
+    sha256 = _string(table, "sha256", section)
+    if not is_sha256(sha256):
+        raise ValueError(f"{section}.sha256 must be a lowercase SHA-256 digest")
+    file_name = _string(table, "file", section)
+    if Path(file_name).name != file_name:
+        raise ValueError(f"{section}.file must be a basename")
+    return ArtifactDependency(
+        name=name,
+        record_id=_string(table, "record_id", section),
+        file=file_name,
+        sha256=sha256,
+    )
+
+
 def _load_features(root: dict[str, Any]) -> FeatureSpec:
     table = _table(root.get("features"), "features")
     _reject_unknown(table, _FEATURE_KEYS, "features")
-    raw_columns = table.get("columns", [])
-    if not isinstance(raw_columns, list) or any(
-        not isinstance(column, str) or not column.strip() for column in raw_columns
-    ):
-        raise ValueError("features.columns must be an array of non-empty strings")
-    columns = tuple(raw_columns)
-    if len(columns) != len(set(columns)):
-        raise ValueError("features.columns must be unique")
-    return FeatureSpec(schema=_string(table, "schema", "features"), columns=columns)
+    parameters = table.get("parameters", {})
+    if not isinstance(parameters, dict):
+        raise ValueError("features.parameters must be a TOML table")
+    raw_dependencies = table.get("depends_on", {})
+    if not isinstance(raw_dependencies, dict):
+        raise ValueError("features.depends_on must be a TOML table")
+    dependencies = tuple(
+        _load_dependency(name, value)
+        for name, value in sorted(raw_dependencies.items())
+    )
+    return FeatureSpec(
+        schema=_string(table, "schema", "features"),
+        parameters=parameters,
+        depends_on=dependencies,
+    )
 
 
 def _load_model(root: dict[str, Any]) -> ModelSpec:

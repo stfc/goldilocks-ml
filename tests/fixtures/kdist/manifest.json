@@ -1,0 +1,19 @@
+{
+  "features_file": "features.csv",
+  "files": [
+    {
+      "name": "id_prop.csv",
+      "sha256": "a5f03bba6d0b9b8448ee6e4a4a4b0e474a907681ee2af60dfd44497450606ef3",
+      "size_bytes": 3255
+    },
+    {
+      "name": "features.csv",
+      "sha256": "4dcd8b27261d9dda5c3116dca98ac6289f59184127a0c1ee85d995fdb0fa0dd1",
+      "size_bytes": 4521
+    }
+  ],
+  "record_id": "synthetic-kdist",
+  "schema_version": 1,
+  "snapshot_version": "v1",
+  "structure_suffix": null
+}

@@ -8,10 +8,10 @@ from pathlib import Path
 import pytest
 from conftest import build_snapshot, regression_document, write_protocol
 
-from goldilocks_ml.evaluation import Prediction
-from goldilocks_ml.hashing import sha256_file
-from goldilocks_ml.protocol import load_protocol
-from goldilocks_ml.runs import (
+from goldilocks_ml.core.evaluation import Prediction
+from goldilocks_ml.core.hashing import sha256_file
+from goldilocks_ml.core.protocol import load_protocol
+from goldilocks_ml.core.runs import (
     NON_DETERMINISTIC_FILES,
     dumps_toml,
     environment_record,
@@ -23,11 +23,9 @@ from goldilocks_ml.runs import (
 
 
 def _protocol(tmp_path: Path, snapshot_dir: Path, **overrides):
-    digest = build_snapshot(snapshot_dir)
+    build_snapshot(snapshot_dir)
     return load_protocol(
-        write_protocol(
-            tmp_path / "protocol.toml", regression_document(digest, **overrides)
-        )
+        write_protocol(tmp_path / "protocol.toml", regression_document(**overrides))
     )
 
 
@@ -64,7 +62,16 @@ def test_resolved_document_round_trips_through_the_loader(
     protocol = _protocol(
         tmp_path,
         snapshot_dir,
-        split={"method": "group", "group_column": "structure_group_id"},
+        split={"method": "group"},
+        features={
+            "depends_on": {
+                "metallicity": {
+                    "record_id": "ptc95-vbq12",
+                    "file": "is_metal.ckpt",
+                    "sha256": "9" * 64,
+                }
+            }
+        },
     )
     path = tmp_path / "resolved.toml"
 
@@ -82,8 +89,9 @@ def test_resolved_document_makes_defaults_explicit(
     document = resolved_document(protocol)
 
     assert document["split"]["stratify"] is False
-    assert document["features"]["columns"] == ["x1", "x2", "x3"]
-    assert "group_column" not in document["split"]
+    assert document["dataset"]["requires"] == ["features"]
+    assert "record_id" not in document["dataset"]
+    assert "depends_on" not in document["features"]
     assert "threshold_metric" not in document["evaluation"]
 
 

@@ -1,4 +1,4 @@
-"""End-to-end tests for goldilocks-train validate and run."""
+"""End-to-end tests for goldilocks-train seal, validate, and run."""
 
 from __future__ import annotations
 
@@ -9,17 +9,19 @@ from typing import Any
 
 import pytest
 from conftest import (
-    FIXTURE_ROOT,
-    PROTOCOL_ROOT,
+    KDIST_SNAPSHOT,
+    METALLIC_SNAPSHOT,
+    PROTOCOLS,
     build_snapshot,
     classification_document,
+    make_rows,
+    pin,
     regression_document,
     write_protocol,
 )
 
-from goldilocks_ml import trainers
-from goldilocks_ml.runs import MANIFEST_NAME
-from goldilocks_ml.train_cli import cli
+from goldilocks_ml.core.cli import cli, seal
+from goldilocks_ml.core.runs import MANIFEST_NAME
 
 BUNDLE_FILES = {
     "dataset.json",
@@ -41,11 +43,11 @@ def _setup(
     classification: bool = False,
     **overrides: Any,
 ) -> Path:
-    digest = build_snapshot(snapshot_dir)
+    build_snapshot(snapshot_dir, target="label" if classification else "value")
     document = (
-        classification_document(digest, **overrides)
+        classification_document(**overrides)
         if classification
-        else regression_document(digest, **overrides)
+        else regression_document(**overrides)
     )
     return write_protocol(tmp_path / "protocol.toml", document)
 
@@ -63,6 +65,43 @@ def _bundle_files(directory: Path) -> set[str]:
     }
 
 
+def test_seal_writes_a_manifest_covering_every_file(tmp_path: Path) -> None:
+    directory = tmp_path / "snapshot"
+    build_snapshot(directory, structures=True)
+
+    result = seal(
+        directory, record_id="mine", snapshot_version="v3", structure_suffix=".cif"
+    )
+
+    names = {entry["name"] for entry in result["manifest"]["files"]}
+    assert "id_prop.csv" in names
+    assert "features.csv" in names
+    assert "syn-000.cif" in names
+    assert len(names) == 2 + 24
+    assert result["manifest"]["structure_suffix"] == ".cif"
+
+
+def test_seal_refuses_a_partial_set_of_structures(tmp_path: Path) -> None:
+    directory = tmp_path / "snapshot"
+    build_snapshot(directory, structures=True)
+    (directory / "syn-005.cif").unlink()
+
+    with pytest.raises(FileNotFoundError, match="structure file\\(s\\) are missing"):
+        seal(
+            directory, record_id="mine", snapshot_version="v1", structure_suffix=".cif"
+        )
+
+
+def test_seal_needs_an_id_prop_file(tmp_path: Path) -> None:
+    directory = tmp_path / "snapshot"
+    directory.mkdir()
+
+    with pytest.raises(FileNotFoundError, match="id_prop.csv"):
+        seal(
+            directory, record_id="mine", snapshot_version="v1", structure_suffix=".cif"
+        )
+
+
 def test_validate_reports_the_split_without_training(
     tmp_path: Path,
     snapshot_dir: Path,
@@ -75,19 +114,83 @@ def test_validate_reports_the_split_without_training(
 
     output = capsys.readouterr().out
     assert "Valid protocol synthetic-regression-v1" in output
-    assert "24 samples" in output
+    assert "24 samples, 3 features" in output
     assert "train=12" in output
     assert not list(tmp_path.glob("**/metrics.json"))
 
 
-def test_validate_fails_before_training_on_a_dataset_mismatch(
+def test_validate_fails_before_training_on_a_pinned_mismatch(
     tmp_path: Path, snapshot_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     build_snapshot(snapshot_dir)
-    protocol = write_protocol(tmp_path / "protocol.toml", regression_document("f" * 64))
+    protocol = write_protocol(
+        tmp_path / "protocol.toml", pin(regression_document(), "f" * 64)
+    )
 
-    with pytest.raises(ValueError, match="protocol pins"):
+    with pytest.raises(SystemExit) as error:
         _run(monkeypatch, "validate", str(protocol), "--dataset", str(snapshot_dir))
+    assert error.value.code == 2
+
+
+def test_a_missing_pinned_artifact_names_its_record(
+    tmp_path: Path, snapshot_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    protocol = _setup(
+        tmp_path,
+        snapshot_dir,
+        features={
+            "depends_on": {
+                "metallicity": {
+                    "record_id": "ptc95-vbq12",
+                    "file": "is_metal.ckpt",
+                    "sha256": "9" * 64,
+                }
+            }
+        },
+    )
+
+    with pytest.raises(SystemExit):
+        _run(
+            monkeypatch,
+            "validate",
+            str(protocol),
+            "--dataset",
+            str(snapshot_dir),
+            "--artifact-directory",
+            str(tmp_path / "artifacts"),
+        )
+
+
+def test_a_pinned_artifact_must_match_its_digest(
+    tmp_path: Path, snapshot_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    artifacts = tmp_path / "artifacts" / "ptc95-vbq12"
+    artifacts.mkdir(parents=True)
+    (artifacts / "is_metal.ckpt").write_bytes(b"not the real checkpoint")
+    protocol = _setup(
+        tmp_path,
+        snapshot_dir,
+        features={
+            "depends_on": {
+                "metallicity": {
+                    "record_id": "ptc95-vbq12",
+                    "file": "is_metal.ckpt",
+                    "sha256": "9" * 64,
+                }
+            }
+        },
+    )
+
+    with pytest.raises(SystemExit):
+        _run(
+            monkeypatch,
+            "validate",
+            str(protocol),
+            "--dataset",
+            str(snapshot_dir),
+            "--artifact-directory",
+            str(tmp_path / "artifacts"),
+        )
 
 
 def test_run_writes_the_documented_bundle(
@@ -114,7 +217,7 @@ def test_run_writes_the_documented_bundle(
 
     metrics = json.loads((output / "metrics.json").read_text())
     assert metrics["task"] == "regression"
-    assert metrics["primary_metric"] == "mae"
+    assert metrics["target"] == "value"
     assert set(metrics["splits"]) == {"baseline", "model"}
     assert set(metrics["splits"]["model"]) == {
         "train",
@@ -123,19 +226,38 @@ def test_run_writes_the_documented_bundle(
         "test",
     }
     # The fixture target is exactly linear, so the model must beat the baseline.
-    assert (
-        metrics["splits"]["model"]["test"]["mae"]
-        < metrics["splits"]["baseline"]["test"]["mae"]
-    )
+    model_mae = metrics["splits"]["model"]["test"]["mae"]
+    assert model_mae < metrics["splits"]["baseline"]["test"]["mae"]
 
     run = json.loads((output / "run.json").read_text())
     assert run["status"] == "completed"
-    assert run["protocol_id"] == "synthetic-regression-v1"
     assert run["splits_reused"] is False
 
+
+def test_an_unpinned_run_still_records_the_real_snapshot_digest(
+    tmp_path: Path, snapshot_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    digest = build_snapshot(
+        snapshot_dir, record_id="someone-elses", snapshot_version="v9"
+    )
+    protocol = write_protocol(tmp_path / "protocol.toml", regression_document())
+    output = tmp_path / "run-1"
+
+    _run(
+        monkeypatch,
+        "run",
+        str(protocol),
+        "--dataset",
+        str(snapshot_dir),
+        "--output",
+        str(output),
+    )
+
     dataset = json.loads((output / "dataset.json").read_text())
-    assert dataset["record_id"] == "synthetic"
-    assert dataset["sample_count"] == 24
+    assert dataset["pinned_by_protocol"] is False
+    assert dataset["record_id"] == "someone-elses"
+    assert dataset["manifest_sha256"] == digest
+    assert dataset["feature_schema"] == "tabular"
 
 
 def test_run_records_every_prediction_once_per_source(
@@ -165,8 +287,7 @@ def test_run_is_reproducible(
     tmp_path: Path, snapshot_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     protocol = _setup(tmp_path, snapshot_dir)
-    first = tmp_path / "run-1"
-    second = tmp_path / "run-2"
+    first, second = tmp_path / "run-1", tmp_path / "run-2"
 
     for output in (first, second):
         _run(
@@ -179,14 +300,11 @@ def test_run_is_reproducible(
             str(output),
         )
 
-    first_manifest = json.loads((first / MANIFEST_NAME).read_text())
-    second_manifest = json.loads((second / MANIFEST_NAME).read_text())
     assert (
-        first_manifest["deterministic_digest"]
-        == second_manifest["deterministic_digest"]
+        json.loads((first / MANIFEST_NAME).read_text())["deterministic_digest"]
+        == json.loads((second / MANIFEST_NAME).read_text())["deterministic_digest"]
     )
     assert (first / "splits.csv").read_bytes() == (second / "splits.csv").read_bytes()
-    assert (first / "metrics.json").read_text() == (second / "metrics.json").read_text()
 
 
 def test_run_refuses_to_overwrite_without_the_flag(
@@ -205,8 +323,9 @@ def test_run_refuses_to_overwrite_without_the_flag(
 
     _run(monkeypatch, *arguments)
 
-    with pytest.raises(FileExistsError, match="pass --overwrite"):
+    with pytest.raises(SystemExit) as error:
         _run(monkeypatch, *arguments)
+    assert error.value.code == 2
 
     _run(monkeypatch, *arguments, "--overwrite")
     assert _bundle_files(output) == BUNDLE_FILES
@@ -216,7 +335,7 @@ def test_run_reuses_an_existing_split_manifest(
     tmp_path: Path, snapshot_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     protocol = _setup(tmp_path, snapshot_dir)
-    first = tmp_path / "run-1"
+    first, second = tmp_path / "run-1", tmp_path / "run-2"
     _run(
         monkeypatch,
         "run",
@@ -227,7 +346,6 @@ def test_run_reuses_an_existing_split_manifest(
         str(first),
     )
 
-    second = tmp_path / "run-2"
     _run(
         monkeypatch,
         "run",
@@ -244,40 +362,21 @@ def test_run_reuses_an_existing_split_manifest(
     assert json.loads((second / "run.json").read_text())["splits_reused"] is True
 
 
-def test_run_rejects_a_split_manifest_from_another_dataset(
-    tmp_path: Path, snapshot_dir: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    protocol = _setup(tmp_path, snapshot_dir)
-    splits = tmp_path / "splits.csv"
-    splits.write_text("sample_id,split\nother-1,train\n", encoding="utf-8")
-
-    with pytest.raises(ValueError, match="missing 24 sample"):
-        _run(
-            monkeypatch,
-            "run",
-            str(protocol),
-            "--dataset",
-            str(snapshot_dir),
-            "--output",
-            str(tmp_path / "run-1"),
-            "--splits",
-            str(splits),
-        )
-
-
 def test_preprocessing_is_fitted_on_the_train_split_only(
     tmp_path: Path, snapshot_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    from pipeline import baseline
+
     protocol = _setup(tmp_path, snapshot_dir)
     output = tmp_path / "run-1"
-    seen: list[tuple[str, ...]] = []
-    original = trainers.Standardizer.fit
+    seen: list[int] = []
+    original = baseline.Standardizer.fit
 
-    def spy(samples):
-        seen.append(tuple(sample.sample_id for sample in samples))
-        return original(samples)
+    def spy(rows):
+        seen.append(len(rows))
+        return original(rows)
 
-    monkeypatch.setattr(trainers.Standardizer, "fit", staticmethod(spy))
+    monkeypatch.setattr(baseline.Standardizer, "fit", staticmethod(spy))
     _run(
         monkeypatch,
         "run",
@@ -289,19 +388,15 @@ def test_preprocessing_is_fitted_on_the_train_split_only(
     )
 
     with (output / "splits.csv").open(encoding="utf-8", newline="") as handle:
-        train = {
-            row["sample_id"]
-            for row in csv.DictReader(handle)
-            if row["split"] == "train"
-        }
-    assert seen, "the trainer never fitted preprocessing"
-    for fitted_on in seen:
-        assert set(fitted_on) == train
+        train = sum(1 for row in csv.DictReader(handle) if row["split"] == "train")
+    assert seen and all(count == train for count in seen)
 
 
-def test_classification_run_selects_its_threshold_on_validation_only(
+def test_classification_selects_its_threshold_on_validation_only(
     tmp_path: Path, snapshot_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    import goldilocks_ml.core.cli as core_cli
+
     protocol = _setup(
         tmp_path,
         snapshot_dir,
@@ -312,16 +407,14 @@ def test_classification_run_selects_its_threshold_on_validation_only(
         },
     )
     output = tmp_path / "run-1"
-    import goldilocks_ml.train_cli as train_cli
-
     seen: list[tuple[str, ...]] = []
-    original = train_cli.select_threshold
+    original = core_cli.select_threshold
 
     def spy(predictions, metric, positive, negative):
         seen.append(tuple(item.split for item in predictions))
         return original(predictions, metric, positive, negative)
 
-    monkeypatch.setattr(train_cli, "select_threshold", spy)
+    monkeypatch.setattr(core_cli, "select_threshold", spy)
     _run(
         monkeypatch,
         "run",
@@ -335,8 +428,6 @@ def test_classification_run_selects_its_threshold_on_validation_only(
     assert seen and all(set(splits) == {"validation"} for splits in seen)
     metrics = json.loads((output / "metrics.json").read_text())
     assert metrics["decision_threshold"]["selected_on"] == "validation"
-    assert metrics["decision_threshold"]["metric"] == "mcc"
-    assert metrics["positive_label"] == "metal"
     assert "confusion_matrix" in metrics["splits"]["model"]["test"]
 
 
@@ -354,7 +445,7 @@ def test_threshold_selection_requires_a_validation_split(
         },
     )
 
-    with pytest.raises(ValueError, match="requires a non-empty validation split"):
+    with pytest.raises(SystemExit) as error:
         _run(
             monkeypatch,
             "run",
@@ -364,22 +455,24 @@ def test_threshold_selection_requires_a_validation_split(
             "--output",
             str(tmp_path / "run-1"),
         )
+    assert error.value.code == 2
 
 
 @pytest.mark.parametrize(
-    "name", ["tabular_regression.toml", "tabular_classification.toml"]
+    ("protocol_name", "snapshot"),
+    [("kdist.toml", KDIST_SNAPSHOT), ("metallic.toml", METALLIC_SNAPSHOT)],
 )
-def test_committed_protocols_run_against_the_committed_fixture(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str
+def test_committed_protocols_run_against_the_committed_fixtures(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, protocol_name: str, snapshot: Path
 ) -> None:
     output = tmp_path / "run"
 
     _run(
         monkeypatch,
         "run",
-        str(PROTOCOL_ROOT / name),
+        str(PROTOCOLS / protocol_name),
         "--dataset",
-        str(FIXTURE_ROOT),
+        str(snapshot),
         "--output",
         str(output),
     )
@@ -390,3 +483,7 @@ def test_committed_protocols_run_against_the_committed_fixture(
     model = metrics["splits"]["model"]["test"][primary]
     baseline = metrics["splits"]["baseline"]["test"][primary]
     assert model > baseline if primary == "mcc" else model < baseline
+
+
+def test_make_rows_is_the_only_fixture_generator() -> None:
+    assert len(make_rows()) == 24

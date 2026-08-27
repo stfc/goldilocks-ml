@@ -1,55 +1,86 @@
 # Train a model
 
-A training protocol in this repository is executable, not a README. You start
-from an immutable dataset snapshot, run one documented command, and get a
-self-describing run bundle that records what data was used, how it was split,
-what was fitted, and how it scored.
+A training protocol in this repository is executable, not a README. You bring a
+dataset in the layout below, run one documented command, and get a
+self-describing run bundle recording what data was used, how it was split, what
+was fitted, and how it scored.
 
-Everything on this page runs offline against fixture data that is committed to
-the repository, so you can try the workflow before you have a real snapshot.
+## Status
 
-## The workflow
+Two models are in scope, one folder each:
 
-```bash
-uv sync
+| Model | Protocol | Trainer |
+| --- | --- | --- |
+| [k-mesh QRF95](https://github.com/stfc/goldilocks-ml/tree/main/src/goldilocks_ml/models/kmesh/qrf95) | written | not implemented |
+| [Metallicity CGCNN](https://github.com/stfc/goldilocks-ml/tree/main/src/goldilocks_ml/models/metallicity/cgcnn) | written | not implemented |
 
-uv run goldilocks-train validate \
-  protocols/synthetic/tabular_regression.toml \
-  --dataset tests/fixtures/synthetic-tabular
+Each folder's `README.md` records the exact training method the trainer must
+reproduce, read from `stfc/goldilocks_kpoints`. Until a trainer lands,
+`goldilocks-train run` has nothing to run; `seal` works today.
 
-uv run goldilocks-train run \
-  protocols/synthetic/tabular_regression.toml \
-  --dataset tests/fixtures/synthetic-tabular \
-  --output local_runs/synthetic-regression-v1
+## Your data
+
+Convert your data into the layout the project already uses. Nothing here
+converts it for you.
+
+```text
+snapshot/
+├── id_prop.csv          # sample_id, target[, group]  -- no header row
+├── <sample_id>.cif      # one per sample, if the protocol needs structures
+└── manifest.json        # written by `seal`
 ```
 
-`validate` verifies the protocol, the snapshot's identity and checksums, the
-required columns, and the derived split. It trains nothing and makes no network
-request. `run` repeats every one of those checks, then trains and writes the
-bundle. There is no notebook-only step.
+```csv
+mp-149,0.2143,Si-diamond
+mp-2534,0.1872,GaAs-zincblende
+```
+
+- **`sample_id` must be a stable identifier**, not a row number. A split derived
+  from row positions changes whenever rows are reordered, deduplicated, or
+  filtered, which makes the run irreproducible. Consecutive integers are
+  rejected for that reason; use the source database id.
+- **The third column is optional** and names each sample's group. Group
+  splitting needs it, so that a structure, composition, prototype, or
+  calculation family cannot straddle two splits.
+
+Then seal it, which records a SHA-256 for every file:
+
+```bash
+uv run goldilocks-train seal snapshots/mine --record-id my-data --version v1
+```
+
+## Running a protocol
+
+```bash
+uv run goldilocks-train validate PROTOCOL --dataset snapshots/mine
+
+uv run goldilocks-train run PROTOCOL --dataset snapshots/mine \
+  --output local_runs/mine-v1
+```
+
+`validate` checks the protocol, the snapshot's digests and contents, the pinned
+feature dependencies, and the derived split. It trains nothing and makes no
+network request. `run` repeats every one of those checks, then trains. There is
+no notebook-only step.
 
 ## Protocol files
 
-Reviewed protocols live under `protocols/<task>/<model>.toml` and are versioned
-in Git. Unknown fields are rejected, so a protocol cannot quietly carry settings
-that nothing reads.
+Each model owns its protocol next to its code. Unknown fields are rejected, so a
+protocol cannot quietly carry settings nothing reads.
 
 ```toml
 schema_version = 1
-id = "synthetic-tabular-regression-v1"
-task = "regression"                    # or "classification"
-trainer = "linear_regression"          # a registered built-in name
+id = "kmesh-qrf95-v1"
+task = "regression"
+trainer = "quantile_random_forest"
 
 [dataset]
-record_id = "synthetic-tabular"
-snapshot_version = "v1"
-manifest_sha256 = "b43703...b55d4"     # pins the exact snapshot
-sample_id = "sample_id"
-target = "target_value"
+target = "k_distance"
+target_units = "1/angstrom"
+requires = ["structures", "groups"]
 
 [split]
-method = "group"                       # or "random"
-group_column = "structure_group_id"
+method = "group"
 train = 0.7
 validation = 0.1
 calibration = 0.1
@@ -57,14 +88,22 @@ test = 0.1
 seed = 42
 
 [features]
-schema = "synthetic_tabular_xyz"
-columns = ["x1", "x2", "x3"]
+schema = "comp_struct_soap_lattice_metal"
+
+[features.parameters]
+soap = { r_cut = 10.0, n_max = 8, l_max = 6, sigma = 1.0 }
+
+[features.depends_on.metallicity]
+record_id = "ptc95-vbq12"
+file = "is_metal.ckpt"
+sha256 = "964d818d..."
 
 [model]
 seed = 42
 
-[model.parameters]                     # trainer-specific, validated by the trainer
-l2 = 1e-6
+[model.parameters]
+n_estimators = 100
+quantiles = [0.05, 0.5, 0.95]
 
 [evaluation]
 primary_metric = "mae"
@@ -72,117 +111,48 @@ metrics = ["mae", "rmse", "r2"]
 baseline = "train_median"
 ```
 
-`features.schema` names a reviewed feature contract. `features.columns` is set
-only by contracts that read model inputs straight from snapshot columns;
-contracts that derive features from structures resolve them inside their own
-trainer.
+`[model.parameters]` and `[features.parameters]` are the schema's two free-form
+tables. Everything outside them is checked here; everything inside is checked by
+the trainer or feature contract that consumes it.
 
-`[model.parameters]` is the one free-form table in the schema. Everything
-outside it is checked here; everything inside it is checked by the trainer that
-consumes it.
+### Pinned artifacts
 
-### Classification protocols
+`[features.depends_on]` pins a released model artifact that a feature contract
+needs. The k-mesh feature vector embeds the metallicity model's learned
+representation, so a different checkpoint silently produces different features.
+Artifacts are read from `local_data/artifacts/<record_id>/<file>`, overridable
+with `--artifact-directory` or `GOLDILOCKS_ARTIFACTS`, and their SHA-256 is
+verified before anything is computed.
 
-```toml
-task = "classification"
+### Pinning a snapshot
 
-[split]
-method = "group"
-group_column = "structure_group_id"
-stratify = true
-
-[evaluation]
-primary_metric = "mcc"
-metrics = ["accuracy", "balanced_accuracy", "precision", "recall", "f1", "mcc", "roc_auc", "pr_auc"]
-baseline = "train_majority"
-threshold_metric = "mcc"               # maximised on validation data only
-positive_label = "metal"
-```
-
-If `positive_label` is omitted it defaults to the last class in sorted order.
-Name it explicitly whenever the choice carries meaning. `threshold_metric` must
-be a threshold-dependent metric: `roc_auc` and `pr_auc` do not select a
-threshold.
-
-Available metrics are the ones the shared evaluation layer implements. Metrics
-that only make sense for a particular model family — quantile pinball loss and
-interval coverage for the k-mesh QRF, for example — are added alongside that
-model's trainer.
-
-## Dataset snapshots
-
-`goldilocks-data` owns snapshots; this repository only verifies and consumes
-them. A snapshot directory contains a manifest and the data it describes:
-
-```text
-dataset-snapshot/
-├── manifest.json
-└── data.csv
-```
-
-```json
-{
-  "schema_version": 1,
-  "record_id": "synthetic-tabular",
-  "snapshot_version": "v1",
-  "data_file": "data.csv",
-  "files": [
-    {"name": "data.csv", "size_bytes": 8033, "sha256": "68efd255031ce783757ea32ff2d1e9ac24d552dd545a22bf0031314f53517cb1"}
-  ]
-}
-```
-
-The protocol pins the SHA-256 of `manifest.json`, and the manifest pins the
-SHA-256 of every file. A single hash in the protocol therefore fixes the whole
-snapshot. Loading fails if the digest, the record id, the version, any file
-size, any file digest, or any required column disagrees.
-
-Sample ids must be present, non-empty, and unique. Nothing in the pipeline
-splits by dataframe row position.
+A protocol may pin `record_id`, `snapshot_version`, and `manifest_sha256`
+together, or omit all three. Pinning is what makes a run a *reproduction*; a
+protocol that pins nothing accepts any conforming snapshot, and the run bundle
+still records that snapshot's real digest. Either way the run is auditable.
 
 ## Splits and leakage
 
-Split assignment is derived from stable sample ids, never from row order:
+Split assignment is derived from stable sample ids, never row order: keys are
+sorted, shuffled with the protocol's seed, then allocated by largest remaining
+sample deficit. `method = "group"` allocates whole groups. `stratify = true`
+allocates each stratum separately, using a group's majority label.
 
-- keys are sorted, then shuffled with the protocol's seed, then allocated to
-  splits by largest remaining sample deficit;
-- `method = "group"` allocates whole groups, so a structure, composition,
-  prototype, or calculation family cannot straddle two splits;
-- `stratify = true` allocates each stratum separately, using a group's majority
-  label as its stratum;
-- the assignment is written to `splits.csv` as `sample_id,split` and can be
-  replayed with `--splits`.
-
-Every assignment — freshly derived or reloaded — is checked for complete
-coverage, unknown samples, unrequested splits, empty splits, and group leakage
-before any training starts.
-
-Reusing a split manifest is the right move when you retrain the same data with a
-different configuration and want the comparison to be honest:
-
-```bash
-uv run goldilocks-train run protocols/synthetic/tabular_regression.toml \
-  --dataset tests/fixtures/synthetic-tabular \
-  --output local_runs/variant-b \
-  --splits local_runs/synthetic-regression-v1/splits.csv
-```
+Every assignment — freshly derived, or reloaded with `--splits` — is checked for
+complete coverage, unknown samples, unrequested splits, empty splits, and group
+leakage before any training starts.
 
 ### What the test split is for
 
 The test split is scored once, after every choice has been made. It is never
-used for early stopping, threshold selection, calibration, or model choice. The
-decision threshold for a classification protocol is selected on validation data
-and on nothing else; the run refuses to start if a protocol asks for threshold
+used for early stopping, threshold selection, calibration, or model choice. A
+classification protocol's decision threshold is selected on validation data and
+nowhere else; the run refuses to start if a protocol asks for threshold
 selection without a validation split.
 
-Learned preprocessing — centring, scaling, imputation, feature selection — is
-fitted on the training split alone. The trainer only ever receives training
-samples, so this is a structural property of the pipeline rather than a
-convention, and the test suite asserts it.
-
-`method = "random"` stays available, but it is an explicit choice in a reviewed
-file. Reproducing a historical result that used random splitting is a legitimate
-use; letting it become the default scientific claim is not.
+Learned preprocessing is fitted on the training split alone. The trainer only
+ever receives training samples, so this is structural rather than a convention,
+and the test suite asserts it.
 
 ## The run bundle
 
@@ -190,7 +160,7 @@ use; letting it become the default scientific claim is not.
 local_runs/<run-id>/
 ├── run.json          # run id, timestamps, git commit, status
 ├── protocol.toml     # the fully resolved protocol, defaults made explicit
-├── dataset.json      # snapshot record, version, digest, sample count
+├── dataset.json      # snapshot identity, digest, feature schema, artifacts
 ├── environment.json  # Python, packages, lock digest, hardware facts
 ├── splits.csv        # stable sample-to-split assignment
 ├── metrics.json      # baseline and model metrics for every split
@@ -199,60 +169,25 @@ local_runs/<run-id>/
 └── manifest.json     # size and SHA-256 for every file above
 ```
 
-`local_runs/` is ignored by Git. Nothing here needs a remote tracking service;
-the filesystem bundle is authoritative.
+`local_runs/` is ignored by Git. Nothing needs a remote tracking service; the
+filesystem bundle is authoritative.
 
-`manifest.json` also carries a `deterministic_digest` computed over every file
-except `run.json` and `environment.json`. Those two record when and where a run
-happened, so they differ between two runs of the same protocol; everything the
-science depends on does not. Running the same protocol against the same snapshot
-twice produces the same digest.
+`manifest.json` carries a `deterministic_digest` over every file except
+`run.json` and `environment.json`. Those two record when and where a run
+happened; everything the science depends on does not vary. Running the same
+protocol against the same snapshot twice produces the same digest.
 
 `metrics.json` always reports the model and a train-derived baseline side by
-side, per split, so a headline number can never be read without its reference
+side, per split, so a headline number cannot be read without its reference
 point.
 
 ### What reproducibility means here
 
-A run is scientifically reproducible when the same dataset snapshot, protocol,
-code commit, and locked environment are available. Byte-identical model
-artifacts are promised only for trainers documented as deterministic; each
-model's `model.json` records whether it is.
+A run is scientifically reproducible when the same snapshot, protocol, code
+commit, and locked environment are available. Byte-identical model artifacts are
+promised only for trainers documented as deterministic; each model's
+`model.json` records whether it is.
 
-The QRF95 and CGCNN artifacts already published to PSDI predate this workflow.
-Until their historical snapshot, split assignment, complete configuration, and
-code revision are recovered, they are not claimed to be exactly reproducible.
-
-## Adding a trainer
-
-Trainers register themselves under a stable name and receive only the training
-split:
-
-```python
-from goldilocks_ml.trainers import register_trainer
-
-
-def fit(
-    protocol, samples
-): ...  # returns an object with predict(), describe(), and save()
-
-
-register_trainer("quantile_random_forest", fit)
-```
-
-A fitted model returns regression values or positive-class scores from
-`predict`, a JSON-serialisable record from `describe`, and writes its artifacts
-in `save`. Splitting, evaluation, and bundle writing are shared; a trainer never
-reimplements them.
-
-Two CPU-only trainers ship with the shared layer — `linear_regression` and
-`logistic_regression`. They exist so CI exercises the complete workflow without
-private data, a GPU, or network access. They are not scientific models.
-
-## Publishing a run
-
-A run bundle is designed to travel with the model it produced. The resolved
-protocol, dataset identity, split manifest, metrics, and run manifest can be
-published alongside a released model where licensing permits, using the existing
-[deposit workflow](getting-started.md) and `goldilocks-psdi checksum`. Training
-code contains no second PSDI client.
+The published QRF95 and CGCNN artifacts predate this workflow and were trained
+with a different split, so a run of these protocols is **not** a reproduction of
+them. Each model's README says exactly how they differ.

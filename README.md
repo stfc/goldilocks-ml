@@ -16,25 +16,24 @@ logic do not belong in Git.
 
 ## Training protocol CLI
 
-A training protocol is a versioned TOML file, not a notebook. Validate one and
-run it against the committed offline fixture:
+A training protocol is a versioned TOML file next to the model it trains, not a
+notebook. Convert your data into `id_prop.csv` plus one structure file per
+sample, seal it, then validate and run:
 
 ```bash
 uv sync
-uv run goldilocks-train validate protocols/synthetic/tabular_regression.toml \
-  --dataset tests/fixtures/synthetic-tabular
-
-uv run goldilocks-train run protocols/synthetic/tabular_regression.toml \
-  --dataset tests/fixtures/synthetic-tabular \
-  --output local_runs/synthetic-regression-v1
+uv run goldilocks-train seal snapshots/mine --record-id my-data --version v1
+uv run goldilocks-train validate PROTOCOL --dataset snapshots/mine
+uv run goldilocks-train run PROTOCOL --dataset snapshots/mine --output local_runs/mine-v1
 ```
 
-`validate` checks the protocol, the snapshot's checksums and columns, and the
-derived split without training. `run` repeats those checks and writes a run
-bundle recording the resolved protocol, dataset identity, split manifest,
-environment, metrics, predictions, model, and a SHA-256 for every file.
+`run` writes a bundle recording the resolved protocol, dataset identity, split
+manifest, environment, metrics, predictions, model, and a SHA-256 for every
+file. Two models are in scope, under `src/goldilocks_ml/models/kmesh/qrf95/` and
+`src/goldilocks_ml/models/metallicity/cgcnn/`; their protocols are written and
+their trainers are not implemented yet.
 
-The split, evaluation, and reproducibility rules are in the
+The data layout, split rules, and reproducibility limits are in the
 [training guide](https://stfc.github.io/goldilocks-ml/training-protocols/).
 
 ## PSDI deposit CLI

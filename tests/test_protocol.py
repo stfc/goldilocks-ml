@@ -7,26 +7,25 @@ from typing import Any
 
 import pytest
 from conftest import (
-    PROTOCOL_ROOT,
+    MODELS,
+    PROTOCOLS,
     classification_document,
     regression_document,
     write_protocol,
 )
 
-from goldilocks_ml.protocol import load_protocol
+from goldilocks_ml.core.protocol import load_protocol
 
 DIGEST = "a" * 64
 
 
 def _regression(tmp_path: Path, **overrides: Any) -> Path:
-    return write_protocol(
-        tmp_path / "protocol.toml", regression_document(DIGEST, **overrides)
-    )
+    return write_protocol(tmp_path / "protocol.toml", regression_document(**overrides))
 
 
 def _classification(tmp_path: Path, **overrides: Any) -> Path:
     return write_protocol(
-        tmp_path / "protocol.toml", classification_document(DIGEST, **overrides)
+        tmp_path / "protocol.toml", classification_document(**overrides)
     )
 
 
@@ -36,25 +35,37 @@ def test_load_protocol_returns_validated_configuration(tmp_path: Path) -> None:
     assert protocol.id == "synthetic-regression-v1"
     assert protocol.task == "regression"
     assert protocol.trainer == "linear_regression"
+    assert protocol.features.schema == "tabular"
     assert protocol.evaluation.metrics == ("mae", "rmse", "r2")
-    assert protocol.features.columns == ("x1", "x2", "x3")
 
 
-def test_required_columns_covers_every_column_read(tmp_path: Path) -> None:
-    path = _regression(
-        tmp_path, split={"method": "group", "group_column": "structure_group_id"}
+def test_a_template_pins_no_snapshot(tmp_path: Path) -> None:
+    protocol = load_protocol(_regression(tmp_path))
+
+    assert protocol.dataset.pinned is None
+    assert protocol.dataset.requires == ("features",)
+
+
+def test_a_pinned_protocol_carries_the_whole_identity(tmp_path: Path) -> None:
+    protocol = load_protocol(
+        _regression(
+            tmp_path,
+            dataset={
+                "record_id": "synthetic",
+                "snapshot_version": "v1",
+                "manifest_sha256": DIGEST,
+            },
+        )
     )
 
-    protocol = load_protocol(path)
+    assert protocol.dataset.pinned is not None
+    assert protocol.dataset.pinned.record_id == "synthetic"
+    assert protocol.dataset.pinned.manifest_sha256 == DIGEST
 
-    assert protocol.required_columns == (
-        "sample_id",
-        "target_value",
-        "structure_group_id",
-        "x1",
-        "x2",
-        "x3",
-    )
+
+def test_partial_pinning_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="missing snapshot_version, manifest_sha256"):
+        load_protocol(_regression(tmp_path, dataset={"record_id": "synthetic"}))
 
 
 @pytest.mark.parametrize(
@@ -81,16 +92,18 @@ def test_load_protocol_rejects_unknown_root_field(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("section", "overrides", "message"),
     [
-        ("dataset", {"manifest_sha256": "abc"}, "lowercase SHA-256"),
-        ("dataset", {"record_id": ""}, "dataset.record_id"),
+        ("dataset", {"target": ""}, "dataset.target"),
+        ("dataset", {"requires": ["lmdb"]}, "unknown dataset.requires value"),
+        ("dataset", {"requires": ["features", "features"]}, "must be unique"),
+        ("dataset", {"manifest_sha256": "abc"}, "needs every one of"),
         ("dataset", {"notebook": "run.ipynb"}, "unknown dataset field"),
         ("split", {"train": 1.0}, "less than 1"),
         ("split", {"validation": 0.3}, "must sum to 1"),
         ("split", {"seed": -1}, "split.seed"),
         ("split", {"method": "kfold"}, "random or group"),
-        ("split", {"method": "group"}, "group_column is required"),
-        ("features", {"columns": ["x1", "x1"]}, "features.columns must be unique"),
-        ("features", {"columns": [""]}, "array of non-empty strings"),
+        ("split", {"group_column": "x"}, "unknown split field"),
+        ("features", {"parameters": 3}, "features.parameters must be a TOML table"),
+        ("features", {"columns": ["x"]}, "unknown features field"),
         ("model", {"parameters": 3}, "model.parameters must be a TOML table"),
         ("evaluation", {"metrics": []}, "non-empty string array"),
         ("evaluation", {"metrics": ["mae", "mae"]}, "must be unique"),
@@ -104,11 +117,6 @@ def test_load_protocol_rejects_invalid_sections(
 ) -> None:
     with pytest.raises(ValueError, match=message):
         load_protocol(_regression(tmp_path, **{section: overrides}))
-
-
-def test_group_column_is_rejected_for_random_splitting(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="only valid for group splitting"):
-        load_protocol(_regression(tmp_path, split={"group_column": "structure"}))
 
 
 def test_stratify_is_rejected_for_regression(tmp_path: Path) -> None:
@@ -128,6 +136,47 @@ def test_train_and_test_splits_must_be_non_empty(tmp_path: Path) -> None:
                     "test": 0.0,
                 },
             )
+        )
+
+
+def test_feature_dependencies_are_pinned_by_digest(tmp_path: Path) -> None:
+    protocol = load_protocol(
+        _regression(
+            tmp_path,
+            features={
+                "depends_on": {
+                    "metallicity": {
+                        "record_id": "ptc95-vbq12",
+                        "file": "is_metal.ckpt",
+                        "sha256": DIGEST,
+                    }
+                }
+            },
+        )
+    )
+
+    assert len(protocol.features.depends_on) == 1
+    dependency = protocol.features.depends_on[0]
+    assert dependency.name == "metallicity"
+    assert dependency.file == "is_metal.ckpt"
+    assert dependency.sha256 == DIGEST
+
+
+@pytest.mark.parametrize(
+    ("dependency", "message"),
+    [
+        ({"record_id": "r", "file": "f", "sha256": "short"}, "lowercase SHA-256"),
+        ({"record_id": "r", "file": "a/b", "sha256": DIGEST}, "must be a basename"),
+        ({"record_id": "", "file": "f", "sha256": DIGEST}, "record_id"),
+        ({"record_id": "r", "file": "f", "sha256": DIGEST, "url": "x"}, "unknown"),
+    ],
+)
+def test_invalid_feature_dependencies_are_rejected(
+    tmp_path: Path, dependency: dict[str, Any], message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        load_protocol(
+            _regression(tmp_path, features={"depends_on": {"metallicity": dependency}})
         )
 
 
@@ -169,10 +218,12 @@ def test_regression_rejects_classification_only_evaluation(tmp_path: Path) -> No
 
 
 @pytest.mark.parametrize(
-    "name", ["tabular_regression.toml", "tabular_classification.toml"]
+    "path",
+    sorted(PROTOCOLS.rglob("*.toml")) + sorted(MODELS.rglob("protocol.toml")),
+    ids=lambda path: "/".join(path.parts[-3:]),
 )
-def test_committed_synthetic_protocols_load(name: str) -> None:
-    protocol = load_protocol(PROTOCOL_ROOT / name)
+def test_every_committed_protocol_loads(path: Path) -> None:
+    protocol = load_protocol(path)
 
-    assert protocol.split.method == "group"
-    assert protocol.dataset.record_id == "synthetic-tabular"
+    assert protocol.schema_version == 1
+    assert protocol.features.schema

@@ -1,0 +1,19 @@
+{
+  "features_file": "features.csv",
+  "files": [
+    {
+      "name": "id_prop.csv",
+      "sha256": "7b5f90e7275da5fcf893630da3f5510b2959c2308b1b760a13c4954c30422a48",
+      "size_bytes": 3092
+    },
+    {
+      "name": "features.csv",
+      "sha256": "4dcd8b27261d9dda5c3116dca98ac6289f59184127a0c1ee85d995fdb0fa0dd1",
+      "size_bytes": 4521
+    }
+  ],
+  "record_id": "synthetic-metallic",
+  "schema_version": 1,
+  "snapshot_version": "v1",
+  "structure_suffix": null
+}

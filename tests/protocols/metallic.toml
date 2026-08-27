@@ -1,20 +1,19 @@
-# Synthetic classification protocol. Exercises stratified group splitting,
-# validation-only threshold selection, and ranking metrics offline.
+# Pinned classification counterpart to synthetic-kdist.toml. Exercises stratified
+# group splitting, validation-only threshold selection, and ranking metrics.
 schema_version = 1
-id = "synthetic-tabular-classification-v1"
+id = "synthetic-metallic-v1"
 task = "classification"
 trainer = "logistic_regression"
 
 [dataset]
-record_id = "synthetic-tabular"
+target = "is_metal"
+requires = ["features", "groups"]
+record_id = "synthetic-metallic"
 snapshot_version = "v1"
-manifest_sha256 = "b43703860403bada8a7a07096692699a77313dc50df5625516794e55e11b55d4"
-sample_id = "sample_id"
-target = "target_class"
+manifest_sha256 = "dc0f113db827d74370f724914bbb48a4e9e0b502f83c8e4045b57e20d0e9e63e"
 
 [split]
 method = "group"
-group_column = "structure_group_id"
 stratify = true
 train = 0.7
 validation = 0.1
@@ -23,8 +22,7 @@ test = 0.1
 seed = 42
 
 [features]
-schema = "synthetic_tabular_xyz"
-columns = ["x1", "x2", "x3"]
+schema = "tabular"
 
 [model]
 seed = 42

@@ -6,8 +6,7 @@ import math
 
 import pytest
 
-from goldilocks_ml.datasets import Sample
-from goldilocks_ml.evaluation import (
+from goldilocks_ml.core.evaluation import (
     Prediction,
     default_positive_label,
     evaluate,
@@ -16,10 +15,11 @@ from goldilocks_ml.evaluation import (
     train_majority,
     train_median,
 )
+from goldilocks_ml.core.snapshot import Sample
 
 
 def _sample(sample_id: str, target: float | str) -> Sample:
-    return Sample(sample_id=sample_id, target=target, group=None, features=())
+    return Sample(sample_id=sample_id, target=target, group=None, structure_path=None)
 
 
 def _regression(pairs: list[tuple[float, float]]) -> list[Prediction]:

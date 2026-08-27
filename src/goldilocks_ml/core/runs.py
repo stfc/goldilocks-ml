@@ -15,9 +15,9 @@ from importlib import metadata
 from pathlib import Path
 from typing import Any
 
-from goldilocks_ml.evaluation import Prediction
-from goldilocks_ml.hashing import sha256_file
-from goldilocks_ml.protocol import TrainingProtocol
+from goldilocks_ml.core.evaluation import Prediction
+from goldilocks_ml.core.hashing import sha256_file
+from goldilocks_ml.core.protocol import TrainingProtocol
 
 MANIFEST_NAME = "manifest.json"
 PREDICTIONS_HEADER = ("sample_id", "split", "source", "truth", "prediction", "score")
@@ -45,21 +45,18 @@ def _value(value: Any) -> str:
 def dumps_toml(document: dict[str, Any]) -> str:
     """Serialise the restricted protocol document shape back to TOML."""
     lines: list[str] = []
-    for key, value in document.items():
-        if not isinstance(value, dict):
-            lines.append(f"{key} = {_value(value)}")
-    for key, value in document.items():
-        if not isinstance(value, dict):
-            continue
-        lines.extend(("", f"[{key}]"))
-        for inner_key, inner_value in value.items():
-            if not isinstance(inner_value, dict):
-                lines.append(f"{inner_key} = {_value(inner_value)}")
-        for inner_key, inner_value in value.items():
-            if isinstance(inner_value, dict):
-                lines.extend(("", f"[{key}.{inner_key}]"))
-                for leaf_key, leaf_value in inner_value.items():
-                    lines.append(f"{leaf_key} = {_value(leaf_value)}")
+
+    def emit(prefix: str, table: dict[str, Any]) -> None:
+        for key, value in table.items():
+            if not isinstance(value, dict):
+                lines.append(f"{key} = {_value(value)}")
+        for key, value in table.items():
+            if isinstance(value, dict):
+                name = f"{prefix}.{key}" if prefix else key
+                lines.extend(("", f"[{name}]"))
+                emit(name, value)
+
+    emit("", document)
     return "\n".join(lines) + "\n"
 
 
@@ -74,34 +71,48 @@ def resolved_document(protocol: TrainingProtocol) -> dict[str, Any]:
         evaluation["threshold_metric"] = protocol.evaluation.threshold_metric
     if protocol.evaluation.positive_label is not None:
         evaluation["positive_label"] = protocol.evaluation.positive_label
-    split: dict[str, Any] = {
-        "method": protocol.split.method,
-        "train": protocol.split.train,
-        "validation": protocol.split.validation,
-        "calibration": protocol.split.calibration,
-        "test": protocol.split.test,
-        "seed": protocol.split.seed,
-        "stratify": protocol.split.stratify,
+
+    dataset: dict[str, Any] = {
+        "target": protocol.dataset.target,
+        "requires": list(protocol.dataset.requires),
     }
-    if protocol.split.group_column is not None:
-        split["group_column"] = protocol.split.group_column
+    if protocol.dataset.target_units is not None:
+        dataset["target_units"] = protocol.dataset.target_units
+    if protocol.dataset.pinned is not None:
+        dataset["record_id"] = protocol.dataset.pinned.record_id
+        dataset["snapshot_version"] = protocol.dataset.pinned.snapshot_version
+        dataset["manifest_sha256"] = protocol.dataset.pinned.manifest_sha256
+
+    features: dict[str, Any] = {
+        "schema": protocol.features.schema,
+        "parameters": protocol.features.parameters,
+    }
+    if protocol.features.depends_on:
+        features["depends_on"] = {
+            dependency.name: {
+                "record_id": dependency.record_id,
+                "file": dependency.file,
+                "sha256": dependency.sha256,
+            }
+            for dependency in protocol.features.depends_on
+        }
+
     return {
         "schema_version": protocol.schema_version,
         "id": protocol.id,
         "task": protocol.task,
         "trainer": protocol.trainer,
-        "dataset": {
-            "record_id": protocol.dataset.record_id,
-            "snapshot_version": protocol.dataset.snapshot_version,
-            "manifest_sha256": protocol.dataset.manifest_sha256,
-            "sample_id": protocol.dataset.sample_id,
-            "target": protocol.dataset.target,
+        "dataset": dataset,
+        "split": {
+            "method": protocol.split.method,
+            "train": protocol.split.train,
+            "validation": protocol.split.validation,
+            "calibration": protocol.split.calibration,
+            "test": protocol.split.test,
+            "seed": protocol.split.seed,
+            "stratify": protocol.split.stratify,
         },
-        "split": split,
-        "features": {
-            "schema": protocol.features.schema,
-            "columns": list(protocol.features.columns),
-        },
+        "features": features,
         "model": {"seed": protocol.model.seed, "parameters": protocol.model.parameters},
         "evaluation": evaluation,
     }

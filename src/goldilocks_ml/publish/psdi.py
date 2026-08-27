@@ -14,7 +14,7 @@ from typing import Any
 from data_collections_api.invenio import InvenioRepository
 from data_collections_api.metadata import validate_metadata
 
-from goldilocks_ml.hashing import is_sha256, sha256_file
+from goldilocks_ml.core.hashing import is_sha256, sha256_file
 
 PSDI_API = "https://data-collections.psdi.ac.uk/api"
 RESERVED_FILE_NAMES = frozenset({"README.md", "manifest.json", "metadata.json"})
