@@ -68,6 +68,27 @@ def conformal_correction(
     return scores[rank - 1]
 
 
+def _calibrated(
+    lower: float, median: float, upper: float, correction: float
+) -> tuple[float, float, float]:
+    """Apply the conformal correction to one interval.
+
+    Conformal quantile regression calibrates the outer pair only. It makes no
+    claim about the median, which the forest estimates independently, so the
+    median is passed through and may fall outside a narrowed interval.
+
+    A negative correction narrows. Where the raw interval is narrower than
+    twice the correction, narrowing would invert it; the limit of that
+    operation is a degenerate interval at the midpoint, which is what the
+    forest is asserting there. Fabricating width instead would overstate the
+    uncertainty.
+    """
+    low, high = lower - correction, upper + correction
+    if low > high:
+        low = high = (low + high) / 2
+    return low, median, high
+
+
 @dataclass(frozen=True, slots=True)
 class QRF95Model:
     """A fitted quantile forest plus its separately recorded calibration."""
@@ -92,18 +113,10 @@ class QRF95Model:
         if features.columns != self.feature_columns:
             raise ValueError("prediction feature columns differ from the fitted model")
         raw = _prediction_matrix(self.estimator, features.matrix(samples))
-        result = [
-            (
-                float(lower - self.correction),
-                float(median),
-                float(upper + self.correction),
-            )
+        return [
+            _calibrated(float(lower), float(median), float(upper), self.correction)
             for lower, median, upper in zip(*raw, strict=True)
         ]
-        for lower, median, upper in result:
-            if not lower <= median <= upper:
-                raise ValueError("calibrated QRF95 quantiles are not ordered")
-        return result
 
     def predict(
         self, samples: Sequence[Sample], features: FeatureMatrix
@@ -133,6 +146,8 @@ class QRF95Model:
                 "correction": self.correction,
                 "sample_count": self.calibration_count,
                 "applied_as": "lower - correction, upper + correction",
+                "calibrates": "the outer quantiles only; the median is not adjusted "
+                "and is not guaranteed to lie inside the calibrated interval",
             },
             "artifacts": {
                 "estimator": MODEL_FILE,
