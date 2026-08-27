@@ -28,6 +28,8 @@ class Prediction:
     prediction: float | str
     score: float | None = None
     split: str = ""
+    lower: float | None = None
+    upper: float | None = None
 
 
 def default_positive_label(labels: Sequence[str]) -> str:
@@ -215,6 +217,26 @@ def evaluate(
         predicted = [float(item.prediction) for item in predictions]
         for name in metrics:
             result[name] = _regression_metric(name, truth, predicted)
+        bounded = [item for item in predictions if item.lower is not None]
+        if bounded:
+            if len(bounded) != len(predictions) or any(
+                item.upper is None for item in predictions
+            ):
+                raise ValueError("regression intervals must be present for every row")
+            intervals = [
+                (float(item.lower), float(item.upper))
+                for item in predictions
+                if item.lower is not None and item.upper is not None
+            ]
+            if any(lower > upper for lower, upper in intervals):
+                raise ValueError("regression interval lower bound exceeds upper bound")
+            result["interval_coverage"] = sum(
+                lower <= actual <= upper
+                for actual, (lower, upper) in zip(truth, intervals, strict=True)
+            ) / len(truth)
+            result["mean_interval_width"] = sum(
+                upper - lower for lower, upper in intervals
+            ) / len(intervals)
         return result
 
     truth_labels = [str(item.truth) for item in predictions]

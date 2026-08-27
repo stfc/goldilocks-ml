@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
@@ -94,6 +95,17 @@ class FittedModel(Protocol):
         ...
 
 
+@runtime_checkable
+class QuantileFittedModel(FittedModel, Protocol):
+    """A regression model that exposes ordered lower, median, and upper values."""
+
+    def predict_quantiles(
+        self, samples: Sequence[Sample], features: FeatureMatrix
+    ) -> list[tuple[float, float, float]]:
+        """Return ``(lower, median, upper)`` for each sample."""
+        ...
+
+
 # Feature extraction must be stateless across samples. Any fitted preprocessing
 # belongs inside the trainer, where split boundaries are explicit.
 Trainer = Callable[["TrainingProtocol", TrainingContext], FittedModel]
@@ -103,6 +115,38 @@ FeatureContract = Callable[
 
 _TRAINERS: dict[str, Trainer] = {}
 _FEATURES: dict[str, FeatureContract] = {}
+_BUILTIN_TRAINERS = {
+    "quantile_random_forest": "goldilocks_ml.models.kmesh.qrf95.trainer",
+}
+_BUILTIN_FEATURES = {
+    "comp_struct_soap_lattice_metal.v1": "goldilocks_ml.models.kmesh.qrf95.features",
+}
+_QRF95_DEPENDENCIES = {
+    "ase",
+    "dscribe",
+    "matminer",
+    "numpy",
+    "pymatgen",
+    "sklearn",
+    "sklearn_quantile",
+    "torch",
+    "torch_geometric",
+}
+
+
+def _load_builtin(name: str, modules: Mapping[str, str]) -> None:
+    module = modules.get(name)
+    if module is None:
+        return
+    try:
+        import_module(module)
+    except ModuleNotFoundError as error:
+        if error.name and error.name.split(".")[0] in _QRF95_DEPENDENCIES:
+            raise ValueError(
+                f"{name!r} needs the QRF95 dependencies; install them with "
+                "'uv sync --extra qrf95'"
+            ) from error
+        raise
 
 
 def register_trainer(name: str, trainer: Trainer) -> None:
@@ -121,19 +165,23 @@ def register_feature_contract(name: str, contract: FeatureContract) -> None:
 
 def get_trainer(name: str) -> Trainer:
     """Return the trainer a protocol selected."""
+    if name not in _TRAINERS:
+        _load_builtin(name, _BUILTIN_TRAINERS)
     try:
         return _TRAINERS[name]
     except KeyError:
-        known = ", ".join(sorted(_TRAINERS)) or "none"
+        known = ", ".join(trainer_names()) or "none"
         raise ValueError(f"unknown trainer {name!r}; registered: {known}") from None
 
 
 def get_feature_contract(name: str) -> FeatureContract:
     """Return the feature contract a protocol selected."""
+    if name not in _FEATURES:
+        _load_builtin(name, _BUILTIN_FEATURES)
     try:
         return _FEATURES[name]
     except KeyError:
-        known = ", ".join(sorted(_FEATURES)) or "none"
+        known = ", ".join(feature_contract_names()) or "none"
         raise ValueError(
             f"unknown feature contract {name!r}; registered: {known}"
         ) from None
@@ -141,9 +189,9 @@ def get_feature_contract(name: str) -> FeatureContract:
 
 def trainer_names() -> tuple[str, ...]:
     """Return every registered trainer name."""
-    return tuple(sorted(_TRAINERS))
+    return tuple(sorted(set(_TRAINERS) | set(_BUILTIN_TRAINERS)))
 
 
 def feature_contract_names() -> tuple[str, ...]:
     """Return every registered feature contract name."""
-    return tuple(sorted(_FEATURES))
+    return tuple(sorted(set(_FEATURES) | set(_BUILTIN_FEATURES)))
