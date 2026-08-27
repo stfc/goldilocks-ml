@@ -43,6 +43,14 @@ n_estimators = 100
 quantiles = [0.05, 0.5, 0.95]
 n_jobs = -1
 
+# Selected on validation by mean pinball loss over the three quantiles.
+# min_samples_leaf governs how many training samples each leaf contributes to
+# the empirical quantile, so it is the knob that decides interval quality; at
+# the estimator default of 1 the 5% and 95% estimates come from roughly one
+# value per tree.
+[model.parameters.search]
+min_samples_leaf = [1, 5, 20]
+
 [evaluation]
 primary_metric = "mae"
 metrics = ["mae", "rmse", "r2"]

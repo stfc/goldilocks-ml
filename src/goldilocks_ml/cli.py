@@ -200,10 +200,15 @@ def _score_all(
     protocol: TrainingProtocol,
     predictions: Sequence[Prediction],
     positive: str | None,
+    quantiles: Sequence[float] | None = None,
 ) -> dict[str, dict[str, Any]]:
     return {
         name: evaluate(
-            protocol.task, items, protocol.evaluation.metrics, positive_label=positive
+            protocol.task,
+            items,
+            protocol.evaluation.metrics,
+            positive_label=positive,
+            quantiles=quantiles,
         )
         for name, items in sorted(_by_split(predictions).items())
     }
@@ -367,12 +372,16 @@ def execute(
     model = get_trainer(protocol.trainer)(protocol, context)
     model.save(directory / "model")
 
+    quantiles = (
+        tuple(model.quantiles) if isinstance(model, QuantileFittedModel) else None
+    )
     if protocol.task == "regression":
         predictions, summary = _train_regression(parts, model, features)
         positive = None
     else:
         predictions, summary = _train_classification(protocol, parts, model, features)
         positive = summary["positive_label"]
+        quantiles = None
 
     metrics = {
         "task": protocol.task,
@@ -381,7 +390,11 @@ def execute(
         "baseline": protocol.evaluation.baseline,
         **summary,
         "splits": {
-            source: _score_all(protocol, items, positive)
+            # A baseline predicts a point, so quantile scoring applies to the
+            # model alone.
+            source: _score_all(
+                protocol, items, positive, quantiles if source == "model" else None
+            )
             for source, items in sorted(predictions.items())
         },
         "split_sizes": {name: len(samples) for name, samples in sorted(parts.items())},

@@ -7,17 +7,20 @@ import math
 import pickle
 from collections.abc import Sequence
 from dataclasses import dataclass
+from itertools import product
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 from sklearn_quantile import RandomForestQuantileRegressor
 
+from goldilocks_ml.evaluation import pinball_loss
 from goldilocks_ml.protocol import TrainingProtocol
 from goldilocks_ml.registry import (
     FeatureMatrix,
     FittedModel,
     TrainingContext,
+    TrainingPartition,
     register_trainer,
 )
 from goldilocks_ml.snapshot import Sample
@@ -107,6 +110,7 @@ class QRF95Model:
     feature_columns: tuple[str, ...]
     hyperparameters: dict[str, Any]
     calibration_count: int
+    selection: dict[str, Any]
 
     def predict_quantiles(
         self, samples: Sequence[Sample], features: FeatureMatrix
@@ -142,6 +146,7 @@ class QRF95Model:
             },
             "feature_schema": self.feature_schema,
             "feature_columns": list(self.feature_columns),
+            "selection": self.selection,
             "calibration": {
                 "method": "split_conformal_quantile_regression",
                 "coverage": self.coverage,
@@ -174,7 +179,7 @@ class QRF95Model:
 
 def _parameters(protocol: TrainingProtocol) -> dict[str, Any]:
     values = protocol.model.parameters
-    unknown = sorted(set(values) - {"n_estimators", "quantiles", "n_jobs"})
+    unknown = sorted(set(values) - {"n_estimators", "quantiles", "n_jobs", "search"})
     if unknown:
         raise ValueError(f"unknown quantile forest parameter(s): {', '.join(unknown)}")
 
@@ -213,26 +218,125 @@ def _parameters(protocol: TrainingProtocol) -> dict[str, Any]:
         "n_estimators": n_estimators,
         "quantiles": quantiles,
         "n_jobs": n_jobs,
+        "search": _search_grid(values.get("search", {})),
     }
 
 
+def _search_grid(table: object) -> list[dict[str, Any]]:
+    """Expand the validation search table into candidate settings.
+
+    An absent or empty table yields one candidate with the estimator defaults,
+    so a protocol that does not want a search does not pay for one.
+    """
+    if not isinstance(table, dict):
+        raise ValueError("model.parameters.search must be a TOML table")
+    unknown = sorted(set(table) - set(SEARCHABLE))
+    if unknown:
+        raise ValueError(
+            f"unsearchable parameter(s): {', '.join(unknown)}; "
+            f"searchable: {', '.join(sorted(SEARCHABLE))}"
+        )
+    axes: dict[str, list[Any]] = {}
+    for name, values in table.items():
+        if not isinstance(values, list) or not values:
+            raise ValueError(f"model.parameters.search.{name} must be a non-empty list")
+        for value in values:
+            SEARCHABLE[name](name, value)
+        axes[name] = values
+    if not axes:
+        return [{}]
+    names = sorted(axes)
+    return [
+        dict(zip(names, combination, strict=True))
+        for combination in product(*(axes[name] for name in names))
+    ]
+
+
+def _check_leaf(name: str, value: Any) -> None:
+    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+        raise ValueError(f"search.{name} values must be positive integers")
+
+
+def _check_features(name: str, value: Any) -> None:
+    if isinstance(value, str):
+        if value not in {"sqrt", "log2"}:
+            raise ValueError(f"search.{name} strings must be 'sqrt' or 'log2'")
+        return
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"search.{name} values must be numbers or 'sqrt'/'log2'")
+    if not 0 < float(value) <= 1:
+        raise ValueError(f"search.{name} fractions must lie in (0, 1]")
+
+
+SEARCHABLE = {
+    "min_samples_leaf": _check_leaf,
+    "max_features": _check_features,
+}
+
+
+def _build(parameters: dict[str, Any], seed: int, candidate: dict[str, Any]):
+    return RandomForestQuantileRegressor(
+        n_estimators=parameters["n_estimators"],
+        q=list(parameters["quantiles"]),
+        random_state=seed,
+        n_jobs=parameters["n_jobs"],
+        **candidate,
+    )
+
+
+def _validation_score(
+    estimator: RandomForestQuantileRegressor,
+    partition: TrainingPartition,
+    quantiles: tuple[float, float, float],
+) -> float:
+    """Return mean pinball loss over the three quantiles on held-out data."""
+    raw = _prediction_matrix(estimator, partition.features.matrix(partition.samples))
+    truth = [float(sample.target) for sample in partition.samples]
+    return sum(
+        pinball_loss(truth, list(raw[index]), level)
+        for index, level in enumerate(quantiles)
+    ) / len(quantiles)
+
+
 def fit(protocol: TrainingProtocol, context: TrainingContext) -> FittedModel:
-    """Fit on train, then calibrate intervals on calibration only."""
+    """Select on validation, fit on train, calibrate on calibration."""
     if protocol.task != "regression":
         raise ValueError("quantile_random_forest requires a regression protocol")
     if context.calibration is None or not context.calibration.samples:
         raise ValueError("quantile_random_forest requires a calibration split")
     parameters = _parameters(protocol)
     quantiles = parameters["quantiles"]
-    estimator = RandomForestQuantileRegressor(
-        n_estimators=parameters["n_estimators"],
-        q=list(quantiles),
-        random_state=protocol.model.seed,
-        n_jobs=parameters["n_jobs"],
+    candidates = parameters["search"]
+    if len(candidates) > 1 and (
+        context.validation is None or not context.validation.samples
+    ):
+        raise ValueError(
+            "searching hyperparameters requires a non-empty validation split"
+        )
+
+    train_rows = np.asarray(
+        context.train.features.matrix(context.train.samples), dtype=float
     )
-    train_rows = context.train.features.matrix(context.train.samples)
-    train_targets = [float(sample.target) for sample in context.train.samples]
-    estimator.fit(np.asarray(train_rows, dtype=float), np.asarray(train_targets))
+    train_targets = np.asarray(
+        [float(sample.target) for sample in context.train.samples]
+    )
+
+    # Every candidate is fitted on train alone and scored on validation alone;
+    # calibration and test are untouched until the winner is chosen.
+    trials: list[dict[str, Any]] = []
+    best: tuple[float, dict[str, Any], Any] | None = None
+    for candidate in candidates:
+        estimator = _build(parameters, protocol.model.seed, candidate)
+        estimator.fit(train_rows, train_targets)
+        if context.validation is None or not context.validation.samples:
+            score = float("nan")
+        else:
+            score = _validation_score(estimator, context.validation, quantiles)
+        trials.append({"parameters": dict(candidate), "validation_pinball_loss": score})
+        if best is None or score < best[0]:
+            best = (score, candidate, estimator)
+    assert best is not None
+    selected_score, selected, estimator = best
 
     calibration = context.calibration
     raw = _prediction_matrix(
@@ -260,8 +364,16 @@ def fit(protocol: TrainingProtocol, context: TrainingContext) -> FittedModel:
             "n_estimators": parameters["n_estimators"],
             "quantiles": list(quantiles),
             "n_jobs": parameters["n_jobs"],
+            **selected,
         },
         calibration_count=len(calibration.samples),
+        selection={
+            "criterion": "mean pinball loss over the three quantiles",
+            "selected_on": "validation",
+            "selected": dict(selected),
+            "validation_pinball_loss": selected_score,
+            "trials": trials,
+        },
     )
 
 

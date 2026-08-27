@@ -99,6 +99,10 @@ class FittedModel(Protocol):
 class QuantileFittedModel(FittedModel, Protocol):
     """A regression model that exposes ordered lower, median, and upper values."""
 
+    # The levels the three columns estimate, needed to score them with the
+    # pinball loss rather than only scoring the median.
+    quantiles: tuple[float, float, float]
+
     def predict_quantiles(
         self, samples: Sequence[Sample], features: FeatureMatrix
     ) -> list[tuple[float, float, float]]:
