@@ -25,3 +25,6 @@ outputs/
 .env.*
 !.env.example
 *token*
+
+# Training run bundles
+local_runs/

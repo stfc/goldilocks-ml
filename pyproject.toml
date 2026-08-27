@@ -13,6 +13,7 @@ dependencies = [
 
 [project.scripts]
 goldilocks-psdi = "goldilocks_ml.psdi:cli"
+goldilocks-train = "goldilocks_ml.train_cli:cli"
 
 [dependency-groups]
 dev = [

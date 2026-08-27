@@ -1,0 +1,37 @@
+# Synthetic regression protocol. Exercises the shared pipeline offline on
+# committed fixture data; it makes no scientific claim.
+schema_version = 1
+id = "synthetic-tabular-regression-v1"
+task = "regression"
+trainer = "linear_regression"
+
+[dataset]
+record_id = "synthetic-tabular"
+snapshot_version = "v1"
+manifest_sha256 = "b43703860403bada8a7a07096692699a77313dc50df5625516794e55e11b55d4"
+sample_id = "sample_id"
+target = "target_value"
+
+[split]
+method = "group"
+group_column = "structure_group_id"
+train = 0.7
+validation = 0.1
+calibration = 0.1
+test = 0.1
+seed = 42
+
+[features]
+schema = "synthetic_tabular_xyz"
+columns = ["x1", "x2", "x3"]
+
+[model]
+seed = 42
+
+[model.parameters]
+l2 = 1e-6
+
+[evaluation]
+primary_metric = "mae"
+metrics = ["mae", "rmse", "r2"]
+baseline = "train_median"

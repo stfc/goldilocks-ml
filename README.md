@@ -14,6 +14,29 @@ logic do not belong in Git.
 | QRF95 k-mesh recommendation model | [fex36-67b11](https://data-collections.psdi.ac.uk/records/fex36-67b11) |
 | CGCNN metallicity classifier | [ptc95-vbq12](https://data-collections.psdi.ac.uk/records/ptc95-vbq12) |
 
+## Training protocol CLI
+
+A training protocol is a versioned TOML file, not a notebook. Validate one and
+run it against the committed offline fixture:
+
+```bash
+uv sync
+uv run goldilocks-train validate protocols/synthetic/tabular_regression.toml \
+  --dataset tests/fixtures/synthetic-tabular
+
+uv run goldilocks-train run protocols/synthetic/tabular_regression.toml \
+  --dataset tests/fixtures/synthetic-tabular \
+  --output local_runs/synthetic-regression-v1
+```
+
+`validate` checks the protocol, the snapshot's checksums and columns, and the
+derived split without training. `run` repeats those checks and writes a run
+bundle recording the resolved protocol, dataset identity, split manifest,
+environment, metrics, predictions, model, and a SHA-256 for every file.
+
+The split, evaluation, and reproducibility rules are in the
+[training guide](https://stfc.github.io/goldilocks-ml/training-protocols/).
+
 ## PSDI deposit CLI
 
 Install the repository environment and inspect the CLI:

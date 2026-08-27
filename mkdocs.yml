@@ -37,6 +37,7 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Train a model: training-protocols.md
   - Publish a model: getting-started.md
   - Deposit format: deposit-format.md
   - CLI reference: cli-reference.md

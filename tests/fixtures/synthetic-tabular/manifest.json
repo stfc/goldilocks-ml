@@ -1,0 +1,14 @@
+{
+  "data_file": "data.csv",
+  "description": "Offline synthetic snapshot used by the goldilocks-ml test suite. Not scientific data: features are uniform noise and targets are a known linear function of them, so tests can assert exact behaviour.",
+  "files": [
+    {
+      "name": "data.csv",
+      "sha256": "68efd255031ce783757ea32ff2d1e9ac24d552dd545a22bf0031314f53517cb1",
+      "size_bytes": 8033
+    }
+  ],
+  "record_id": "synthetic-tabular",
+  "schema_version": 1,
+  "snapshot_version": "v1"
+}

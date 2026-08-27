@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import stat
 from collections.abc import Callable
@@ -14,6 +13,8 @@ from typing import Any
 
 from data_collections_api.invenio import InvenioRepository
 from data_collections_api.metadata import validate_metadata
+
+from goldilocks_ml.hashing import is_sha256, sha256_file
 
 PSDI_API = "https://data-collections.psdi.ac.uk/api"
 RESERVED_FILE_NAMES = frozenset({"README.md", "manifest.json", "metadata.json"})
@@ -79,21 +80,9 @@ def _artifact_from_dict(value: object) -> Artifact:
         raise ValueError("artifact names must be non-empty basenames")
     if not isinstance(size_bytes, int) or size_bytes < 0:
         raise ValueError(f"invalid size for {name}")
-    if (
-        not isinstance(sha256, str)
-        or len(sha256) != 64
-        or any(character not in "0123456789abcdef" for character in sha256)
-    ):
+    if not is_sha256(sha256):
         raise ValueError(f"invalid SHA-256 for {name}")
     return Artifact(name=name, size_bytes=size_bytes, sha256=sha256)
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(block)
-    return digest.hexdigest()
 
 
 def describe_artifact(path: Path) -> Artifact:
@@ -104,7 +93,7 @@ def describe_artifact(path: Path) -> Artifact:
     return Artifact(
         name=path.name,
         size_bytes=path.stat().st_size,
-        sha256=_sha256(path),
+        sha256=sha256_file(path),
     )
 
 
@@ -203,7 +192,7 @@ def load_deposition(directory: Path, artifact_directory: Path) -> Deposition:
                 f"{artifact.name} has {actual_size} bytes; "
                 f"expected {artifact.size_bytes}"
             )
-        actual_digest = _sha256(path)
+        actual_digest = sha256_file(path)
         if actual_digest != artifact.sha256:
             raise ValueError(
                 f"{artifact.name} SHA-256 is {actual_digest}; "
