@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "record_key": "metallicity-cgcnn",
+  "community": "data-to-knowledge",
+  "artifacts": [
+    {
+      "name": "is_metal.ckpt",
+      "size_bytes": 2009979,
+      "sha256": "964d818de8a155e3219d1bff9f7fca12137a003c5c71ff6b4f1d68d472d4c9d1"
+    },
+    {
+      "name": "atom_init.json",
+      "size_bytes": 28392,
+      "sha256": "cb90bd2257dbf8cfc4e6b2b6d4348d4616e8e9680f1339b1461137032e0f1894"
+    }
+  ],
+  "inference_requirements": {
+    "artifact_format": "PyTorch Lightning checkpoint",
+    "pytorch_lightning": "2.5.2",
+    "feature_contract": "cgcnn_radius10_neighbors12_atom_init",
+    "target": "is_metal",
+    "labels": {
+      "0": "insulator",
+      "1": "metal"
+    }
+  }
+}

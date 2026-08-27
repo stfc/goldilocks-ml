@@ -1,0 +1,43 @@
+site_name: Goldilocks ML
+site_description: Reproducible model publication workflows for Goldilocks
+site_url: https://stfc.github.io/goldilocks-ml/
+repo_url: https://github.com/stfc/goldilocks-ml
+repo_name: stfc/goldilocks-ml
+
+theme:
+  name: material
+  features:
+    - content.code.copy
+    - navigation.footer
+    - navigation.sections
+    - navigation.top
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/weather-night
+        name: Use dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/weather-sunny
+        name: Use light mode
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+
+nav:
+  - Home: index.md
+  - Publish a model: getting-started.md
+  - Deposit format: deposit-format.md
+  - CLI reference: cli-reference.md
+  - Troubleshooting: troubleshooting.md

@@ -1,0 +1,138 @@
+{
+  "access": {
+    "files": "public",
+    "record": "public"
+  },
+  "files": {
+    "enabled": true,
+    "default_preview": "README.md"
+  },
+  "custom_fields": {
+    "dsmd": [
+      {
+        "model_family": "crystal graph convolutional neural network",
+        "target": "is_metal",
+        "feature_contract": "cgcnn_radius10_neighbors12_atom_init",
+        "training_dataset": "Materials Project, October 2025 snapshot",
+        "pytorch_lightning_version": "2.5.2",
+        "label_0": "insulator",
+        "label_1": "metal"
+      }
+    ]
+  },
+  "metadata": {
+    "title": "Goldilocks CGCNN metallicity classifier",
+    "description": "<p>A crystal graph convolutional neural network classifier used by Goldilocks to estimate whether a periodic material is metallic. It was trained against Materials Project is_metal labels from an October 2025 snapshot. Class 0 denotes insulator and class 1 denotes metal.</p><p>The record includes the PyTorch Lightning checkpoint, its atom embedding table, and sidecar documentation containing the graph feature contract and checksums.</p>",
+    "creators": [
+      {
+        "affiliations": [{"name": "UKRI STFC"}],
+        "person_or_org": {
+          "family_name": "Yin",
+          "given_name": "Junwen",
+          "identifiers": [
+            {
+              "identifier": "0000-0001-7374-9352",
+              "scheme": "orcid"
+            }
+          ],
+          "name": "Yin, Junwen",
+          "type": "personal"
+        }
+      }
+    ],
+    "contributors": [
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Elena, Alin-Marin",
+          "given_name": "Alin-Marin",
+          "family_name": "Elena"
+        },
+        "role": {"id": "projectmanager"},
+        "affiliations": [{"name": "UKRI STFC"}]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Patyukova, Elena",
+          "given_name": "Elena",
+          "family_name": "Patyukova"
+        },
+        "role": {"id": "projectmember"},
+        "affiliations": [{"name": "UKRI STFC"}]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Yin, Junwen",
+          "given_name": "Junwen",
+          "family_name": "Yin"
+        },
+        "role": {"id": "projectmember"},
+        "affiliations": [{"name": "UKRI STFC"}]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Basak, Susmita",
+          "given_name": "Susmita",
+          "family_name": "Basak"
+        },
+        "role": {"id": "projectmember"},
+        "affiliations": [{"name": "UKRI STFC"}]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Cha, Jaehoon",
+          "given_name": "Jaehoon",
+          "family_name": "Cha"
+        },
+        "role": {"id": "projectmember"},
+        "affiliations": [{"name": "UKRI STFC"}]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Teobaldi, Gilberto",
+          "given_name": "Gilberto",
+          "family_name": "Teobaldi"
+        },
+        "role": {"id": "projectmember"},
+        "affiliations": [{"name": "UKRI STFC"}]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Pinilla Sanchez, Samuel",
+          "given_name": "Samuel",
+          "family_name": "Pinilla Sanchez"
+        },
+        "role": {"id": "projectmember"},
+        "affiliations": [{"name": "UKRI STFC"}]
+      }
+    ],
+    "rights": [
+      {
+        "id": "cc-by-4.0"
+      }
+    ],
+    "resource_type": {
+      "id": "model"
+    },
+    "subjects": [
+      {
+        "subject": "Materials science"
+      },
+      {
+        "subject": "Metallicity classification"
+      },
+      {
+        "subject": "Graph neural networks"
+      }
+    ],
+    "publisher": "PSDI",
+    "publication_date": "2026-07-07",
+    "version": "v1.0"
+  }
+}

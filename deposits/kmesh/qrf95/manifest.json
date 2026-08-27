@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "record_key": "kmesh-qrf95",
+  "community": "data-to-knowledge",
+  "artifacts": [
+    {
+      "name": "QRF95.pkl",
+      "size_bytes": 185695399,
+      "sha256": "2647b976a57637cc34e4874f3b0ff3436a7c032761b774fdd9e56e69fddaffcc"
+    }
+  ],
+  "inference_requirements": {
+    "artifact_format": "joblib pickle",
+    "scikit_learn": "1.7.2",
+    "sklearn_quantile": "0.1.1",
+    "feature_contract": "qrf_comp_struct_soap_lattice_metal",
+    "target": "k_distance",
+    "quantiles": [0.05, 0.5, 0.95]
+  }
+}
