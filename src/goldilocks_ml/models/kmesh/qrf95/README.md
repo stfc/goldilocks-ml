@@ -28,17 +28,29 @@ order.
 
 ## Feature contract
 
-`comp_struct_soap_lattice_metal`, concatenated in this order:
+`comp_struct_soap_lattice_metal`, concatenated in this order. The widths are
+not guesses: the published `QRF95.pkl` reports `n_features_in_ = 483`, and this
+is the only decomposition that reaches it.
 
-1. **Composition** — matminer `ElementProperty`, `Stoichiometry`,
-   `ValenceOrbital`, over the IUPAC-normalised formula.
-2. **Structure** — matminer `GlobalSymmetryFeatures`, `DensityFeatures`.
-3. **SOAP** — DScribe, all species replaced by a single type, periodic,
-   `r_cut=10.0, n_max=8, l_max=6, sigma=1.0`, averaged over atoms.
-4. **Lattice** — reciprocal lattice descriptors.
-5. **Metallicity** — the 128-dimensional crystal representation from the
-   companion CGCNN metallicity checkpoint, taken *before* its classification
-   head (`extract_crystal_repr`).
+| # | Block | Width |
+| --- | --- | --- |
+| 1 | `ElementProperty.from_preset("magpie", impute_nan=True)` | 132 |
+| 2 | `Stoichiometry(impute_nan=True)` | 6 |
+| 3 | `ValenceOrbital(impute_nan=True)` | 8 |
+| 4 | `GlobalSymmetryFeatures(["spacegroup_num", "crystal_system_int", "is_centrosymmetric"])` | 3 |
+| 5 | `DensityFeatures(["density", "vpa", "packing fraction"])` | 3 |
+| 6 | SOAP, all species replaced by one type, periodic, `r_cut=10.0, n_max=8, l_max=6, sigma=1.0`, averaged over atoms | 252 |
+| 7 | Lattice: `abc`, angles, reciprocal `abc`, reciprocal angles, crystal system id, Bravais id, spacegroup number | 15 |
+| 8 | CGCNN `extract_crystal_repr`: mean-pooled node features after the convolutions | 64 |
+| | **Total** | **483** |
+
+Composition features are computed over the IUPAC-normalised formula.
+
+Two details are easy to get wrong. `GlobalSymmetryFeatures` is constructed with
+three named properties, not its five-property default. Block 8 is taken after
+the convolutions and before the `h_fea_len` projection, so it is 64 wide, not
+128 — and the checkpoint's own hyperparameters say `n_conv=3`, where the
+repository's `configs/cgcnn.yaml` says 5.
 
 Every one of these is a deterministic per-structure transform with nothing
 fitted, so computing them over the whole snapshot before splitting leaks
@@ -58,5 +70,14 @@ silently produces a different feature vector.
 - **No conformal step in a notebook.** Historical conformal correction lived in
   `notebooks/RF-CQR.ipynb`. Calibration is a split here.
 
-These make the published QRF95 artifact and a run of this protocol **not**
-comparable. This protocol provides the method, not a reproduction.
+## Reproducibility ceiling
+
+The published `QRF95.pkl` was pickled with `random_state=None`. A random forest
+fitted without a seed draws a fresh one each time, so **the exact published
+artifact cannot be reproduced** even from identical data and features. What can
+be reproduced is the method, and what can be verified exactly is the feature
+pipeline: feed reproduced features to the published model and its predictions
+are a direct test of blocks 1 to 8.
+
+The deviations above compound that. Treat a run of this protocol as a
+retraining, never as a reproduction of the released artifact.
