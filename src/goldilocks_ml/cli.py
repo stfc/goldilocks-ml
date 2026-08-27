@@ -10,8 +10,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import goldilocks_ml.kmesh  # noqa: F401  (each model registers itself)
-import goldilocks_ml.metallicity  # noqa: F401
+import goldilocks_ml.models.kmesh  # noqa: F401  (each model registers itself)
+import goldilocks_ml.models.metallicity  # noqa: F401
 from goldilocks_ml import artifacts as artifact_store
 from goldilocks_ml.evaluation import (
     Prediction,

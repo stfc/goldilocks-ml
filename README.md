@@ -29,8 +29,8 @@ uv run goldilocks-train run PROTOCOL --dataset snapshots/mine --output local_run
 
 `run` writes a bundle recording the resolved protocol, dataset identity, split
 manifest, environment, metrics, predictions, model, and a SHA-256 for every
-file. Two models are in scope, under `src/goldilocks_ml/kmesh/qrf95/` and
-`src/goldilocks_ml/metallicity/cgcnn/`; their protocols are written and
+file. Two models are in scope, under `src/goldilocks_ml/models/kmesh/qrf95/` and
+`src/goldilocks_ml/models/metallicity/cgcnn/`; their protocols are written and
 their trainers are not implemented yet.
 
 The data layout, split rules, and reproducibility limits are in the
