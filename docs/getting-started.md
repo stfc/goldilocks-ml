@@ -14,14 +14,7 @@ You need:
 - the final model artifact and every runtime support file;
 - enough provenance to write the metadata and model card.
 
-Clone the repository and install its locked environment:
-
-```bash
-git clone https://github.com/stfc/goldilocks-ml.git
-cd goldilocks-ml
-uv sync --group dev --group docs
-uv run goldilocks-psdi --help
-```
+Complete the [installation](installation.md) before preparing a publication.
 
 ## 2. Store the token safely
 

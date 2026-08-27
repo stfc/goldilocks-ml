@@ -34,10 +34,19 @@ markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.superfences
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
 
 nav:
   - Home: index.md
-  - Publish a model: getting-started.md
-  - Deposit format: deposit-format.md
+  - Installation: installation.md
+  - Train a model:
+      - Overview: training/index.md
+      - Prepare your data: training/your-data.md
+      - Protocol reference: training/protocol.md
+  - Publish a model:
+      - Workflow: getting-started.md
+      - Deposit format: deposit-format.md
   - CLI reference: cli-reference.md
   - Troubleshooting: troubleshooting.md

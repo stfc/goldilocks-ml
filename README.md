@@ -14,6 +14,28 @@ logic do not belong in Git.
 | QRF95 k-mesh recommendation model | [fex36-67b11](https://data-collections.psdi.ac.uk/records/fex36-67b11) |
 | CGCNN metallicity classifier | [ptc95-vbq12](https://data-collections.psdi.ac.uk/records/ptc95-vbq12) |
 
+## Training protocol CLI
+
+A training protocol is a versioned TOML file, not a notebook. A clean checkout
+can run both reference workflows entirely offline:
+
+```bash
+uv sync
+uv run goldilocks-train validate protocols/synthetic/regression.toml \
+  --dataset tests/fixtures/kdist
+uv run goldilocks-train run protocols/synthetic/regression.toml \
+  --dataset tests/fixtures/kdist --output local_runs/synthetic-regression
+```
+
+`run` writes a bundle recording the resolved protocol, dataset identity, split
+manifest, environment, metrics, predictions, model, and a SHA-256 for every
+file. The shipped linear and logistic trainers are deliberately lightweight
+reference implementations. Scientific QRF and CGCNN trainers will plug into the
+same tested protocol interface in their own model-specific changes.
+
+The data layout, split rules, and reproducibility limits are in the
+[training guide](https://stfc.github.io/goldilocks-ml/training/).
+
 ## PSDI deposit CLI
 
 Install the repository environment and inspect the CLI:

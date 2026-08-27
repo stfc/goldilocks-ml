@@ -1,0 +1,41 @@
+# Pinned classification counterpart to regression.toml. Exercises stratified
+# group splitting, validation-only threshold selection, and ranking metrics.
+schema_version = 1
+id = "synthetic-classification-v1"
+task = "classification"
+trainer = "logistic_regression"
+
+[dataset]
+target = "is_metal"
+target_contract = "synthetic.is_metal.v1"
+requires = ["features", "groups"]
+record_id = "synthetic-metallic"
+snapshot_version = "v1"
+manifest_sha256 = "d4e66f97c9ec6e540461e787b422d297351c1d3b0336d054d8ccc9d1151b9296"
+
+[split]
+method = "group"
+stratify = true
+train = 0.7
+validation = 0.1
+calibration = 0.1
+test = 0.1
+seed = 42
+
+[features]
+schema = "tabular"
+
+[model]
+seed = 42
+
+[model.parameters]
+l2 = 1e-4
+learning_rate = 0.2
+iterations = 800
+
+[evaluation]
+primary_metric = "mcc"
+metrics = ["accuracy", "balanced_accuracy", "precision", "recall", "f1", "mcc", "roc_auc", "pr_auc"]
+baseline = "train_majority"
+threshold_metric = "mcc"
+positive_label = "metal"

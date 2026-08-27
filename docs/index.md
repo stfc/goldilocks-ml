@@ -1,7 +1,21 @@
-# Goldilocks model publication
+# Goldilocks model training and publication
 
-`goldilocks-ml` turns a local model release into a reviewed, reproducible PSDI
-Data Collections record. It validates the metadata, model card, file sizes, and
+`goldilocks-ml` covers two halves of the same contract. A versioned training
+protocol turns an immutable dataset snapshot into an auditable run bundle, and
+the deposit workflow turns a model release into a reviewed, reproducible PSDI
+Data Collections record.
+
+## Training a model
+
+A protocol is an executable TOML file that pins the dataset snapshot, the split
+and its leakage controls, the trainer and its parameters, and the metrics and
+baseline. One command validates it offline; one command runs it and writes a
+bundle that records what data was used, how it was split, what was fitted, how
+it scored, and a SHA-256 for every file.
+
+## Publishing a model
+
+The deposit workflow validates the metadata, model card, file sizes, and
 SHA-256 digests before it contacts PSDI.
 
 The workflow is deliberately split:
@@ -36,5 +50,7 @@ examples. The large artifact files remain under ignored local storage.
 - Upload starts only after metadata, size, and SHA-256 validation succeeds.
 - A failed metadata, file, or community-binding step removes the partial draft.
 
-[Publish a model](getting-started.md){ .md-button .md-button--primary }
+[Installation](installation.md){ .md-button .md-button--primary }
+[Train a model](training/index.md){ .md-button }
+[Publish a model](getting-started.md){ .md-button }
 [Understand the deposit files](deposit-format.md){ .md-button }

@@ -1,0 +1,25 @@
+{
+  "features_file": "features.csv",
+  "files": [
+    {
+      "name": "id_prop.csv",
+      "sha256": "bdf23fc923b8c2f4ec31f2c8256d1d2426b18aeb3a4f8b903bdb4f6374c992fd",
+      "size_bytes": 2972
+    },
+    {
+      "name": "features.csv",
+      "sha256": "3e56014fcf58511bc0d56ad2927aac357954fa882e30868a27f15e52c7cd345d",
+      "size_bytes": 4400
+    }
+  ],
+  "record_id": "synthetic-metallic",
+  "schema_version": 1,
+  "snapshot_version": "v1",
+  "structure_suffix": null,
+  "target": {
+    "contract": "synthetic.is_metal.v1",
+    "definition": "Synthetic binary metallicity label.",
+    "name": "is_metal",
+    "units": null
+  }
+}
