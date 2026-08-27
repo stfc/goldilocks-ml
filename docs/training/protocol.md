@@ -1,19 +1,21 @@
 # Protocol reference
 
-Each model owns its protocol next to its code. Unknown fields are rejected, so a protocol cannot quietly carry settings nothing reads.
+Reviewed protocols live under `protocols/`. Unknown fields are rejected, so a
+protocol cannot quietly carry settings nothing reads.
 
 ## Schema
 
 ```toml
 schema_version = 1
-id = "kmesh-qrf95-v1"
+id = "tabular-regression-v1"
 task = "regression"
-trainer = "quantile_random_forest"
+trainer = "linear_regression"
 
 [dataset]
-target = "k_distance"
-target_units = "1/angstrom"
-requires = ["structures", "groups"]
+target = "energy"
+target_contract = "my-project.energy.v1"
+target_units = "eV/atom"
+requires = ["features", "groups"]
 
 [split]
 method = "group"
@@ -24,22 +26,16 @@ test = 0.1
 seed = 42
 
 [features]
-schema = "comp_struct_soap_lattice_metal"
+schema = "tabular"
 
 [features.parameters]
-soap = { r_cut = 10.0, n_max = 8, l_max = 6, sigma = 1.0 }
-
-[features.depends_on.metallicity]
-record_id = "ptc95-vbq12"
-file = "is_metal.ckpt"
-sha256 = "964d818d..."
+columns = ["density", "volume_per_atom"]
 
 [model]
 seed = 42
 
 [model.parameters]
-n_estimators = 100
-quantiles = [0.05, 0.5, 0.95]
+l2 = 1e-6
 
 [evaluation]
 primary_metric = "mae"
@@ -50,6 +46,13 @@ baseline = "train_median"
 `[model.parameters]` and `[features.parameters]` are the schema's two free-form
 tables. Everything outside them is checked here; everything inside is checked by
 the trainer or feature contract that consumes it.
+
+### Target contract
+
+`target_contract` identifies the scientific definition of the second column in
+`id_prop.csv`. The snapshot must declare the same name, contract, and units.
+Changing a label schedule or switching between two definitions requires a new
+contract version; a matching numeric column is not enough.
 
 ### Pinned artifacts
 
@@ -85,9 +88,10 @@ classification protocol's decision threshold is selected on validation data and
 nowhere else; the run refuses to start if a protocol asks for threshold
 selection without a validation split.
 
-Learned preprocessing is fitted on the training split alone. The trainer only
-ever receives training samples, so this is structural rather than a convention,
-and the test suite asserts it.
+Learned preprocessing is fitted on the training split alone. A trainer may read
+the named validation split for early stopping and the calibration split for
+calibration, but its context contains no test samples, labels, or features. The
+test suite asserts that boundary.
 
 ## The run bundle
 
@@ -101,6 +105,7 @@ local_runs/<run-id>/
 ├── metrics.json      # baseline and model metrics for every split
 ├── predictions.csv   # sample id, split, source, truth, prediction, score
 ├── model/            # model artifacts
+├── .goldilocks-run   # safety marker required before --overwrite may delete files
 └── manifest.json     # size and SHA-256 for every file above
 ```
 
@@ -123,6 +128,6 @@ commit, and locked environment are available. Byte-identical model artifacts are
 promised only for trainers documented as deterministic; each model's
 `model.json` records whether it is.
 
-The published QRF95 and CGCNN artifacts predate this workflow and were trained
-with a different split, so a run of these protocols is **not** a reproduction of
-them. Each model's README says exactly how they differ.
+The shared workflow does not claim that historical QRF95 or CGCNN artifacts can
+be reproduced. Their model-specific protocols must document any recovered data,
+label, split, dependency, and determinism limitations.

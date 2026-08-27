@@ -3,6 +3,18 @@
 Run commands from a clone with `uv run`. `goldilocks-train` trains and
 evaluates models; `goldilocks-psdi` publishes them.
 
+## `goldilocks-train seal`
+
+```bash
+uv run goldilocks-train seal DATASET \
+  --record-id RECORD --version VERSION \
+  --target TARGET --target-contract CONTRACT \
+  --target-definition DEFINITION [--target-units UNITS]
+```
+
+Writes `manifest.json` with the snapshot identity, target definition, and the
+size and SHA-256 of every file. This command makes no network request.
+
 ## `goldilocks-train validate`
 
 ```bash
@@ -22,8 +34,9 @@ uv run goldilocks-train run PROTOCOL --dataset DATASET --output OUTPUT \
 
 Repeats every `validate` check, then trains, evaluates, and writes a run
 bundle to `OUTPUT`. `--splits` replays an existing `splits.csv` instead of
-deriving one. `--overwrite` replaces an existing output directory; without it
-the command refuses rather than clobber a previous run.
+deriving one. `--overwrite` replaces only a directory created by an earlier
+Goldilocks run and carrying its safety marker. It refuses ordinary directories,
+even when the flag is present.
 
 See [Train a model](training/index.md) for the protocol schema, the
 snapshot contract, and the bundle layout.

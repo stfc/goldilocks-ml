@@ -12,14 +12,15 @@ from conftest import (
     regression_document,
     write_protocol,
 )
-from pipeline.baseline import Standardizer
 
+from goldilocks_ml.baselines import Standardizer
 from goldilocks_ml.cli import build_features
 from goldilocks_ml.protocol import load_protocol
 from goldilocks_ml.registry import (
     FeatureMatrix,
     FittedModel,
     TrainingContext,
+    TrainingPartition,
     feature_contract_names,
     get_feature_contract,
     get_trainer,
@@ -52,8 +53,9 @@ def _setup(
     snapshot = load_snapshot(snapshot_dir, protocol)
     features, artifacts = build_features(protocol, snapshot, tmp_path / "artifacts")
     context = TrainingContext(
-        snapshot=snapshot,
-        features=features,
+        train=TrainingPartition(samples=snapshot.samples, features=features),
+        validation=None,
+        calibration=None,
         artifacts=artifacts,
         output_dir=tmp_path / "model",
     )
@@ -120,8 +122,8 @@ def test_the_tabular_contract_selects_requested_columns(
         tmp_path, snapshot_dir, features={"parameters": {"columns": ["x3", "x1"]}}
     )
 
-    assert context.features.columns == ("x3", "x1")
-    assert context.features.rows["syn-000"] == (0.0, -2.0)
+    assert context.train.features.columns == ("x3", "x1")
+    assert context.train.features.rows["syn-000"] == (0.0, -2.0)
 
 
 def test_the_tabular_contract_rejects_a_missing_column(
@@ -178,9 +180,9 @@ def test_linear_regression_recovers_a_known_linear_target(
 ) -> None:
     protocol, snapshot, context = _setup(tmp_path, snapshot_dir)
 
-    model = get_trainer(protocol.trainer)(protocol, snapshot.samples, context)
+    model = get_trainer(protocol.trainer)(protocol, context)
 
-    predicted = model.predict(snapshot.samples)
+    predicted = model.predict(snapshot.samples, context.train.features)
     truth = [float(sample.target) for sample in snapshot.samples]
     assert predicted == pytest.approx(truth, abs=1e-6)
 
@@ -189,7 +191,7 @@ def test_linear_regression_saves_a_readable_model(
     tmp_path: Path, snapshot_dir: Path
 ) -> None:
     protocol, snapshot, context = _setup(tmp_path, snapshot_dir)
-    model = get_trainer(protocol.trainer)(protocol, snapshot.samples, context)
+    model = get_trainer(protocol.trainer)(protocol, context)
     directory = tmp_path / "model"
     directory.mkdir()
 
@@ -211,7 +213,7 @@ def test_linear_regression_rejects_a_negative_penalty(
     )
 
     with pytest.raises(ValueError, match="l2 must not be negative"):
-        get_trainer(protocol.trainer)(protocol, snapshot.samples, context)
+        get_trainer(protocol.trainer)(protocol, context)
 
 
 def test_logistic_regression_separates_a_separable_target(
@@ -224,9 +226,9 @@ def test_logistic_regression_separates_a_separable_target(
         model={"parameters": {"iterations": 800}},
     )
 
-    model = get_trainer(protocol.trainer)(protocol, snapshot.samples, context)
+    model = get_trainer(protocol.trainer)(protocol, context)
 
-    scores = model.predict(snapshot.samples)
+    scores = model.predict(snapshot.samples, context.train.features)
     for sample, score in zip(snapshot.samples, scores, strict=True):
         assert (score > 0.5) is (str(sample.target) == "metal")
 
@@ -237,8 +239,10 @@ def test_logistic_regression_is_deterministic(
     protocol, snapshot, context = _setup(tmp_path, snapshot_dir, classification=True)
     trainer = get_trainer(protocol.trainer)
 
-    first = trainer(protocol, snapshot.samples, context).predict(snapshot.samples)
-    second = trainer(protocol, snapshot.samples, context).predict(snapshot.samples)
+    first_model = trainer(protocol, context)
+    second_model = trainer(protocol, context)
+    first = first_model.predict(snapshot.samples, context.train.features)
+    second = second_model.predict(snapshot.samples, context.train.features)
 
     assert first == second
 
@@ -259,7 +263,7 @@ def test_logistic_regression_rejects_invalid_hyperparameters(
     )
 
     with pytest.raises(ValueError, match=message):
-        get_trainer(protocol.trainer)(protocol, snapshot.samples, context)
+        get_trainer(protocol.trainer)(protocol, context)
 
 
 def test_a_trainer_only_sees_the_samples_it_is_handed(
@@ -268,10 +272,28 @@ def test_a_trainer_only_sees_the_samples_it_is_handed(
     protocol, snapshot, context = _setup(tmp_path, snapshot_dir)
     subset = snapshot.samples[:6]
 
-    model = get_trainer(protocol.trainer)(protocol, subset, context)
+    restricted = TrainingContext(
+        train=TrainingPartition(
+            samples=subset, features=context.train.features.subset(subset)
+        ),
+        validation=None,
+        calibration=None,
+        artifacts=context.artifacts,
+        output_dir=context.output_dir,
+    )
+    model = get_trainer(protocol.trainer)(protocol, restricted)
 
-    fitted_on = Standardizer.fit(context.features.matrix(subset))
+    fitted_on = Standardizer.fit(restricted.train.features.matrix(subset))
     assert model.describe()["standardizer"]["means"] == list(fitted_on.means)
+
+
+def test_training_context_has_no_test_partition(
+    tmp_path: Path, snapshot_dir: Path
+) -> None:
+    _, _, context = _setup(tmp_path, snapshot_dir)
+
+    assert not hasattr(context, "test")
+    assert not hasattr(context, "snapshot")
 
 
 def test_a_sample_outside_the_feature_matrix_is_reported() -> None:

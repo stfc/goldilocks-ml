@@ -1,16 +1,17 @@
-# Pinned classification counterpart to synthetic-kdist.toml. Exercises stratified
+# Pinned classification counterpart to regression.toml. Exercises stratified
 # group splitting, validation-only threshold selection, and ranking metrics.
 schema_version = 1
-id = "synthetic-metallic-v1"
+id = "synthetic-classification-v1"
 task = "classification"
 trainer = "logistic_regression"
 
 [dataset]
 target = "is_metal"
+target_contract = "synthetic.is_metal.v1"
 requires = ["features", "groups"]
 record_id = "synthetic-metallic"
 snapshot_version = "v1"
-manifest_sha256 = "dc0f113db827d74370f724914bbb48a4e9e0b502f83c8e4045b57e20d0e9e63e"
+manifest_sha256 = "d4e66f97c9ec6e540461e787b422d297351c1d3b0336d054d8ccc9d1151b9296"
 
 [split]
 method = "group"

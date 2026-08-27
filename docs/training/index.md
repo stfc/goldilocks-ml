@@ -5,28 +5,32 @@ dataset in the documented layout, run one command, and get a self-describing run
 bundle recording what data was used, how it was split, what was fitted, and how
 it scored.
 
-## The models
+Complete the [installation](../installation.md) before running these commands.
 
-One folder per task, then per model, matching `deposits/` and the released
-artifact namespace.
+## Try the complete workflow
 
-| Model | Task | Protocol | Trainer |
-| --- | --- | --- | --- |
-| [QRF95](kmesh/qrf95.md) | k-mesh regression | written | not implemented |
-| [CGCNN](metallicity/cgcnn.md) | metallicity classification | written | not implemented |
+The repository includes pinned synthetic regression and classification
+snapshots. They exercise the installed package, not test-only substitutes:
 
-Each model page records the exact training method its trainer must reproduce,
-read from `stfc/goldilocks_kpoints`, and where this pipeline deliberately
-differs from it. Until a trainer lands, `seal` works and `run` has nothing to
-run.
+```bash
+uv run goldilocks-train validate protocols/synthetic/regression.toml \
+  --dataset tests/fixtures/kdist
+uv run goldilocks-train run protocols/synthetic/regression.toml \
+  --dataset tests/fixtures/kdist --output local_runs/synthetic-regression
+```
+
+The reference linear and logistic trainers make the shared contract executable
+on any CPU. QRF and CGCNN will add model-specific trainers without changing the
+snapshot, split, evaluation, or run-bundle machinery.
 
 ## The workflow
 
 ```bash
-uv sync
-
 # 1. Convert your data, then record a digest for every file.
-uv run goldilocks-train seal snapshots/mine --record-id my-data --version v1
+uv run goldilocks-train seal snapshots/mine \
+  --record-id my-data --version v1 \
+  --target energy --target-contract my-project.energy.v1 \
+  --target-definition "Total energy per atom." --target-units eV/atom
 
 # 2. Check the protocol and your data. Trains nothing, contacts nothing.
 uv run goldilocks-train validate PROTOCOL --dataset snapshots/mine

@@ -16,22 +16,22 @@ logic do not belong in Git.
 
 ## Training protocol CLI
 
-A training protocol is a versioned TOML file next to the model it trains, not a
-notebook. Convert your data into `id_prop.csv` plus one structure file per
-sample, seal it, then validate and run:
+A training protocol is a versioned TOML file, not a notebook. A clean checkout
+can run both reference workflows entirely offline:
 
 ```bash
 uv sync
-uv run goldilocks-train seal snapshots/mine --record-id my-data --version v1
-uv run goldilocks-train validate PROTOCOL --dataset snapshots/mine
-uv run goldilocks-train run PROTOCOL --dataset snapshots/mine --output local_runs/mine-v1
+uv run goldilocks-train validate protocols/synthetic/regression.toml \
+  --dataset tests/fixtures/kdist
+uv run goldilocks-train run protocols/synthetic/regression.toml \
+  --dataset tests/fixtures/kdist --output local_runs/synthetic-regression
 ```
 
 `run` writes a bundle recording the resolved protocol, dataset identity, split
 manifest, environment, metrics, predictions, model, and a SHA-256 for every
-file. Two models are in scope, under `src/goldilocks_ml/models/kmesh/qrf95/` and
-`src/goldilocks_ml/models/metallicity/cgcnn/`; their protocols are written and
-their trainers are not implemented yet.
+file. The shipped linear and logistic trainers are deliberately lightweight
+reference implementations. Scientific QRF and CGCNN trainers will plug into the
+same tested protocol interface in their own model-specific changes.
 
 The data layout, split rules, and reproducibility limits are in the
 [training guide](https://stfc.github.io/goldilocks-ml/training/).

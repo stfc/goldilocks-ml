@@ -2,17 +2,18 @@
 # complete workflow offline. Pinning is what makes a run a reproduction; a
 # template that pins nothing is still auditable through its run bundle.
 schema_version = 1
-id = "synthetic-kdist-v1"
+id = "synthetic-regression-v1"
 task = "regression"
 trainer = "linear_regression"
 
 [dataset]
 target = "k_distance"
+target_contract = "synthetic.k_distance.v1"
 target_units = "1/angstrom"
 requires = ["features", "groups"]
 record_id = "synthetic-kdist"
 snapshot_version = "v1"
-manifest_sha256 = "31bdff4622c8f591884caaac7ab2cabc90b2c27e88f94a45f52aaae9b59c60ea"
+manifest_sha256 = "34d5f1e0a5e23e35a16a0743da72e3659a279961367b92803f3fc62a1e6a5e3b"
 
 [split]
 method = "group"

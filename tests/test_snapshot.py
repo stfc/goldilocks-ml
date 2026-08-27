@@ -49,6 +49,8 @@ def test_load_snapshot_returns_verified_samples(
     assert snapshot.samples[0].group == "grp-00"
     assert snapshot.samples[0].structure_path is None
     assert snapshot.capabilities == frozenset({"features", "groups"})
+    assert snapshot.target_contract == "synthetic.value.v1"
+    assert snapshot.identity()["target"]["definition"] == "Synthetic test target value."
 
 
 def test_structures_become_a_capability(tmp_path: Path, snapshot_dir: Path) -> None:
@@ -169,6 +171,46 @@ def test_load_snapshot_rejects_a_resized_data_file(
         _load(tmp_path, snapshot_dir)
 
 
+def test_load_snapshot_rejects_an_unprotected_file(
+    tmp_path: Path, snapshot_dir: Path
+) -> None:
+    build_snapshot(snapshot_dir)
+    (snapshot_dir / "untracked.csv").write_text(
+        "changed after sealing\n", encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match="not integrity-protected"):
+        _load(tmp_path, snapshot_dir)
+
+
+def test_load_snapshot_rejects_an_unprotected_id_prop(
+    tmp_path: Path, snapshot_dir: Path
+) -> None:
+    build_snapshot(snapshot_dir)
+    path = snapshot_dir / "manifest.json"
+    manifest = json.loads(path.read_text())
+    manifest["files"] = [
+        entry for entry in manifest["files"] if entry["name"] != "id_prop.csv"
+    ]
+    path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+
+    with pytest.raises(ValueError, match="id_prop.csv|integrity-protected"):
+        _load(tmp_path, snapshot_dir)
+
+
+def test_load_snapshot_rejects_a_different_target_contract(
+    tmp_path: Path, snapshot_dir: Path
+) -> None:
+    build_snapshot(snapshot_dir)
+
+    with pytest.raises(ValueError, match="target contract"):
+        _load(
+            tmp_path,
+            snapshot_dir,
+            dataset={"target_contract": "synthetic.value.v2"},
+        )
+
+
 def test_load_snapshot_rejects_a_missing_manifest(
     tmp_path: Path, snapshot_dir: Path
 ) -> None:
@@ -215,6 +257,10 @@ def test_load_snapshot_rejects_a_manifest_file_without_a_digest(
         ),
         (lambda rows: rows[5].__setitem__("value", float("inf")), "non-finite target"),
         (lambda rows: rows[5].__setitem__("sample_id", "  "), "empty sample id"),
+        (
+            lambda rows: rows[5].__setitem__("sample_id", "../outside"),
+            "safe basename",
+        ),
         (lambda rows: rows[5].__setitem__("group", " "), "has an empty group"),
     ],
 )
@@ -233,12 +279,21 @@ def test_load_snapshot_rejects_unusable_rows(
         _load(tmp_path, snapshot_dir)
 
 
-def test_classification_needs_two_classes(tmp_path: Path, snapshot_dir: Path) -> None:
+def test_classification_needs_exactly_two_classes(
+    tmp_path: Path, snapshot_dir: Path
+) -> None:
     rows = [{**row, "label": "metal"} for row in make_rows()]
     build_snapshot(snapshot_dir, rows, target="label")
 
-    with pytest.raises(ValueError, match="at least two classes"):
+    with pytest.raises(ValueError, match="exactly two classes"):
         _load(tmp_path, snapshot_dir, classification=True)
+
+    rows = make_rows()
+    rows[0] = {**rows[0], "label": "semimetal"}
+    other = tmp_path / "three-classes"
+    build_snapshot(other, rows, target="label")
+    with pytest.raises(ValueError, match="exactly two classes"):
+        _load(tmp_path, other, classification=True)
 
 
 def test_an_unedited_positive_label_is_caught_before_training(

@@ -40,14 +40,11 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Installation: installation.md
   - Train a model:
       - Overview: training/index.md
       - Prepare your data: training/your-data.md
       - Protocol reference: training/protocol.md
-      - k-mesh:
-          - QRF95: training/kmesh/qrf95.md
-      - Metallicity:
-          - CGCNN: training/metallicity/cgcnn.md
   - Publish a model:
       - Workflow: getting-started.md
       - Deposit format: deposit-format.md

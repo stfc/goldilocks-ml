@@ -1,8 +1,8 @@
-"""Dependency-free baselines over precomputed features.
+"""Dependency-free reference trainers over precomputed tabular features.
 
-These are honest reference models, not scientific ones. They train on a CPU in
-milliseconds and need nothing beyond the standard library, so CI can exercise
-the complete protocol workflow without a GPU, private data, or network access.
+These are reference models, not the scientific QRF or CGCNN trainers. They let
+users and CI exercise the complete public protocol workflow on a CPU without a
+private dataset, GPU, or network access.
 """
 
 from __future__ import annotations
@@ -85,22 +85,25 @@ def _solve(matrix: list[list[float]], vector: list[float]) -> list[float]:
 class _Linear:
     """Ridge-regularised least squares over standardised features."""
 
-    features: FeatureMatrix
     standardizer: Standardizer
     weights: tuple[float, ...]
     intercept: float
     hyperparameters: dict[str, Any] = field(default_factory=dict)
     seed: int = 0
 
-    def _linear(self, sample: Sample) -> float:
-        row = self.standardizer.apply(self.features.rows[sample.sample_id])
+    feature_columns: tuple[str, ...] = ()
+
+    def _linear(self, sample: Sample, features: FeatureMatrix) -> float:
+        row = self.standardizer.apply(features.rows[sample.sample_id])
         return self.intercept + sum(
             weight * value for weight, value in zip(self.weights, row, strict=True)
         )
 
-    def predict(self, samples: Sequence[Sample]) -> list[float]:
+    def predict(
+        self, samples: Sequence[Sample], features: FeatureMatrix
+    ) -> list[float]:
         """Return one predicted value per sample."""
-        return [self._linear(sample) for sample in samples]
+        return [self._linear(sample, features) for sample in samples]
 
     def describe(self) -> dict[str, Any]:
         """Return the fitted coefficients and hyperparameters."""
@@ -110,7 +113,7 @@ class _Linear:
             "seed": self.seed,
             "deterministic": True,
             "hyperparameters": self.hyperparameters,
-            "feature_columns": list(self.features.columns),
+            "feature_columns": list(self.feature_columns),
             "standardizer": {
                 "means": list(self.standardizer.means),
                 "scales": list(self.standardizer.scales),
@@ -133,10 +136,13 @@ class _Logistic(_Linear):
 
     positive_label: str = ""
 
-    def predict(self, samples: Sequence[Sample]) -> list[float]:
+    def predict(
+        self, samples: Sequence[Sample], features: FeatureMatrix
+    ) -> list[float]:
         """Return the positive-class probability for each sample."""
         return [
-            1.0 / (1.0 + math.exp(-max(-60.0, min(60.0, self._linear(sample)))))
+            1.0
+            / (1.0 + math.exp(-max(-60.0, min(60.0, self._linear(sample, features)))))
             for sample in samples
         ]
 
@@ -152,10 +158,8 @@ class _Logistic(_Linear):
         }
 
 
-def _rows(
-    context: TrainingContext, samples: Sequence[Sample]
-) -> list[tuple[float, ...]]:
-    rows = context.features.matrix(samples)
+def _rows(context: TrainingContext) -> list[tuple[float, ...]]:
+    rows = context.train.features.matrix(context.train.samples)
     if not rows or not rows[0]:
         raise ValueError("the feature contract produced no feature columns")
     return rows
@@ -163,7 +167,6 @@ def _rows(
 
 def fit_linear_regression(
     protocol: TrainingProtocol,
-    samples: Sequence[Sample],
     context: TrainingContext,
 ) -> FittedModel:
     """Fit ridge-regularised least squares on the training split."""
@@ -171,7 +174,8 @@ def fit_linear_regression(
     if l2 < 0:
         raise ValueError("model.parameters.l2 must not be negative")
 
-    rows = _rows(context, samples)
+    samples = context.train.samples
+    rows = _rows(context)
     standardizer = Standardizer.fit(rows)
     design = [standardizer.apply(row) for row in rows]
     targets = [float(sample.target) for sample in samples]
@@ -190,18 +194,17 @@ def fit_linear_regression(
         for i in range(width)
     ]
     return _Linear(
-        features=context.features,
         standardizer=standardizer,
         weights=tuple(_solve(gram, moment)),
         intercept=intercept,
         hyperparameters={"l2": l2},
         seed=protocol.model.seed,
+        feature_columns=context.train.features.columns,
     )
 
 
 def fit_logistic_regression(
     protocol: TrainingProtocol,
-    samples: Sequence[Sample],
     context: TrainingContext,
 ) -> FittedModel:
     """Fit logistic regression by batch gradient descent on the training split."""
@@ -216,6 +219,7 @@ def fit_logistic_regression(
     if iterations <= 0:
         raise ValueError("model.parameters.iterations must be positive")
 
+    samples = context.train.samples
     labels = sorted({str(sample.target) for sample in samples})
     if len(labels) != 2:
         raise ValueError("logistic_regression needs exactly two training classes")
@@ -223,7 +227,7 @@ def fit_logistic_regression(
     if positive not in labels:
         raise ValueError(f"positive label {positive!r} is absent from the train split")
 
-    rows = _rows(context, samples)
+    rows = _rows(context)
     standardizer = Standardizer.fit(rows)
     design = [standardizer.apply(row) for row in rows]
     outcomes = [1.0 if str(sample.target) == positive else 0.0 for sample in samples]
@@ -250,7 +254,6 @@ def fit_logistic_regression(
         ]
 
     return _Logistic(
-        features=context.features,
         standardizer=standardizer,
         weights=tuple(weights),
         intercept=intercept,
@@ -260,6 +263,7 @@ def fit_logistic_regression(
             "iterations": iterations,
         },
         seed=protocol.model.seed,
+        feature_columns=context.train.features.columns,
         positive_label=positive,
     )
 

@@ -36,6 +36,7 @@ def test_load_protocol_returns_validated_configuration(tmp_path: Path) -> None:
     assert protocol.task == "regression"
     assert protocol.trainer == "linear_regression"
     assert protocol.features.schema == "tabular"
+    assert protocol.dataset.target_contract == "synthetic.value.v1"
     assert protocol.evaluation.metrics == ("mae", "rmse", "r2")
 
 
@@ -93,6 +94,7 @@ def test_load_protocol_rejects_unknown_root_field(tmp_path: Path) -> None:
     ("section", "overrides", "message"),
     [
         ("dataset", {"target": ""}, "dataset.target"),
+        ("dataset", {"target_contract": ""}, "dataset.target_contract"),
         ("dataset", {"requires": ["lmdb"]}, "unknown dataset.requires value"),
         ("dataset", {"requires": ["features", "features"]}, "must be unique"),
         ("dataset", {"manifest_sha256": "abc"}, "needs every one of"),

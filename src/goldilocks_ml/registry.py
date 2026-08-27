@@ -33,6 +33,13 @@ class FeatureMatrix:
                 f"the feature contract produced no row for {error.args[0]}"
             ) from error
 
+    def subset(self, samples: Sequence[Sample]) -> FeatureMatrix:
+        """Return only the rows named by a sequence of samples."""
+        return FeatureMatrix(
+            columns=self.columns,
+            rows={sample.sample_id: self.rows[sample.sample_id] for sample in samples},
+        )
+
     def validate(self, snapshot: Snapshot) -> None:
         """Reject a contract that skipped samples or changed its own width."""
         missing = sorted(set(snapshot.sample_ids) - set(self.rows))
@@ -50,11 +57,20 @@ class FeatureMatrix:
 
 
 @dataclass(frozen=True, slots=True)
-class TrainingContext:
-    """Everything a trainer may read, already verified by the shared pipeline."""
+class TrainingPartition:
+    """Samples and features from one explicitly named non-test split."""
 
-    snapshot: Snapshot
+    samples: tuple[Sample, ...]
     features: FeatureMatrix
+
+
+@dataclass(frozen=True, slots=True)
+class TrainingContext:
+    """Train, validation, and calibration data; test data is never exposed."""
+
+    train: TrainingPartition
+    validation: TrainingPartition | None
+    calibration: TrainingPartition | None
     artifacts: Mapping[str, Path]
     output_dir: Path
 
@@ -63,7 +79,9 @@ class TrainingContext:
 class FittedModel(Protocol):
     """A trained model that can predict, describe itself, and be serialised."""
 
-    def predict(self, samples: Sequence[Sample]) -> list[float]:
+    def predict(
+        self, samples: Sequence[Sample], features: FeatureMatrix
+    ) -> list[float]:
         """Return regression values or positive-class scores, one per sample."""
         ...
 
@@ -76,9 +94,9 @@ class FittedModel(Protocol):
         ...
 
 
-Trainer = Callable[
-    ["TrainingProtocol", Sequence["Sample"], TrainingContext], FittedModel
-]
+# Feature extraction must be stateless across samples. Any fitted preprocessing
+# belongs inside the trainer, where split boundaries are explicit.
+Trainer = Callable[["TrainingProtocol", TrainingContext], FittedModel]
 FeatureContract = Callable[
     ["TrainingProtocol", "Snapshot", Mapping[str, Path]], FeatureMatrix
 ]

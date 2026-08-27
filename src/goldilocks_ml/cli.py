@@ -10,8 +10,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import goldilocks_ml.models.kmesh  # noqa: F401  (each model registers itself)
-import goldilocks_ml.models.metallicity  # noqa: F401
+import goldilocks_ml.baselines  # noqa: F401  (registers reference trainers)
+import goldilocks_ml.tabular  # noqa: F401  (registers the tabular contract)
 from goldilocks_ml import artifacts as artifact_store
 from goldilocks_ml.evaluation import (
     Prediction,
@@ -27,6 +27,7 @@ from goldilocks_ml.protocol import TrainingProtocol, load_protocol
 from goldilocks_ml.registry import (
     FittedModel,
     TrainingContext,
+    TrainingPartition,
     get_feature_contract,
     get_trainer,
 )
@@ -66,9 +67,34 @@ def seal(
     record_id: str,
     snapshot_version: str,
     structure_suffix: str,
+    target_name: str,
+    target_contract: str,
+    target_definition: str,
+    target_units: str | None,
 ) -> dict[str, Any]:
     """Write the manifest that turns a converted directory into a snapshot."""
     directory = directory.resolve()
+    nested = sorted(path.name for path in directory.iterdir() if path.is_dir())
+    if nested:
+        raise ValueError(
+            "snapshot directories must be flat; found subdirectory: " + nested[0]
+        )
+    for field, value in (
+        ("record_id", record_id),
+        ("snapshot_version", snapshot_version),
+        ("target", target_name),
+        ("target_contract", target_contract),
+        ("target_definition", target_definition),
+    ):
+        if not value.strip():
+            raise ValueError(f"{field} must be a non-empty string")
+    if target_units is not None and not target_units.strip():
+        raise ValueError("target_units must be null or a non-empty string")
+    if (
+        not structure_suffix.startswith(".")
+        or Path(f"sample{structure_suffix}").name != f"sample{structure_suffix}"
+    ):
+        raise ValueError("structure_suffix must start with '.' and contain no path")
     id_prop = directory / ID_PROP_NAME
     if not id_prop.is_file():
         raise FileNotFoundError(
@@ -77,11 +103,9 @@ def seal(
         )
     sample_ids = read_sample_ids(id_prop)
 
-    names = [ID_PROP_NAME]
     features_file = None
     if (directory / FEATURES_NAME).is_file():
         features_file = FEATURES_NAME
-        names.append(FEATURES_NAME)
 
     structures = [f"{sample_id}{structure_suffix}" for sample_id in sample_ids]
     present = [name for name in structures if (directory / name).is_file()]
@@ -91,13 +115,22 @@ def seal(
             f"{len(missing)} structure file(s) are missing, starting with "
             f"{missing[0]}; every sample needs one or none may have one"
         )
-    if present:
-        names.extend(structures)
+    names = sorted(
+        path.name
+        for path in directory.iterdir()
+        if path.is_file() and path.name != MANIFEST_NAME
+    )
 
     manifest = {
         "schema_version": 1,
         "record_id": record_id,
         "snapshot_version": snapshot_version,
+        "target": {
+            "name": target_name,
+            "contract": target_contract,
+            "definition": target_definition,
+            "units": target_units,
+        },
         "structure_suffix": structure_suffix if present else None,
         "features_file": features_file,
         "files": [
@@ -172,14 +205,18 @@ def _score_all(
 
 
 def _train_regression(
-    parts: dict[str, tuple[Sample, ...]], model: FittedModel
+    parts: dict[str, tuple[Sample, ...]], model: FittedModel, features: Any
 ) -> tuple[dict[str, list[Prediction]], dict[str, Any]]:
     constant = train_median(parts["train"])
     baseline = _regression_predictions(
         parts, {name: [constant] * len(samples) for name, samples in parts.items()}
     )
     fitted = _regression_predictions(
-        parts, {name: model.predict(samples) for name, samples in parts.items()}
+        parts,
+        {
+            name: model.predict(samples, features.subset(samples))
+            for name, samples in parts.items()
+        },
     )
     return {"baseline": baseline, "model": fitted}, {"baseline_constant": constant}
 
@@ -188,6 +225,7 @@ def _train_classification(
     protocol: TrainingProtocol,
     parts: dict[str, tuple[Sample, ...]],
     model: FittedModel,
+    features: Any,
 ) -> tuple[dict[str, list[Prediction]], dict[str, Any]]:
     labels = sorted({str(sample.target) for sample in parts["train"]})
     positive = protocol.evaluation.positive_label or default_positive_label(labels)
@@ -209,7 +247,10 @@ def _train_classification(
         for sample in samples
     ]
 
-    scores = {name: model.predict(samples) for name, samples in parts.items()}
+    scores = {
+        name: model.predict(samples, features.subset(samples))
+        for name, samples in parts.items()
+    }
     threshold = 0.5
     selected_on = None
     metric = protocol.evaluation.threshold_metric
@@ -278,20 +319,37 @@ def execute(
     parts = partition(assignment, snapshot)
 
     context = TrainingContext(
-        snapshot=snapshot,
-        features=features,
+        train=TrainingPartition(
+            samples=parts["train"], features=features.subset(parts["train"])
+        ),
+        validation=(
+            TrainingPartition(
+                samples=parts["validation"],
+                features=features.subset(parts["validation"]),
+            )
+            if "validation" in parts
+            else None
+        ),
+        calibration=(
+            TrainingPartition(
+                samples=parts["calibration"],
+                features=features.subset(parts["calibration"]),
+            )
+            if "calibration" in parts
+            else None
+        ),
         artifacts=resolved,
         output_dir=directory / "model",
     )
-    # Only the training split ever reaches the trainer or its preprocessing.
-    model = get_trainer(protocol.trainer)(protocol, parts["train"], context)
+    # Test samples, labels, and features never reach the trainer.
+    model = get_trainer(protocol.trainer)(protocol, context)
     model.save(directory / "model")
 
     if protocol.task == "regression":
-        predictions, summary = _train_regression(parts, model)
+        predictions, summary = _train_regression(parts, model, features)
         positive = None
     else:
-        predictions, summary = _train_classification(protocol, parts, model)
+        predictions, summary = _train_classification(protocol, parts, model, features)
         positive = summary["positive_label"]
 
     metrics = {
@@ -357,6 +415,10 @@ def _parser() -> argparse.ArgumentParser:
     seal_parser.add_argument("--record-id", required=True)
     seal_parser.add_argument("--version", required=True, dest="snapshot_version")
     seal_parser.add_argument("--structure-suffix", default=".cif")
+    seal_parser.add_argument("--target", required=True, dest="target_name")
+    seal_parser.add_argument("--target-contract", required=True)
+    seal_parser.add_argument("--target-definition", required=True)
+    seal_parser.add_argument("--target-units", default=None)
 
     validate = subparsers.add_parser(
         "validate", help="check a protocol and snapshot without training"
@@ -390,6 +452,10 @@ def _run(args: argparse.Namespace) -> None:
             record_id=args.record_id,
             snapshot_version=args.snapshot_version,
             structure_suffix=args.structure_suffix,
+            target_name=args.target_name,
+            target_contract=args.target_contract,
+            target_definition=args.target_definition,
+            target_units=args.target_units,
         )
         count = len(result["manifest"]["files"])
         print(

@@ -9,13 +9,6 @@ description = "Training, evaluation, and model publication workflows for Goldilo
 requires-python = ">=3.12"
 dependencies = [
     "data-collections-api==0.1.0",
-    "dscribe>=2.1.2",
-    "matminer>=0.10.1",
-    "pymatgen>=2026.5.4",
-    "scikit-learn==1.7.2",
-    "sklearn-quantile==0.1.1",
-    "torch>=2.13.0",
-    "torch-geometric>=2.8.0.post1",
 ]
 
 [project.scripts]
@@ -34,6 +27,9 @@ docs = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/goldilocks_ml"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"protocols" = "goldilocks_ml/protocols"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

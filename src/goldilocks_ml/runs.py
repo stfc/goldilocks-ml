@@ -20,6 +20,7 @@ from goldilocks_ml.hashing import sha256_file
 from goldilocks_ml.protocol import TrainingProtocol
 
 MANIFEST_NAME = "manifest.json"
+RUN_MARKER = ".goldilocks-run"
 PREDICTIONS_HEADER = ("sample_id", "split", "source", "truth", "prediction", "score")
 
 # Provenance that legitimately differs between two runs of the same protocol.
@@ -74,6 +75,7 @@ def resolved_document(protocol: TrainingProtocol) -> dict[str, Any]:
 
     dataset: dict[str, Any] = {
         "target": protocol.dataset.target,
+        "target_contract": protocol.dataset.target_contract,
         "requires": list(protocol.dataset.requires),
     }
     if protocol.dataset.target_units is not None:
@@ -135,12 +137,11 @@ def _git_commit(start: Path) -> str | None:
 
 def environment_record() -> dict[str, Any]:
     """Return the interpreter, package, and hardware facts behind a run."""
-    packages: dict[str, str] = {}
-    for name in ("goldilocks-ml", "data-collections-api"):
-        try:
-            packages[name] = metadata.version(name)
-        except metadata.PackageNotFoundError:
-            continue
+    packages = {
+        distribution.metadata["Name"]: distribution.version
+        for distribution in metadata.distributions()
+        if distribution.metadata["Name"]
+    }
     lock = Path(__file__).resolve().parents[2] / "uv.lock"
     return {
         "python_version": sys.version.split()[0],
@@ -241,9 +242,19 @@ def prepare_directory(directory: Path, *, overwrite: bool) -> Path:
             )
         if not directory.is_dir():
             raise NotADirectoryError(directory)
+        marker = directory / RUN_MARKER
+        if (
+            not marker.is_file()
+            or marker.read_text(encoding="utf-8") != "goldilocks-ml\n"
+        ):
+            raise ValueError(
+                f"refusing to overwrite {directory}: it is not a Goldilocks run "
+                f"directory containing {RUN_MARKER}"
+            )
         for path in sorted(directory.rglob("*"), reverse=True):
             path.rmdir() if path.is_dir() else path.unlink()
     directory.mkdir(parents=True, exist_ok=True)
+    (directory / RUN_MARKER).write_text("goldilocks-ml\n", encoding="utf-8")
     (directory / "model").mkdir()
     return directory
 

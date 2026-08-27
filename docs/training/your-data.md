@@ -36,7 +36,11 @@ Omit it and the snapshot supports random splitting only.
 ## Seal the directory
 
 ```bash
-uv run goldilocks-train seal snapshots/mine --record-id my-data --version v1
+uv run goldilocks-train seal snapshots/mine --record-id my-data --version v1 \
+  --target k_distance \
+  --target-contract my-project.k-distance.v1 \
+  --target-definition "Maximum adjacent reciprocal-space k-point spacing." \
+  --target-units 1/angstrom
 ```
 
 This writes `manifest.json` with the size and SHA-256 of every file, and prints
@@ -46,6 +50,24 @@ this snapshot; see [Protocol reference](protocol.md#pinning-a-snapshot).
 Every structure file must be present or none may be: a snapshot with structures
 for some samples and not others is rejected rather than silently trained on a
 subset.
+
+The target metadata is mandatory. Its contract is compared with the protocol,
+so two differently defined quantities cannot both masquerade as `k_distance`.
+Classification targets normally omit `--target-units`.
+
+## Precomputed tabular features
+
+The shipped reference trainers read `features.csv`. Its first column is the
+sample ID and every remaining column must be finite numeric data:
+
+```csv
+sample_id,density,volume_per_atom
+mp-149,2.329,20.02
+mp-2534,5.317,22.47
+```
+
+`seal` includes it in the snapshot manifest. Loading rejects any snapshot file
+that is missing from the manifest, so every consumed byte is integrity-protected.
 
 ## Pinned artifacts
 

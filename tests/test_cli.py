@@ -21,7 +21,7 @@ from conftest import (
 )
 
 from goldilocks_ml.cli import cli, seal
-from goldilocks_ml.runs import MANIFEST_NAME
+from goldilocks_ml.runs import MANIFEST_NAME, RUN_MARKER
 
 BUNDLE_FILES = {
     "dataset.json",
@@ -33,7 +33,22 @@ BUNDLE_FILES = {
     "protocol.toml",
     "run.json",
     "splits.csv",
+    RUN_MARKER,
 }
+
+
+def _seal(directory: Path, **overrides: Any) -> dict[str, Any]:
+    arguments = {
+        "record_id": "mine",
+        "snapshot_version": "v1",
+        "structure_suffix": ".cif",
+        "target_name": "value",
+        "target_contract": "synthetic.value.v1",
+        "target_definition": "Synthetic test target value.",
+        "target_units": "arbitrary",
+        **overrides,
+    }
+    return seal(directory, **arguments)
 
 
 def _setup(
@@ -69,9 +84,7 @@ def test_seal_writes_a_manifest_covering_every_file(tmp_path: Path) -> None:
     directory = tmp_path / "snapshot"
     build_snapshot(directory, structures=True)
 
-    result = seal(
-        directory, record_id="mine", snapshot_version="v3", structure_suffix=".cif"
-    )
+    result = _seal(directory, snapshot_version="v3")
 
     names = {entry["name"] for entry in result["manifest"]["files"]}
     assert "id_prop.csv" in names
@@ -87,9 +100,7 @@ def test_seal_refuses_a_partial_set_of_structures(tmp_path: Path) -> None:
     (directory / "syn-005.cif").unlink()
 
     with pytest.raises(FileNotFoundError, match="structure file\\(s\\) are missing"):
-        seal(
-            directory, record_id="mine", snapshot_version="v1", structure_suffix=".cif"
-        )
+        _seal(directory)
 
 
 def test_seal_needs_an_id_prop_file(tmp_path: Path) -> None:
@@ -97,9 +108,49 @@ def test_seal_needs_an_id_prop_file(tmp_path: Path) -> None:
     directory.mkdir()
 
     with pytest.raises(FileNotFoundError, match="id_prop.csv"):
-        seal(
-            directory, record_id="mine", snapshot_version="v1", structure_suffix=".cif"
+        _seal(directory)
+
+
+def test_seal_refuses_nested_directories(tmp_path: Path) -> None:
+    directory = tmp_path / "snapshot"
+    build_snapshot(directory)
+    (directory / "nested").mkdir()
+
+    with pytest.raises(ValueError, match="must be flat"):
+        _seal(directory)
+
+
+def test_seal_refuses_unsafe_sample_ids(tmp_path: Path) -> None:
+    directory = tmp_path / "snapshot"
+    with pytest.raises(ValueError, match="safe basenames"):
+        build_snapshot(
+            directory,
+            [{**row, "sample_id": "../outside"} for row in make_rows()[:1]],
         )
+
+
+def test_overwrite_refuses_a_directory_that_is_not_a_previous_run(
+    tmp_path: Path, snapshot_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    protocol = _setup(tmp_path, snapshot_dir)
+    output = tmp_path / "important"
+    output.mkdir()
+    (output / "keep.txt").write_text("do not delete", encoding="utf-8")
+
+    with pytest.raises(SystemExit) as error:
+        _run(
+            monkeypatch,
+            "run",
+            str(protocol),
+            "--dataset",
+            str(snapshot_dir),
+            "--output",
+            str(output),
+            "--overwrite",
+        )
+
+    assert error.value.code == 2
+    assert (output / "keep.txt").read_text(encoding="utf-8") == "do not delete"
 
 
 def test_validate_reports_the_split_without_training(
@@ -365,7 +416,7 @@ def test_run_reuses_an_existing_split_manifest(
 def test_preprocessing_is_fitted_on_the_train_split_only(
     tmp_path: Path, snapshot_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from pipeline import baseline
+    from goldilocks_ml import baselines as baseline
 
     protocol = _setup(tmp_path, snapshot_dir)
     output = tmp_path / "run-1"
@@ -460,7 +511,10 @@ def test_threshold_selection_requires_a_validation_split(
 
 @pytest.mark.parametrize(
     ("protocol_name", "snapshot"),
-    [("kdist.toml", KDIST_SNAPSHOT), ("metallic.toml", METALLIC_SNAPSHOT)],
+    [
+        ("regression.toml", KDIST_SNAPSHOT),
+        ("classification.toml", METALLIC_SNAPSHOT),
+    ],
 )
 def test_committed_protocols_run_against_the_committed_fixtures(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, protocol_name: str, snapshot: Path

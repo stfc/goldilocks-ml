@@ -54,6 +54,7 @@ class DatasetSpec:
     """
 
     target: str
+    target_contract: str
     requires: tuple[str, ...]
     target_units: str | None = None
     pinned: PinnedSnapshot | None = None
@@ -161,6 +162,7 @@ _ROOT_KEYS = {
 }
 _DATASET_KEYS = {
     "target",
+    "target_contract",
     "target_units",
     "requires",
     "record_id",
@@ -272,6 +274,7 @@ def _load_dataset(root: dict[str, Any]) -> DatasetSpec:
 
     return DatasetSpec(
         target=_string(table, "target", "dataset"),
+        target_contract=_string(table, "target_contract", "dataset"),
         requires=requires,
         target_units=target_units,
         pinned=pinned,

@@ -2,7 +2,7 @@
 
 Use this when the features are already numbers in ``features.csv``. Contracts
 that derive features from structures do their own work instead; see
-``goldilocks_ml.features`` for those.
+    model-specific feature modules for those.
 """
 
 from __future__ import annotations

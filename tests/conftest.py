@@ -7,7 +7,6 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
-import pipeline  # noqa: F401  (registers the fixture trainer and contract)
 import pytest
 
 from goldilocks_ml.cli import seal
@@ -16,7 +15,7 @@ from goldilocks_ml.runs import dumps_toml
 FIXTURES = Path(__file__).parent / "fixtures"
 KDIST_SNAPSHOT = FIXTURES / "kdist"
 METALLIC_SNAPSHOT = FIXTURES / "metallic"
-PROTOCOLS = Path(__file__).parent / "protocols"
+PROTOCOLS = Path(__file__).parents[1] / "protocols" / "synthetic"
 PACKAGE = Path(__file__).parents[1] / "src" / "goldilocks_ml"
 
 FEATURE_COLUMNS = ("x1", "x2", "x3")
@@ -92,6 +91,10 @@ def build_snapshot(
         record_id=record_id,
         snapshot_version=snapshot_version,
         structure_suffix=".cif",
+        target_name=target,
+        target_contract=f"synthetic.{target}.v1",
+        target_definition=f"Synthetic test target {target}.",
+        target_units="arbitrary" if target == "value" else None,
     )["manifest_sha256"]
 
 
@@ -116,7 +119,12 @@ def regression_document(**overrides: Any) -> dict[str, Any]:
         "id": "synthetic-regression-v1",
         "task": "regression",
         "trainer": "linear_regression",
-        "dataset": {"target": "value", "requires": ["features"]},
+        "dataset": {
+            "target": "value",
+            "target_contract": "synthetic.value.v1",
+            "target_units": "arbitrary",
+            "requires": ["features"],
+        },
         "split": {
             "method": "random",
             "train": 0.5,
@@ -143,7 +151,11 @@ def classification_document(**overrides: Any) -> dict[str, Any]:
         "id": "synthetic-classification-v1",
         "task": "classification",
         "trainer": "logistic_regression",
-        "dataset": {"target": "label", "requires": ["features"]},
+        "dataset": {
+            "target": "label",
+            "target_contract": "synthetic.label.v1",
+            "requires": ["features"],
+        },
         "split": {
             "method": "random",
             "train": 0.5,

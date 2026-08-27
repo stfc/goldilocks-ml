@@ -13,6 +13,7 @@ from goldilocks_ml.hashing import sha256_file
 from goldilocks_ml.protocol import load_protocol
 from goldilocks_ml.runs import (
     NON_DETERMINISTIC_FILES,
+    RUN_MARKER,
     dumps_toml,
     environment_record,
     prepare_directory,
@@ -116,11 +117,13 @@ def test_prepare_directory_replaces_a_previous_run_when_asked(tmp_path: Path) ->
     directory = tmp_path / "run"
     (directory / "model").mkdir(parents=True)
     (directory / "model" / "stale.json").write_text("{}", encoding="utf-8")
+    (directory / RUN_MARKER).write_text("goldilocks-ml\n", encoding="utf-8")
 
     prepared = prepare_directory(directory, overwrite=True)
 
     assert (prepared / "model").is_dir()
     assert not (prepared / "model" / "stale.json").exists()
+    assert (prepared / RUN_MARKER).is_file()
 
 
 def test_write_predictions_sorts_by_source_then_sample(tmp_path: Path) -> None:

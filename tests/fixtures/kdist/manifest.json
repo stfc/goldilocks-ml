@@ -3,17 +3,23 @@
   "files": [
     {
       "name": "id_prop.csv",
-      "sha256": "a5f03bba6d0b9b8448ee6e4a4a4b0e474a907681ee2af60dfd44497450606ef3",
-      "size_bytes": 3255
+      "sha256": "4fa9f8d458c00922efba922e3ab94700f613bf36209759c02508be8527efe3a8",
+      "size_bytes": 3135
     },
     {
       "name": "features.csv",
-      "sha256": "4dcd8b27261d9dda5c3116dca98ac6289f59184127a0c1ee85d995fdb0fa0dd1",
-      "size_bytes": 4521
+      "sha256": "3e56014fcf58511bc0d56ad2927aac357954fa882e30868a27f15e52c7cd345d",
+      "size_bytes": 4400
     }
   ],
   "record_id": "synthetic-kdist",
   "schema_version": 1,
   "snapshot_version": "v1",
-  "structure_suffix": null
+  "structure_suffix": null,
+  "target": {
+    "contract": "synthetic.k_distance.v1",
+    "definition": "Synthetic inverse-length regression target.",
+    "name": "k_distance",
+    "units": "1/angstrom"
+  }
 }
