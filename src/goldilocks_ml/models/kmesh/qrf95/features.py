@@ -27,7 +27,10 @@ from pymatgen.core.structure import Structure
 from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
-from goldilocks_ml.models.cgcnn import REPRESENTATION_WIDTH, crystal_representations
+from goldilocks_ml.models.metallicity.cgcnn import (
+    REPRESENTATION_WIDTH,
+    crystal_representations,
+)
 from goldilocks_ml.protocol import TrainingProtocol
 from goldilocks_ml.registry import FeatureMatrix, register_feature_contract
 from goldilocks_ml.snapshot import Snapshot
