@@ -113,6 +113,7 @@ class QRF95Model:
     feature_schema: str
     feature_columns: tuple[str, ...]
     feature_parameters: dict[str, Any]
+    requires_artifacts: tuple[dict[str, str], ...]
     hyperparameters: dict[str, Any]
     calibration_count: int
     calibration_mean_width: float
@@ -155,6 +156,7 @@ class QRF95Model:
             "feature_schema": self.feature_schema,
             "feature_columns": list(self.feature_columns),
             "feature_parameters": self.feature_parameters,
+            "requires_artifacts": [dict(item) for item in self.requires_artifacts],
             "selection": self.selection,
             "calibration": {
                 "method": "split_conformal_quantile_regression",
@@ -382,6 +384,15 @@ def fit(protocol: TrainingProtocol, context: TrainingContext) -> FittedModel:
         feature_schema=protocol.features.schema,
         feature_columns=context.train.features.columns,
         feature_parameters=dict(protocol.features.parameters),
+        requires_artifacts=tuple(
+            {
+                "name": dependency.name,
+                "record_id": dependency.record_id,
+                "file": dependency.file,
+                "sha256": dependency.sha256,
+            }
+            for dependency in protocol.features.depends_on
+        ),
         hyperparameters={
             "n_estimators": parameters["n_estimators"],
             "quantiles": list(quantiles),

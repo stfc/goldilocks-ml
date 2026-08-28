@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
+    from goldilocks_ml.inference import StructureModel
     from goldilocks_ml.protocol import TrainingProtocol
     from goldilocks_ml.snapshot import Sample, Snapshot
 
@@ -116,11 +117,19 @@ Trainer = Callable[["TrainingProtocol", TrainingContext], FittedModel]
 FeatureContract = Callable[
     ["TrainingProtocol", "Snapshot", Mapping[str, Path]], FeatureMatrix
 ]
+# The serving counterpart of a trainer: it reads back what that trainer wrote
+# and returns something that predicts from a structure. Registered under the
+# same name, so an artifact's own record says which one to use.
+Predictor = Callable[[Mapping[str, Any], Path, Mapping[str, Path]], "StructureModel"]
 
 _TRAINERS: dict[str, Trainer] = {}
 _FEATURES: dict[str, FeatureContract] = {}
+_PREDICTORS: dict[str, Predictor] = {}
 _BUILTIN_TRAINERS = {
     "quantile_random_forest": "goldilocks_ml.models.kmesh.qrf95.trainer",
+}
+_BUILTIN_PREDICTORS = {
+    "quantile_random_forest": "goldilocks_ml.models.kmesh.qrf95.predictor",
 }
 _BUILTIN_FEATURES = {
     "comp_struct_soap_lattice_metal.v1": "goldilocks_ml.models.kmesh.qrf95.features",
@@ -165,6 +174,31 @@ def register_feature_contract(name: str, contract: FeatureContract) -> None:
     if name in _FEATURES:
         raise ValueError(f"feature contract {name} is already registered")
     _FEATURES[name] = contract
+
+
+def register_predictor(name: str, predictor: Predictor) -> None:
+    """Register a predictor under the trainer name whose output it reads."""
+    if name in _PREDICTORS:
+        raise ValueError(f"predictor {name} is already registered")
+    _PREDICTORS[name] = predictor
+
+
+def get_predictor(name: str) -> Predictor:
+    """Return the predictor that serves a trainer's artifacts."""
+    if name not in _PREDICTORS:
+        _load_builtin(name, _BUILTIN_PREDICTORS)
+    try:
+        return _PREDICTORS[name]
+    except KeyError:
+        known = ", ".join(predictor_names()) or "none"
+        raise ValueError(
+            f"no predictor serves trainer {name!r}; registered: {known}"
+        ) from None
+
+
+def predictor_names() -> tuple[str, ...]:
+    """Return every registered predictor name."""
+    return tuple(sorted(set(_PREDICTORS) | set(_BUILTIN_PREDICTORS)))
 
 
 def get_trainer(name: str) -> Trainer:

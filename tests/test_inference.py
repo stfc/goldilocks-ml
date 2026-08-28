@@ -12,11 +12,12 @@ import pytest
 from pymatgen.core import Lattice, Structure
 
 from goldilocks_ml import inference
+from goldilocks_ml.hashing import sha256_file
 from goldilocks_ml.inference import (
-    KMeshModel,
-    KMeshPrediction,
-    QRF95Inference,
-    load_kmesh_model,
+    ModelPrediction,
+    StructureModel,
+    contract_for,
+    load_model,
 )
 from goldilocks_ml.models.kmesh.qrf95 import features as qrf_features
 
@@ -47,15 +48,17 @@ def write_model(
     mean_width: float = 0.14,
     feature_schema: str = qrf_features.SCHEMA,
     target_contract: str = K_DISTANCE_CONTRACT,
+    trainer: str = "quantile_random_forest",
     width: int = 483,
     columns: int = 483,
+    requires_artifacts: list[dict[str, str]] | None = None,
 ) -> Path:
     """Write the estimator and record a training run would leave behind."""
     directory.mkdir(parents=True, exist_ok=True)
     with (directory / "QRF95.pkl").open("wb") as handle:
         pickle.dump(StubEstimator(triple, width), handle)
     record: dict[str, Any] = {
-        "trainer": "quantile_random_forest",
+        "trainer": trainer,
         "target": {
             "name": "k_distance",
             "contract": target_contract,
@@ -64,6 +67,7 @@ def write_model(
         "feature_schema": feature_schema,
         "feature_columns": [f"f{index}" for index in range(columns)],
         "feature_parameters": {},
+        "requires_artifacts": requires_artifacts or [],
         "calibration": {
             "coverage": 0.9,
             "correction": correction,
@@ -75,13 +79,15 @@ def write_model(
     return directory
 
 
-def load(directory: Path, **kwargs: Any) -> KMeshModel:
-    return load_kmesh_model(
-        directory,
-        metallicity_checkpoint=directory / "is_metal.ckpt",
-        metallicity_atom_init=directory / "atom_init.json",
-        **kwargs,
+def load(directory: Path, **kwargs: Any) -> StructureModel:
+    kwargs.setdefault(
+        "artifacts",
+        {
+            "metallicity_checkpoint": directory / "is_metal.ckpt",
+            "metallicity_atom_init": directory / "atom_init.json",
+        },
     )
+    return load_model(directory, **kwargs)
 
 
 @pytest.fixture
@@ -94,14 +100,16 @@ def stub_features(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-def test_prediction_reports_the_calibrated_median_and_its_quantity(
+def test_a_prediction_names_the_parameter_it_advises(
     tmp_path: Path, stub_features: None
 ) -> None:
+    """Core routes on the parameter, so a model must say which one it speaks to."""
     model = load(write_model(tmp_path / "model"), model_id="kmesh/qrf95@test")
 
     prediction = model.predict(structure())
 
-    assert isinstance(prediction, KMeshPrediction)
+    assert isinstance(prediction, ModelPrediction)
+    assert prediction.parameter == "k_points"
     assert prediction.quantity == "k_distance"
     assert prediction.value == pytest.approx(0.22)
     assert prediction.target_contract == K_DISTANCE_CONTRACT
@@ -148,7 +156,6 @@ def test_a_single_structure_and_a_batch_agree(
 ) -> None:
     """The estimator flattens a one-row prediction; the seam must not care."""
     model = load(write_model(tmp_path / "model"))
-    assert isinstance(model, QRF95Inference)
 
     one = model.predict(structure())
     batch = model.predict_batch([structure(), structure()])
@@ -160,9 +167,66 @@ def test_a_single_structure_and_a_batch_agree(
 
 def test_an_empty_batch_predicts_nothing(tmp_path: Path, stub_features: None) -> None:
     model = load(write_model(tmp_path / "model"))
-    assert isinstance(model, QRF95Inference)
 
     assert model.predict_batch([]) == []
+
+
+def test_declared_artifacts_are_resolved_and_verified(
+    tmp_path: Path, stub_features: None
+) -> None:
+    """A consumer never learns that QRF95 depends on a metallicity checkpoint."""
+    store = tmp_path / "artifacts" / "ptc95-vbq12"
+    store.mkdir(parents=True)
+    declared = []
+    for name, filename in (
+        ("metallicity_checkpoint", "is_metal.ckpt"),
+        ("metallicity_atom_init", "atom_init.json"),
+    ):
+        path = store / filename
+        path.write_text(f"contents of {filename}", encoding="utf-8")
+        declared.append(
+            {
+                "name": name,
+                "record_id": "ptc95-vbq12",
+                "file": filename,
+                "sha256": sha256_file(path),
+            }
+        )
+
+    model = load_model(
+        write_model(tmp_path / "model", requires_artifacts=declared),
+        artifact_directory=tmp_path / "artifacts",
+    )
+
+    assert model.predict(structure()).value == pytest.approx(0.22)
+
+
+def test_a_tampered_artifact_is_refused(tmp_path: Path) -> None:
+    """The record pins a digest, so a swapped checkpoint cannot predict."""
+    store = tmp_path / "artifacts" / "ptc95-vbq12"
+    store.mkdir(parents=True)
+    (store / "is_metal.ckpt").write_text("something else", encoding="utf-8")
+    declared = [
+        {
+            "name": "metallicity_checkpoint",
+            "record_id": "ptc95-vbq12",
+            "file": "is_metal.ckpt",
+            "sha256": "0" * 64,
+        }
+    ]
+
+    with pytest.raises(ValueError, match="SHA-256"):
+        load_model(
+            write_model(tmp_path / "model", requires_artifacts=declared),
+            artifact_directory=tmp_path / "artifacts",
+        )
+
+
+def test_a_missing_supporting_artifact_is_refused(
+    tmp_path: Path, stub_features: None
+) -> None:
+    with pytest.raises(ValueError, match="metallicity_checkpoint"):
+        load_model(write_model(tmp_path / "model"), artifacts={})
 
 
 def test_an_unknown_feature_contract_names_what_to_upgrade(tmp_path: Path) -> None:
@@ -175,7 +239,15 @@ def test_an_unknown_feature_contract_names_what_to_upgrade(tmp_path: Path) -> No
 def test_an_unknown_target_contract_is_refused(tmp_path: Path) -> None:
     directory = write_model(tmp_path / "model", target_contract="goldilocks.kppra.v1")
 
-    with pytest.raises(ValueError, match="no k-mesh quantity is defined"):
+    with pytest.raises(ValueError, match="no DFT parameter is defined"):
+        load(directory)
+
+
+def test_a_trainer_with_no_predictor_is_refused(tmp_path: Path) -> None:
+    """A record naming a trainer this build cannot serve fails by name."""
+    directory = write_model(tmp_path / "model", trainer="gradient_boosting")
+
+    with pytest.raises(ValueError, match="no predictor serves trainer"):
         load(directory)
 
 
@@ -189,9 +261,8 @@ def test_an_estimator_that_disagrees_with_its_record_is_refused(
         load(directory)
 
 
-def test_every_published_quantity_is_a_string(tmp_path: Path) -> None:
-    """Core dispatches on these; a typo here is a runtime failure there."""
-    assert all(
-        isinstance(quantity, str) and quantity
-        for quantity in inference.QUANTITY_BY_TARGET_CONTRACT.values()
-    )
+def test_every_contract_names_a_parameter_and_a_quantity() -> None:
+    """Core dispatches on these; a blank here is a runtime failure there."""
+    for name in inference.CONTRACTS:
+        contract = contract_for(name)
+        assert contract.parameter and contract.quantity
