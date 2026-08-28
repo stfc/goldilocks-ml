@@ -10,3 +10,9 @@ definition, feature contract, split, trainer, and evaluation method are ready fo
 review. Model-specific implementations should register against the shared
 interfaces rather than duplicate snapshot, split, evaluation, or run-bundle
 code.
+
+## Scientific protocols
+
+- `kmesh/qrf95.toml` retrains the QRF95-compatible k-distance quantile model.
+  It needs the `qrf95` optional dependencies, a conforming structure snapshot,
+  and the two pinned metallicity artifacts named in the protocol.

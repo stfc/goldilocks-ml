@@ -26,7 +26,7 @@ jobs:
           enable-cache: true
 
       - name: Install development dependencies
-        run: uv sync --frozen --group dev
+        run: uv sync --frozen --group dev --extra qrf95
 
       - name: Check formatting
         run: uv run --frozen ruff format --check .
@@ -36,3 +36,87 @@ jobs:
 
       - name: Test
         run: uv run --frozen pytest
+
+  # A base install must stay light and must still train. Both halves of that
+  # promise break silently -- one stray module-level import in the CLI pulls in
+  # the scientific stack, and the unit suite would not notice because it runs
+  # with the extra installed.
+  base-install:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          python-version: "3.12"
+
+      - name: Install the package alone
+        run: |
+          uv venv /tmp/base
+          uv pip install --python /tmp/base/bin/python .
+
+      - name: Refuse a heavy base install
+        run: |
+          /tmp/base/bin/python - <<'PY'
+          import importlib.util as util
+          heavy = [
+              name
+              for name in ("torch", "torch_geometric", "pymatgen", "matminer",
+                           "dscribe", "sklearn", "sklearn_quantile", "numpy")
+              if util.find_spec(name) is not None
+          ]
+          if heavy:
+              raise SystemExit(
+                  "the base install pulled in the qrf95 stack: " + ", ".join(heavy)
+              )
+          print("base install is clean")
+          PY
+
+      - name: Refuse a heavy import
+        run: |
+          /tmp/base/bin/python - <<'PY'
+          import sys
+          import goldilocks_ml.cli  # noqa: F401
+          import goldilocks_ml.inference  # noqa: F401
+          leaked = sorted(
+              name
+              for name in sys.modules
+              if name.split(".")[0] in {
+                  "torch", "torch_geometric", "pymatgen", "matminer",
+                  "dscribe", "sklearn", "sklearn_quantile", "numpy",
+              }
+          )
+          if leaked:
+              raise SystemExit("importing the CLI loaded: " + ", ".join(leaked))
+          print("the CLI and inference seam import nothing heavy")
+          PY
+
+      - name: Train with the built-in baselines
+        run: |
+          /tmp/base/bin/goldilocks-train run protocols/synthetic/regression.toml \
+            --dataset tests/fixtures/kdist --output /tmp/run/regression
+          /tmp/base/bin/goldilocks-train run protocols/synthetic/classification.toml \
+            --dataset tests/fixtures/metallic --output /tmp/run/classification
+          test -f /tmp/run/regression/metrics.json
+          test -f /tmp/run/classification/metrics.json
+
+      - name: Report a missing extra clearly
+        run: |
+          /tmp/base/bin/python - <<'PY'
+          from goldilocks_ml.registry import get_feature_contract, get_trainer
+
+          for lookup, name in (
+              (get_trainer, "quantile_random_forest"),
+              (get_feature_contract, "comp_struct_soap_lattice_metal.v1"),
+          ):
+              try:
+                  lookup(name)
+              except ValueError as error:
+                  if "qrf95" not in str(error):
+                      raise SystemExit(f"{name} should name the extra: {error}")
+                  print(f"{name}: {error}")
+              else:
+                  raise SystemExit(f"{name} resolved without its dependencies")
+          PY

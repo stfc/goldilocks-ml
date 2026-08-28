@@ -51,6 +51,18 @@ def test_regression_metrics_match_hand_computed_values() -> None:
     assert result["r2"] == pytest.approx(1.0 - 5 / 2)
 
 
+def test_regression_interval_metrics_are_reported() -> None:
+    predictions = [
+        Prediction("a", 1.0, 1.1, lower=0.5, upper=1.5),
+        Prediction("b", 3.0, 2.8, lower=2.0, upper=2.9),
+    ]
+
+    result = evaluate("regression", predictions, ["mae"])
+
+    assert result["interval_coverage"] == pytest.approx(0.5)
+    assert result["mean_interval_width"] == pytest.approx(0.95)
+
+
 def test_r2_is_rejected_when_the_target_is_constant() -> None:
     predictions = _regression([(2.0, 1.0), (2.0, 3.0)])
 

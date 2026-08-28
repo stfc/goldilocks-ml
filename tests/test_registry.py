@@ -65,7 +65,9 @@ def _setup(
 def test_the_shipped_trainers_and_contracts_are_registered() -> None:
     assert "linear_regression" in trainer_names()
     assert "logistic_regression" in trainer_names()
+    assert "quantile_random_forest" in trainer_names()
     assert "tabular" in feature_contract_names()
+    assert "comp_struct_soap_lattice_metal.v1" in feature_contract_names()
 
 
 @pytest.mark.parametrize(

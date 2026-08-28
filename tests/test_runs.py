@@ -141,10 +141,10 @@ def test_write_predictions_sorts_by_source_then_sample(tmp_path: Path) -> None:
     )
 
     lines = path.read_text(encoding="utf-8").splitlines()
-    assert lines[0] == "sample_id,split,source,truth,prediction,score"
-    assert lines[1] == "s001,train,baseline,1.0,0.0,0.25"
-    assert lines[2] == "s001,train,model,1.0,1.1,"
-    assert lines[3] == "s002,test,model,2.0,2.1,"
+    assert lines[0] == "sample_id,split,source,truth,prediction,score,lower,upper"
+    assert lines[1] == "s001,train,baseline,1.0,0.0,0.25,,"
+    assert lines[2] == "s001,train,model,1.0,1.1,,,"
+    assert lines[3] == "s002,test,model,2.0,2.1,,,"
 
 
 def test_write_manifest_covers_every_file_but_itself(tmp_path: Path) -> None:

@@ -28,6 +28,8 @@ class Prediction:
     prediction: float | str
     score: float | None = None
     split: str = ""
+    lower: float | None = None
+    upper: float | None = None
 
 
 def default_positive_label(labels: Sequence[str]) -> str:
@@ -199,12 +201,33 @@ def _classification_metric(
     raise ValueError(f"unsupported classification metric: {name}")
 
 
+def pinball_loss(
+    truth: Sequence[float], predicted: Sequence[float], quantile: float
+) -> float:
+    """Return the pinball loss of one quantile estimate.
+
+    This is the proper scoring rule for quantile regression: it is minimised in
+    expectation exactly when the prediction is the true conditional quantile.
+    Mean absolute error only scores the median, so a model selected on it is
+    selected on none of its interval behaviour.
+    """
+    if not 0 < quantile < 1:
+        raise ValueError("a quantile must lie strictly between zero and one")
+    errors = [
+        actual - estimate for actual, estimate in zip(truth, predicted, strict=True)
+    ]
+    return sum(max(quantile * error, (quantile - 1) * error) for error in errors) / len(
+        errors
+    )
+
+
 def evaluate(
     task: str,
     predictions: Sequence[Prediction],
     metrics: Sequence[str],
     *,
     positive_label: str | None = None,
+    quantiles: Sequence[float] | None = None,
 ) -> dict[str, Any]:
     """Score one split, reporting every metric a protocol requested."""
     if not predictions:
@@ -215,6 +238,41 @@ def evaluate(
         predicted = [float(item.prediction) for item in predictions]
         for name in metrics:
             result[name] = _regression_metric(name, truth, predicted)
+        bounded = [item for item in predictions if item.lower is not None]
+        if bounded:
+            if len(bounded) != len(predictions) or any(
+                item.upper is None for item in predictions
+            ):
+                raise ValueError("regression intervals must be present for every row")
+            intervals = [
+                (float(item.lower), float(item.upper))
+                for item in predictions
+                if item.lower is not None and item.upper is not None
+            ]
+            if any(lower > upper for lower, upper in intervals):
+                raise ValueError("regression interval lower bound exceeds upper bound")
+            result["interval_coverage"] = sum(
+                lower <= actual <= upper
+                for actual, (lower, upper) in zip(truth, intervals, strict=True)
+            ) / len(truth)
+            result["mean_interval_width"] = sum(
+                upper - lower for lower, upper in intervals
+            ) / len(intervals)
+            if quantiles is not None:
+                if len(quantiles) != 3:
+                    raise ValueError("three quantile levels are required")
+                columns = (
+                    [lower for lower, _ in intervals],
+                    predicted,
+                    [upper for _, upper in intervals],
+                )
+                losses = [
+                    pinball_loss(truth, column, level)
+                    for column, level in zip(columns, quantiles, strict=True)
+                ]
+                for level, loss in zip(quantiles, losses, strict=True):
+                    result[f"pinball_loss_q{level:g}"] = loss
+                result["pinball_loss"] = sum(losses) / len(losses)
         return result
 
     truth_labels = [str(item.truth) for item in predictions]

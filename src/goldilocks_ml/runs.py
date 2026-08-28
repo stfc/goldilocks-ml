@@ -21,7 +21,16 @@ from goldilocks_ml.protocol import TrainingProtocol
 
 MANIFEST_NAME = "manifest.json"
 RUN_MARKER = ".goldilocks-run"
-PREDICTIONS_HEADER = ("sample_id", "split", "source", "truth", "prediction", "score")
+PREDICTIONS_HEADER = (
+    "sample_id",
+    "split",
+    "source",
+    "truth",
+    "prediction",
+    "score",
+    "lower",
+    "upper",
+)
 
 # Provenance that legitimately differs between two runs of the same protocol.
 NON_DETERMINISTIC_FILES = frozenset({"run.json", "environment.json", MANIFEST_NAME})
@@ -169,6 +178,8 @@ def write_predictions(path: Path, predictions: dict[str, list[Prediction]]) -> N
                         item.truth,
                         item.prediction,
                         "" if item.score is None else repr(item.score),
+                        "" if item.lower is None else repr(item.lower),
+                        "" if item.upper is None else repr(item.upper),
                     ]
                 )
 

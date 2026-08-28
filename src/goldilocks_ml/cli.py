@@ -26,6 +26,7 @@ from goldilocks_ml.hashing import sha256_file
 from goldilocks_ml.protocol import TrainingProtocol, load_protocol
 from goldilocks_ml.registry import (
     FittedModel,
+    QuantileFittedModel,
     TrainingContext,
     TrainingPartition,
     get_feature_contract,
@@ -150,7 +151,9 @@ def seal(
 
 
 def _regression_predictions(
-    parts: dict[str, tuple[Sample, ...]], values: dict[str, list[float]]
+    parts: dict[str, tuple[Sample, ...]],
+    values: dict[str, list[float]],
+    intervals: dict[str, list[tuple[float, float]]] | None = None,
 ) -> list[Prediction]:
     return [
         Prediction(
@@ -158,9 +161,11 @@ def _regression_predictions(
             truth=float(sample.target),
             prediction=value,
             split=name,
+            lower=(intervals[name][index][0] if intervals is not None else None),
+            upper=(intervals[name][index][1] if intervals is not None else None),
         )
         for name, samples in parts.items()
-        for sample, value in zip(samples, values[name], strict=True)
+        for index, (sample, value) in enumerate(zip(samples, values[name], strict=True))
     ]
 
 
@@ -195,10 +200,15 @@ def _score_all(
     protocol: TrainingProtocol,
     predictions: Sequence[Prediction],
     positive: str | None,
+    quantiles: Sequence[float] | None = None,
 ) -> dict[str, dict[str, Any]]:
     return {
         name: evaluate(
-            protocol.task, items, protocol.evaluation.metrics, positive_label=positive
+            protocol.task,
+            items,
+            protocol.evaluation.metrics,
+            positive_label=positive,
+            quantiles=quantiles,
         )
         for name, items in sorted(_by_split(predictions).items())
     }
@@ -211,13 +221,30 @@ def _train_regression(
     baseline = _regression_predictions(
         parts, {name: [constant] * len(samples) for name, samples in parts.items()}
     )
-    fitted = _regression_predictions(
-        parts,
-        {
-            name: model.predict(samples, features.subset(samples))
+    if isinstance(model, QuantileFittedModel):
+        quantiles = {
+            name: model.predict_quantiles(samples, features.subset(samples))
             for name, samples in parts.items()
-        },
-    )
+        }
+        fitted = _regression_predictions(
+            parts,
+            {
+                name: [median for _, median, _ in rows]
+                for name, rows in quantiles.items()
+            },
+            {
+                name: [(lower, upper) for lower, _, upper in rows]
+                for name, rows in quantiles.items()
+            },
+        )
+    else:
+        fitted = _regression_predictions(
+            parts,
+            {
+                name: model.predict(samples, features.subset(samples))
+                for name, samples in parts.items()
+            },
+        )
     return {"baseline": baseline, "model": fitted}, {"baseline_constant": constant}
 
 
@@ -345,12 +372,16 @@ def execute(
     model = get_trainer(protocol.trainer)(protocol, context)
     model.save(directory / "model")
 
+    quantiles = (
+        tuple(model.quantiles) if isinstance(model, QuantileFittedModel) else None
+    )
     if protocol.task == "regression":
         predictions, summary = _train_regression(parts, model, features)
         positive = None
     else:
         predictions, summary = _train_classification(protocol, parts, model, features)
         positive = summary["positive_label"]
+        quantiles = None
 
     metrics = {
         "task": protocol.task,
@@ -359,7 +390,11 @@ def execute(
         "baseline": protocol.evaluation.baseline,
         **summary,
         "splits": {
-            source: _score_all(protocol, items, positive)
+            # A baseline predicts a point, so quantile scoring applies to the
+            # model alone.
+            source: _score_all(
+                protocol, items, positive, quantiles if source == "model" else None
+            )
             for source, items in sorted(predictions.items())
         },
         "split_sizes": {name: len(samples) for name, samples in sorted(parts.items())},

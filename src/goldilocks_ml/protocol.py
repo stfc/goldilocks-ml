@@ -18,6 +18,10 @@ SPLIT_NAMES: tuple[str, ...] = ("train", "validation", "calibration", "test")
 CAPABILITIES: frozenset[str] = frozenset({"structures", "features", "groups"})
 
 REGRESSION_METRICS: frozenset[str] = frozenset({"mae", "rmse", "r2"})
+# Reported alongside the requested metrics when a trainer predicts intervals.
+INTERVAL_METRICS: frozenset[str] = frozenset(
+    {"interval_coverage", "mean_interval_width", "pinball_loss"}
+)
 CLASSIFICATION_METRICS: frozenset[str] = frozenset(
     {
         "accuracy",

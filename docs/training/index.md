@@ -20,8 +20,9 @@ uv run goldilocks-train run protocols/synthetic/regression.toml \
 ```
 
 The reference linear and logistic trainers make the shared contract executable
-on any CPU. QRF and CGCNN will add model-specific trainers without changing the
-snapshot, split, evaluation, or run-bundle machinery.
+on any CPU. The [QRF95 protocol](kmesh/qrf95.md) adds scientific k-distance
+quantile training through an optional dependency set. CGCNN training is not
+implemented yet.
 
 ## The workflow
 
@@ -46,3 +47,4 @@ checks, then trains. There is no notebook-only step.
 
 [Prepare your data](your-data.md){ .md-button .md-button--primary }
 [Protocol reference](protocol.md){ .md-button }
+[Train QRF95](kmesh/qrf95.md){ .md-button }
