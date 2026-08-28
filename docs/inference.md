@@ -14,8 +14,8 @@ model = load_model(Path("local_runs/qrf95-v6/model"), model_id="kmesh/qrf95@v6")
 
 prediction = model.predict(Structure.from_file("Si.cif"))
 prediction.parameter  # 'k_points'
-prediction.quantity   # 'k_distance'
-prediction.value      # 0.2134
+prediction.quantity  # 'k_distance'
+prediction.value  # 0.2134
 ```
 
 The directory is what a training run writes and what a published deposit
@@ -46,9 +46,9 @@ travels in `details`, and `warnings` carries anything the consumer should show
 its user. Both are recorded verbatim and never branched on:
 
 ```python
-prediction.details     # {'interval': [0.148, 0.455], 'coverage': 0.9, ...}
+prediction.details  # {'interval': [0.148, 0.455], 'coverage': 0.9, ...}
 prediction.confidence  # 0.9
-prediction.warnings    # () or a message about an unusually wide interval
+prediction.warnings  # () or a message about an unusually wide interval
 ```
 
 QRF95 flags a prediction whose interval exceeds twice the mean width measured
