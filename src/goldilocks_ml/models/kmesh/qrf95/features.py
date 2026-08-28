@@ -2,7 +2,8 @@
 
 Adapted from ``stfc/goldilocks_kpoints``
 (``utils/compound_features_utils.py``), © 2024 Science and Technology
-Facilities Council, CC BY 4.0.
+Facilities Council. Redistributed under this repository's LICENSE; the
+upstream licence is under review in stfc/goldilocks-ml#10.
 """
 
 from __future__ import annotations

@@ -61,12 +61,31 @@ is in the [PSDI publication guide](https://stfc.github.io/goldilocks-ml/getting-
 ```bash
 uv sync --group dev --extra qrf95
 uv run pytest
-uv run ruff check src tests
-uv run ruff format --check src tests
+uv run ruff check .
+uv run ruff format --check .
 uv run mkdocs build --strict
 uv build
 ```
 
+The lint and format checks cover the whole tree, including Python inside
+fenced blocks in the documentation. Narrowing them to `src tests` passes
+locally and fails in CI.
+
 The GitHub Pages workflow builds documentation on every pull request and
 deploys it after changes reach `main`. A repository administrator must select
 **GitHub Actions** as the Pages source once before the first deployment.
+
+## Licence
+
+This package is released under the [BSD 3-Clause Licence](LICENSE), matching
+Goldilocks Core.
+
+Published models are a separate matter. Trained weights and the datasets behind
+them are released through PSDI under CC BY 4.0, which is stated in each
+deposit's record rather than here — a licence for code and a licence for data
+answer different questions.
+
+Two modules under `src/goldilocks_ml/models/` are adapted from
+`stfc/goldilocks_kpoints` and carry attribution in their headers. That
+repository's own licence file is internally inconsistent, and resolving it is
+tracked in [issue #10](https://github.com/stfc/goldilocks-ml/issues/10).
