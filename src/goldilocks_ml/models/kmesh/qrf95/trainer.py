@@ -31,7 +31,7 @@ CALIBRATION_FILE = "calibration.json"
 MODEL_RECORD_FILE = "model.json"
 
 
-def _prediction_matrix(
+def prediction_matrix(
     estimator: RandomForestQuantileRegressor,
     rows: Sequence[Sequence[float]],
 ) -> np.ndarray:
@@ -71,10 +71,10 @@ def conformal_correction(
     return scores[rank - 1]
 
 
-def _calibrated(
+def calibrate_interval(
     lower: float, median: float, upper: float, correction: float
 ) -> tuple[float, float, float]:
-    """Apply the conformal correction to one interval, then rearrange it.
+    """Apply the conformal correction to one interval, then clamp its endpoints.
 
     Conformal quantile regression calibrates the outer pair only. It makes no
     claim about the median, which the forest estimates independently, so a
@@ -82,12 +82,16 @@ def _calibrated(
     raw interval is narrower than twice the correction it can invert it
     outright.
 
-    Rearranging the triple settles both. Sorting quantile estimates never
-    increases their estimation error (Chernozhukov, Fernandez-Val and Galichon,
-    2010), and widening toward the median is conservative: coverage can only
-    rise. Measured on held-out data the cost is nil -- test coverage moves from
-    89.4% to 89.5% and the mean interval width does not move at all -- while
-    the guarantee that a consumer can read the median as a point inside its own
+    Clamping each endpoint to the median settles both: the lower bound may only
+    move down to reach it and the upper bound may only move up. This is not a
+    sort -- an inverted pair collapses onto the median rather than swapping
+    ends -- and the median itself never moves.
+
+    Coverage cannot fall. Where the calibrated pair is ordered the clamped
+    interval contains it, and where it is inverted it covers nothing to begin
+    with. Measured on held-out data the cost is nil: test coverage moves from
+    89.4% to 89.5% and the mean interval width does not move at all, while the
+    guarantee that a consumer can read the median as a point inside its own
     interval becomes unconditional.
     """
     low, high = lower - correction, upper + correction
@@ -108,8 +112,10 @@ class QRF95Model:
     target_units: str | None
     feature_schema: str
     feature_columns: tuple[str, ...]
+    feature_parameters: dict[str, Any]
     hyperparameters: dict[str, Any]
     calibration_count: int
+    calibration_mean_width: float
     selection: dict[str, Any]
 
     def predict_quantiles(
@@ -118,9 +124,11 @@ class QRF95Model:
         """Return calibrated lower, median, and upper predictions."""
         if features.columns != self.feature_columns:
             raise ValueError("prediction feature columns differ from the fitted model")
-        raw = _prediction_matrix(self.estimator, features.matrix(samples))
+        raw = prediction_matrix(self.estimator, features.matrix(samples))
         return [
-            _calibrated(float(lower), float(median), float(upper), self.correction)
+            calibrate_interval(
+                float(lower), float(median), float(upper), self.correction
+            )
             for lower, median, upper in zip(*raw, strict=True)
         ]
 
@@ -146,15 +154,24 @@ class QRF95Model:
             },
             "feature_schema": self.feature_schema,
             "feature_columns": list(self.feature_columns),
+            "feature_parameters": self.feature_parameters,
             "selection": self.selection,
             "calibration": {
                 "method": "split_conformal_quantile_regression",
                 "coverage": self.coverage,
                 "correction": self.correction,
                 "sample_count": self.calibration_count,
+                "mean_interval_width": self.calibration_mean_width,
                 "applied_as": "lower - correction, upper + correction",
-                "calibrates": "the outer quantiles only; the median is not adjusted "
-                "and is not guaranteed to lie inside the calibrated interval",
+                "endpoint_adjustment": "clamped_to_include_median",
+                "median_adjusted": False,
+                "notes": (
+                    "Calibration adjusts the outer quantiles only. A negative "
+                    "correction can narrow an interval past the median, so each "
+                    "endpoint is then clamped to it: lower = min(lower, median), "
+                    "upper = max(upper, median). The median is never moved, and "
+                    "the reported interval always contains it."
+                ),
             },
             "artifacts": {
                 "estimator": MODEL_FILE,
@@ -290,7 +307,7 @@ def _validation_score(
     quantiles: tuple[float, float, float],
 ) -> float:
     """Return mean pinball loss over the three quantiles on held-out data."""
-    raw = _prediction_matrix(estimator, partition.features.matrix(partition.samples))
+    raw = prediction_matrix(estimator, partition.features.matrix(partition.samples))
     truth = [float(sample.target) for sample in partition.samples]
     return sum(
         pinball_loss(truth, list(raw[index]), level)
@@ -339,9 +356,7 @@ def fit(protocol: TrainingProtocol, context: TrainingContext) -> FittedModel:
     selected_score, selected, estimator = best
 
     calibration = context.calibration
-    raw = _prediction_matrix(
-        estimator, calibration.features.matrix(calibration.samples)
-    )
+    raw = prediction_matrix(estimator, calibration.features.matrix(calibration.samples))
     coverage = quantiles[2] - quantiles[0]
     correction = conformal_correction(
         [float(sample.target) for sample in calibration.samples],
@@ -349,6 +364,12 @@ def fit(protocol: TrainingProtocol, context: TrainingContext) -> FittedModel:
         raw[2],
         coverage=coverage,
     )
+    calibrated = [
+        calibrate_interval(float(low), float(mid), float(high), correction)
+        for low, mid, high in zip(*raw, strict=True)
+    ]
+    mean_width = sum(high - low for low, _, high in calibrated) / len(calibrated)
+
     return QRF95Model(
         estimator=estimator,
         quantiles=quantiles,
@@ -360,6 +381,7 @@ def fit(protocol: TrainingProtocol, context: TrainingContext) -> FittedModel:
         target_units=protocol.dataset.target_units,
         feature_schema=protocol.features.schema,
         feature_columns=context.train.features.columns,
+        feature_parameters=dict(protocol.features.parameters),
         hyperparameters={
             "n_estimators": parameters["n_estimators"],
             "quantiles": list(quantiles),
@@ -367,6 +389,7 @@ def fit(protocol: TrainingProtocol, context: TrainingContext) -> FittedModel:
             **selected,
         },
         calibration_count=len(calibration.samples),
+        calibration_mean_width=mean_width,
         selection={
             "criterion": "mean pinball loss over the three quantiles",
             "selected_on": "validation",

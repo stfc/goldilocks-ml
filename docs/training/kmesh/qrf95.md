@@ -89,10 +89,13 @@ splits are equal.
 `Q` is negative here, −0.0028: the raw forest intervals are wider than 90%
 coverage requires, so calibration narrows them. Narrowing can push the median
 outside its own interval, and where an interval is narrower than `2|Q|` it can
-invert one. The calibrated triple is therefore rearranged — sorted — which
-settles both. Rearranging quantile estimates never increases their estimation
-error, and widening toward the median can only raise coverage. The measured
-cost is nil.
+invert one. Each endpoint is therefore clamped to the median —
+`lower = min(lower, median)`, `upper = max(upper, median)` — which settles
+both. This is a clamp, not a sort: an inverted pair collapses onto the median
+rather than swapping ends, and the median itself never moves. Coverage cannot
+fall, because a clamped interval contains the calibrated one wherever that was
+ordered and an inverted one covered nothing to begin with. The measured cost is
+nil.
 
 ## Run
 

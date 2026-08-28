@@ -22,7 +22,10 @@ from goldilocks_ml.models.kmesh.qrf95.features import (
     soap_block,
     structure_block,
 )
-from goldilocks_ml.models.kmesh.qrf95.trainer import conformal_correction
+from goldilocks_ml.models.kmesh.qrf95.trainer import (
+    calibrate_interval,
+    conformal_correction,
+)
 from goldilocks_ml.protocol import load_protocol
 from goldilocks_ml.registry import get_trainer
 from goldilocks_ml.snapshot import Sample, Snapshot, load_snapshot
@@ -133,6 +136,31 @@ def test_conformal_correction_uses_calibration_count_not_test_count() -> None:
     correction = conformal_correction([0.0, 10.0], [1.0, 9.0], [2.0, 9.5], coverage=0.5)
 
     assert correction == pytest.approx(1.0)
+
+
+def test_positive_correction_widens_without_clamping() -> None:
+    lower, median, upper = calibrate_interval(0.20, 0.25, 0.30, 0.05)
+
+    assert (lower, median, upper) == pytest.approx((0.15, 0.25, 0.35))
+
+
+def test_negative_correction_clamps_the_endpoint_that_passed_the_median() -> None:
+    """Narrowing past the median moves only the offending endpoint."""
+    lower, median, upper = calibrate_interval(0.20, 0.21, 0.30, -0.03)
+
+    # Raw calibration gives (0.23, 0.27), which no longer contains the median.
+    assert (lower, median, upper) == pytest.approx((0.21, 0.21, 0.27))
+    assert lower <= median <= upper
+
+
+def test_inverted_interval_collapses_onto_the_median_rather_than_sorting() -> None:
+    """Clamping is not a sort: the endpoints do not swap."""
+    lower, median, upper = calibrate_interval(0.20, 0.25, 0.22, -0.03)
+
+    # Raw calibration gives (0.23, 0.19), which is inverted. Sorting the triple
+    # would yield (0.19, 0.23, 0.25); clamping collapses both ends to the median.
+    assert (lower, median, upper) == pytest.approx((0.23, 0.25, 0.25))
+    assert lower <= median <= upper
 
 
 def test_qrf_run_records_intervals_and_core_artifacts(

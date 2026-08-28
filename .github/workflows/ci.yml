@@ -79,6 +79,7 @@ jobs:
           /tmp/base/bin/python - <<'PY'
           import sys
           import goldilocks_ml.cli  # noqa: F401
+          import goldilocks_ml.inference  # noqa: F401
           leaked = sorted(
               name
               for name in sys.modules
@@ -89,7 +90,7 @@ jobs:
           )
           if leaked:
               raise SystemExit("importing the CLI loaded: " + ", ".join(leaked))
-          print("the CLI imports nothing from the scientific stack")
+          print("the CLI and inference seam import nothing heavy")
           PY
 
       - name: Train with the built-in baselines

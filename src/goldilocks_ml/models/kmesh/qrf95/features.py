@@ -287,6 +287,47 @@ def _column_names() -> tuple[str, ...]:
     return tuple(names)
 
 
+def feature_rows(
+    structures: Sequence[Structure],
+    *,
+    soap: Mapping[str, float | int],
+    metallicity_checkpoint: Path,
+    metallicity_atom_init: Path,
+) -> np.ndarray:
+    """Return the 483 columns for a batch of structures, in contract order.
+
+    Training and inference both come through here, so the block order is
+    defined once. A width other than :data:`TOTAL_WIDTH` is a defect in a
+    block, not a configuration error, and is reported with the block widths.
+    """
+    blocks = (
+        composition_block(structures),
+        structure_block(structures),
+        soap_block(structures, dict(soap)),
+        lattice_block(structures),
+        metallicity_block(structures, metallicity_checkpoint, metallicity_atom_init),
+    )
+    matrix = np.concatenate(blocks, axis=1)
+    if matrix.shape[1] != TOTAL_WIDTH:
+        widths = ", ".join(str(block.shape[1]) for block in blocks)
+        raise ValueError(
+            f"QRF95 feature vector is {matrix.shape[1]} wide; expected "
+            f"{TOTAL_WIDTH}. Block widths: {widths}"
+        )
+    return matrix
+
+
+def column_names() -> tuple[str, ...]:
+    """Return the 483 column names, in contract order."""
+    return _column_names()
+
+
+def resolve_soap(parameters: Mapping[str, Any]) -> dict[str, float | int]:
+    """Return the SOAP settings a protocol selected, defaults filled in."""
+    soap, _ = _settings(parameters)
+    return soap
+
+
 def build(
     protocol: TrainingProtocol,
     snapshot: Snapshot,
@@ -309,24 +350,12 @@ def build(
             if sample.structure_path is None:
                 raise ValueError(f"{sample.sample_id} has no structure file")
             structures.append(Structure.from_file(sample.structure_path))
-        blocks = (
-            composition_block(structures),
-            structure_block(structures),
-            soap_block(structures, soap),
-            lattice_block(structures),
-            metallicity_block(
-                structures,
-                artifacts["metallicity_checkpoint"],
-                artifacts["metallicity_atom_init"],
-            ),
+        matrix = feature_rows(
+            structures,
+            soap=soap,
+            metallicity_checkpoint=artifacts["metallicity_checkpoint"],
+            metallicity_atom_init=artifacts["metallicity_atom_init"],
         )
-        matrix = np.concatenate(blocks, axis=1)
-        if matrix.shape[1] != TOTAL_WIDTH:
-            widths = ", ".join(str(block.shape[1]) for block in blocks)
-            raise ValueError(
-                f"QRF95 feature vector is {matrix.shape[1]} wide; expected "
-                f"{TOTAL_WIDTH}. Block widths: {widths}"
-            )
         rows.update(
             {
                 sample.sample_id: tuple(float(value) for value in row)

@@ -47,6 +47,7 @@ nav:
       - Protocol reference: training/protocol.md
       - Models:
           - QRF95 k-mesh: training/kmesh/qrf95.md
+  - Use a model: inference.md
   - Publish a model:
       - Workflow: getting-started.md
       - Deposit format: deposit-format.md
