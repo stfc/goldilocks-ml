@@ -13,6 +13,8 @@ from conftest import build_snapshot, regression_document, write_protocol
 from pymatgen.core import Lattice, Structure
 
 from goldilocks_ml.cli import execute
+from goldilocks_ml.hashing import sha256_file
+from goldilocks_ml.inference import SUPPORTED_RECORD_SCHEMA_VERSIONS
 from goldilocks_ml.models.kmesh.qrf95 import features as qrf_features
 from goldilocks_ml.models.kmesh.qrf95.features import (
     SOAP_DEFAULTS,
@@ -23,6 +25,10 @@ from goldilocks_ml.models.kmesh.qrf95.features import (
     structure_block,
 )
 from goldilocks_ml.models.kmesh.qrf95.trainer import (
+    CALIBRATION_METHOD,
+    ENDPOINT_ADJUSTMENT,
+    RUNTIME,
+    RUNTIME_VERSION,
     calibrate_interval,
     conformal_correction,
 )
@@ -200,6 +206,38 @@ def test_qrf_run_records_intervals_and_core_artifacts(
     assert all(
         float(row["lower"]) <= float(row["prediction"]) <= float(row["upper"])
         for row in model_rows
+    )
+
+
+def test_the_written_record_carries_what_loading_requires(
+    tmp_path: Path, snapshot_dir: Path
+) -> None:
+    """The trainer writes the record; the loader reads it. They must agree."""
+    build_snapshot(snapshot_dir)
+    protocol = load_protocol(write_protocol(tmp_path / "qrf.toml", _qrf_document()))
+    snapshot = load_snapshot(snapshot_dir, protocol)
+
+    result = execute(
+        protocol,
+        snapshot,
+        tmp_path / "run",
+        artifact_dir=tmp_path / "artifacts",
+        splits_source=None,
+        overwrite=False,
+    )
+
+    model_dir = result["directory"] / "model"
+    record = json.loads((model_dir / "model.json").read_text(encoding="utf-8"))
+
+    assert record["record_schema_version"] in SUPPORTED_RECORD_SCHEMA_VERSIONS
+    assert record["runtime"] == {"id": RUNTIME, "version": RUNTIME_VERSION}
+    assert record["calibration"]["method"] == CALIBRATION_METHOD
+    assert record["calibration"]["endpoint_adjustment"] == ENDPOINT_ADJUSTMENT
+    assert "mean_interval_width" in record["calibration"]
+    assert record["target"]["contract"] == protocol.dataset.target_contract
+    assert record["feature_parameters"] == protocol.features.parameters
+    assert record["artifacts"]["estimator_sha256"] == sha256_file(
+        model_dir / record["artifacts"]["estimator"]
     )
 
 

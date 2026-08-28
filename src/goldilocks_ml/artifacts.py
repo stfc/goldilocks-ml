@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from goldilocks_ml.hashing import sha256_file
@@ -25,12 +25,22 @@ def artifact_directory(override: Path | None = None) -> Path:
 
 
 def resolve(
-    dependencies: Sequence[ArtifactDependency], directory: Path
+    dependencies: Sequence[ArtifactDependency],
+    directory: Path,
+    overrides: Mapping[str, Path] | None = None,
 ) -> dict[str, Path]:
-    """Return verified local paths for every pinned artifact dependency."""
+    """Return verified local paths for every pinned artifact dependency.
+
+    An override supplies the path for one dependency without excusing it from
+    verification: a caller that points at its own file still gets the digest
+    the protocol pinned checked against it.
+    """
     resolved: dict[str, Path] = {}
+    supplied = dict(overrides or {})
     for dependency in dependencies:
-        path = directory / dependency.record_id / dependency.file
+        path = supplied.get(
+            dependency.name, directory / dependency.record_id / dependency.file
+        )
         if not path.is_file():
             raise FileNotFoundError(
                 f"{path} is missing. The {dependency.name} feature dependency is "

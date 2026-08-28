@@ -32,6 +32,10 @@ if TYPE_CHECKING:  # a consumer can read these types without the qrf95 stack
 
 MODEL_RECORD_FILE = "model.json"
 
+# The record shapes this build can read. A record from the future is refused
+# rather than read with fields interpreted by an older meaning.
+SUPPORTED_RECORD_SCHEMA_VERSIONS = frozenset({1})
+
 
 @dataclass(frozen=True, slots=True)
 class ContractSpec:
@@ -39,11 +43,29 @@ class ContractSpec:
 
     ``parameter`` names the advice a prediction speaks to, matching the field
     Core carries it in. ``quantity`` says what the number is, which is what
-    decides how Core converts it.
+    decides how Core converts it. ``units`` and the domain are checked here so
+    that a mismatch fails rather than producing a plausible, wrong setting.
     """
 
     parameter: str
     quantity: str
+    units: str | None = None
+    positive: bool = False
+
+    def check_units(self, units: str | None) -> None:
+        """Reject a record whose units are not the ones this contract means."""
+        if self.units is not None and units != self.units:
+            raise ValueError(
+                f"target contract expects units {self.units!r}, but the record "
+                f"declares {units!r}"
+            )
+
+    def check_value(self, value: float) -> None:
+        """Reject a prediction outside the domain the quantity admits."""
+        if self.positive and not value > 0:
+            raise ValueError(
+                f"{self.quantity} must be positive; the model predicted {value}"
+            )
 
 
 # The target contracts this build understands. The contract string, not the
@@ -51,7 +73,10 @@ class ContractSpec:
 # differ by a factor of 2 pi, and only the contract distinguishes them.
 CONTRACTS: Mapping[str, ContractSpec] = {
     "goldilocks.k_distance.mesh_lower_bound.2pi.v1": ContractSpec(
-        parameter="k_points", quantity="k_distance"
+        parameter="k_points",
+        quantity="k_distance",
+        units="1/angstrom",
+        positive=True,
     ),
 }
 
@@ -105,17 +130,20 @@ def read_record(directory: Path) -> dict[str, Any]:
 
 
 def required_artifacts(
-    record: Mapping[str, Any], artifact_directory: Path | None = None
+    record: Mapping[str, Any],
+    artifact_directory: Path | None = None,
+    overrides: Mapping[str, Path] | None = None,
 ) -> dict[str, Path]:
     """Resolve and verify the supporting artifacts a record declares.
 
     A model's featurisation may depend on other released artifacts -- QRF95
     embeds a metallicity checkpoint. The record pins each by record id and
-    digest, so a consumer never needs to know that any of them exist.
+    digest, so a consumer never needs to know that any of them exist. An
+    override supplies a path but does not excuse it from verification.
     """
     declared = record.get("requires_artifacts", ())
     if not declared:
-        return {}
+        return dict(overrides or {})
 
     from goldilocks_ml.artifacts import artifact_directory as default_directory
     from goldilocks_ml.artifacts import resolve
@@ -130,7 +158,7 @@ def required_artifacts(
         )
         for item in declared
     ]
-    return resolve(dependencies, default_directory(artifact_directory))
+    return resolve(dependencies, default_directory(artifact_directory), overrides)
 
 
 def load_model(
@@ -149,13 +177,23 @@ def load_model(
     """
     directory = Path(directory)
     record = read_record(directory)
-    contract_for(record["target"]["contract"])
-    resolved = (
-        dict(artifacts)
-        if artifacts is not None
-        else required_artifacts(record, artifact_directory)
-    )
-    predictor = get_predictor(record["trainer"])
+
+    version = record.get("record_schema_version")
+    if version not in SUPPORTED_RECORD_SCHEMA_VERSIONS:
+        supported = ", ".join(
+            str(item) for item in sorted(SUPPORTED_RECORD_SCHEMA_VERSIONS)
+        )
+        raise ValueError(
+            f"model record schema version {version!r} is not supported; this "
+            f"build reads: {supported}"
+        )
+
+    contract = contract_for(record["target"]["contract"])
+    contract.check_units(record["target"].get("units"))
+
+    resolved = required_artifacts(record, artifact_directory, artifacts)
+    runtime = record.get("runtime", {})
+    predictor = get_predictor(runtime.get("id"))
     model = predictor(record, directory, resolved)
     if model_id is not None:
         return replace_model_id(model, model_id)

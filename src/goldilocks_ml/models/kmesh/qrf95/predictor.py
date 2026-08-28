@@ -13,13 +13,18 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from goldilocks_ml.hashing import sha256_file
 from goldilocks_ml.inference import ModelPrediction, contract_for
+from goldilocks_ml.models.kmesh.qrf95.trainer import (
+    CALIBRATION_METHOD,
+    ENDPOINT_ADJUSTMENT,
+    RUNTIME,
+    RUNTIME_VERSION,
+)
 from goldilocks_ml.registry import register_predictor
 
 if TYPE_CHECKING:
     from pymatgen.core.structure import Structure
-
-TRAINER = "quantile_random_forest"
 
 # A prediction interval this many times the mean width measured during
 # calibration is flagged. This is a heuristic for structures unlike the
@@ -91,6 +96,8 @@ class QRF95Predictor:
                     warnings=self._warnings(upper - lower),
                 )
             )
+        for prediction in predictions:
+            contract.check_value(float(prediction.value))
         return predictions
 
     def _warnings(self, width: float) -> tuple[str, ...]:
@@ -114,12 +121,40 @@ def load(
     """Build a predictor from a stored record, checking what it declares."""
     from goldilocks_ml.models.kmesh.qrf95 import features as qrf_features
 
+    version = record.get("runtime", {}).get("version")
+    if version != RUNTIME_VERSION:
+        raise ValueError(
+            f"this artifact declares {RUNTIME} runtime version {version!r}; "
+            f"this build implements version {RUNTIME_VERSION}"
+        )
+
     schema = record["feature_schema"]
     if schema != qrf_features.SCHEMA:
         raise ValueError(
             f"this artifact was built against feature contract {schema!r}, but "
             f"the installed goldilocks-ml provides {qrf_features.SCHEMA!r}; "
             "upgrade goldilocks-ml to load it"
+        )
+
+    # A matching width over reordered or renamed columns would predict from a
+    # scrambled vector, so compare the contract itself, not its size.
+    recorded = tuple(record["feature_columns"])
+    if recorded != qrf_features.column_names():
+        raise ValueError(
+            f"the {schema!r} columns this build produces differ from the ones "
+            "the artifact was fitted on; upgrade goldilocks-ml to load it"
+        )
+
+    calibration = record["calibration"]
+    if calibration.get("method") != CALIBRATION_METHOD:
+        raise ValueError(
+            f"this build applies {CALIBRATION_METHOD!r} calibration; the "
+            f"artifact records {calibration.get('method')!r}"
+        )
+    if calibration.get("endpoint_adjustment") != ENDPOINT_ADJUSTMENT:
+        raise ValueError(
+            f"this build applies the {ENDPOINT_ADJUSTMENT!r} endpoint rule; "
+            f"the artifact records {calibration.get('endpoint_adjustment')!r}"
         )
 
     missing = [
@@ -133,10 +168,24 @@ def load(
         )
 
     estimator_file = record["artifacts"]["estimator"]
-    with (Path(directory) / estimator_file).open("rb") as handle:
+    estimator_path = Path(directory) / estimator_file
+    # Unpickling executes code. The record pins what may be unpickled, so a
+    # substituted file is refused before it is opened as anything but bytes.
+    pinned = record["artifacts"].get("estimator_sha256")
+    if not pinned:
+        raise ValueError(
+            f"the record does not pin a SHA-256 for {estimator_file}; refusing "
+            "to unpickle an unverified estimator"
+        )
+    digest = sha256_file(estimator_path)
+    if digest != pinned:
+        raise ValueError(
+            f"{estimator_file} has SHA-256 {digest}; its record pins {pinned}"
+        )
+    with estimator_path.open("rb") as handle:
         estimator = pickle.load(handle)
 
-    expected_width = len(record["feature_columns"])
+    expected_width = len(recorded)
     actual_width = getattr(estimator, "n_features_in_", expected_width)
     if actual_width != expected_width:
         raise ValueError(
@@ -148,8 +197,8 @@ def load(
         estimator=estimator,
         record=record,
         artifacts=artifacts,
-        model_id=f"{TRAINER}@{schema}",
+        model_id=f"{RUNTIME}@{schema}",
     )
 
 
-register_predictor(TRAINER, load)
+register_predictor(RUNTIME, load)

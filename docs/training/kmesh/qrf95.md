@@ -1,9 +1,10 @@
 # Train QRF95
 
 QRF95 recommends a k-point mesh indirectly. It predicts three quantiles of a
-scalar k-distance in Å⁻¹; Goldilocks Core converts the median to an explicit
-mesh and retains the lower and upper values as an uncertainty interval. It is
-not a discrete k-index model.
+scalar k-distance in Å⁻¹. The runtime predictor calibrates them and publishes
+the median as the value, keeping the interval as recorded provenance;
+Goldilocks Core converts that value into an explicit mesh. It is not a discrete
+k-index model.
 
 ## Install the training dependencies
 
@@ -117,12 +118,19 @@ records interval coverage and mean interval width for every split.
 
 The model directory contains:
 
-- `QRF95.pkl`: the estimator consumed by Goldilocks Core;
-- `calibration.json`: the interval correction Core must apply;
-- `model.json`: trainer, feature, parameter, and calibration provenance.
+- `QRF95.pkl`: the fitted estimator;
+- `calibration.json`: the conformal correction and the rule applied with it;
+- `model.json`: the record that makes the directory self-describing — serving
+  runtime, trainer, feature contract and its parameters, target contract,
+  pinned artifact digests, and calibration.
 
-`QRF95.pkl` uses Python pickle. Load only an artifact from a trusted record
-after verifying its SHA-256 and matching its recorded dependency versions.
+These are consumed by the `goldilocks_ml` runtime predictor, not by a consumer
+directly. `load_model` applies the calibration and returns an already-calibrated
+`ModelPrediction`; Goldilocks Core converts its value into a mesh and must not
+apply the correction a second time. See [Use a model](../../inference.md).
+
+`QRF95.pkl` uses Python pickle. Loading executes code, so `model.json` pins its
+SHA-256 and the loader refuses to unpickle a file that does not match.
 
 ## Measured results
 

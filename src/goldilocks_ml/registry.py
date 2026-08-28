@@ -128,8 +128,10 @@ _PREDICTORS: dict[str, Predictor] = {}
 _BUILTIN_TRAINERS = {
     "quantile_random_forest": "goldilocks_ml.models.kmesh.qrf95.trainer",
 }
+# Keyed by serving runtime, not by trainer: one fitting algorithm can produce
+# models that must be read back differently.
 _BUILTIN_PREDICTORS = {
-    "quantile_random_forest": "goldilocks_ml.models.kmesh.qrf95.predictor",
+    "kmesh.qrf95": "goldilocks_ml.models.kmesh.qrf95.predictor",
 }
 _BUILTIN_FEATURES = {
     "comp_struct_soap_lattice_metal.v1": "goldilocks_ml.models.kmesh.qrf95.features",
@@ -177,14 +179,14 @@ def register_feature_contract(name: str, contract: FeatureContract) -> None:
 
 
 def register_predictor(name: str, predictor: Predictor) -> None:
-    """Register a predictor under the trainer name whose output it reads."""
+    """Register a predictor under the serving runtime id it implements."""
     if name in _PREDICTORS:
         raise ValueError(f"predictor {name} is already registered")
     _PREDICTORS[name] = predictor
 
 
 def get_predictor(name: str) -> Predictor:
-    """Return the predictor that serves a trainer's artifacts."""
+    """Return the predictor implementing a serving runtime."""
     if name not in _PREDICTORS:
         _load_builtin(name, _BUILTIN_PREDICTORS)
     try:
@@ -192,7 +194,7 @@ def get_predictor(name: str) -> Predictor:
     except KeyError:
         known = ", ".join(predictor_names()) or "none"
         raise ValueError(
-            f"no predictor serves trainer {name!r}; registered: {known}"
+            f"no predictor implements runtime {name!r}; registered: {known}"
         ) from None
 
 

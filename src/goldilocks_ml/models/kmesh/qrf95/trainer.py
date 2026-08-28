@@ -15,6 +15,7 @@ import numpy as np
 from sklearn_quantile import RandomForestQuantileRegressor
 
 from goldilocks_ml.evaluation import pinball_loss
+from goldilocks_ml.hashing import sha256_file
 from goldilocks_ml.protocol import TrainingProtocol
 from goldilocks_ml.registry import (
     FeatureMatrix,
@@ -26,6 +27,14 @@ from goldilocks_ml.registry import (
 from goldilocks_ml.snapshot import Sample
 
 TRAINER = "quantile_random_forest"
+# The serving runtime that reads these artifacts back. It is versioned
+# separately from the trainer: the same fitting algorithm can produce a
+# model with a different feature schema, calibration, or output contract.
+RUNTIME = "kmesh.qrf95"
+RUNTIME_VERSION = 1
+RECORD_SCHEMA_VERSION = 1
+CALIBRATION_METHOD = "split_conformal_quantile_regression"
+ENDPOINT_ADJUSTMENT = "clamped_to_include_median"
 MODEL_FILE = "QRF95.pkl"
 CALIBRATION_FILE = "calibration.json"
 MODEL_RECORD_FILE = "model.json"
@@ -142,6 +151,8 @@ class QRF95Model:
     def describe(self) -> dict[str, Any]:
         """Return the estimator, feature, and calibration provenance."""
         return {
+            "record_schema_version": RECORD_SCHEMA_VERSION,
+            "runtime": {"id": RUNTIME, "version": RUNTIME_VERSION},
             "trainer": TRAINER,
             "task": "regression",
             "seed": self.seed,
@@ -159,13 +170,13 @@ class QRF95Model:
             "requires_artifacts": [dict(item) for item in self.requires_artifacts],
             "selection": self.selection,
             "calibration": {
-                "method": "split_conformal_quantile_regression",
+                "method": CALIBRATION_METHOD,
                 "coverage": self.coverage,
                 "correction": self.correction,
                 "sample_count": self.calibration_count,
                 "mean_interval_width": self.calibration_mean_width,
                 "applied_as": "lower - correction, upper + correction",
-                "endpoint_adjustment": "clamped_to_include_median",
+                "endpoint_adjustment": ENDPOINT_ADJUSTMENT,
                 "median_adjusted": False,
                 "notes": (
                     "Calibration adjusts the outer quantiles only. A negative "
@@ -182,16 +193,20 @@ class QRF95Model:
         }
 
     def save(self, directory: Path) -> None:
-        """Write the Core-compatible estimator and separate calibration record."""
+        """Write the estimator, its digest, and a separate calibration record."""
         with (directory / MODEL_FILE).open("wb") as handle:
             pickle.dump(self.estimator, handle, protocol=pickle.HIGHEST_PROTOCOL)
-        calibration = self.describe()["calibration"]
+        # Loading unpickles this file, which executes code, so the record must
+        # pin what it is allowed to unpickle.
+        record = self.describe()
+        record["artifacts"]["estimator_sha256"] = sha256_file(directory / MODEL_FILE)
+        calibration = record["calibration"]
         (directory / CALIBRATION_FILE).write_text(
             json.dumps(calibration, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
         (directory / MODEL_RECORD_FILE).write_text(
-            json.dumps(self.describe(), indent=2, sort_keys=True) + "\n",
+            json.dumps(record, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
 
