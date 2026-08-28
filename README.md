@@ -86,6 +86,6 @@ deposit's record rather than here — a licence for code and a licence for data
 answer different questions.
 
 Two modules under `src/goldilocks_ml/models/` are adapted from
-`stfc/goldilocks_kpoints` and carry attribution in their headers. That
-repository's own licence file is internally inconsistent, and resolving it is
-tracked in [issue #10](https://github.com/stfc/goldilocks-ml/issues/10).
+`stfc/goldilocks_kpoints`, which is CC BY 4.0, and carry attribution in their
+headers. CC BY 4.0 permits adapted material under other terms provided
+attribution is kept, so they are redistributed under the licence above.
