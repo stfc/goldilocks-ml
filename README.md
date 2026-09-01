@@ -49,8 +49,8 @@ uv run goldilocks-ml publish --help
 Validate a deposit without making a network request:
 
 ```bash
-uv run goldilocks-ml publish validate deposits/kmesh/qrf95 \
-  --artifact-directory local_data/models/kmesh/qrf95
+uv run goldilocks-ml publish validate deposits/k_points/k_distance/qrf \
+  --artifact-directory local_data/models/k_points/k_distance/qrf
 ```
 
 The complete token, draft, inspection, and review workflow

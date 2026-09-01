@@ -9,7 +9,7 @@ The model has two distinct uses:
 1. As a classifier, its final layer produces the two-class metallicity output.
 2. In the Goldilocks k-point workflow, `extract_crystal_repr()` returns the
    learned crystal representation before the classification head. Goldilocks
-   passes this representation, not the predicted class, to the QRF k-mesh
+   passes this representation, not the predicted class, to the QRF k-distance
    model as one block of its input features.
 
 ## Files
