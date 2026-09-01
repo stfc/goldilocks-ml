@@ -219,13 +219,14 @@ uv run goldilocks-ml train run protocols/metallicity/is_metal/cgcnn/matbench_mp_
 
 ## Measured results
 
-A full run over the sealed snapshot takes about 55 minutes on an Apple M-series
-GPU, stopping at epoch 32 with the weights from epoch 24 restored.
+A full run over the sealed snapshot takes about 54 minutes on an Apple M-series
+GPU, stopping at epoch 32 with the weights from epoch 24 restored. The numbers
+below are the release run, `metallicity.is_metal.cgcnn.matbench_mp_is_metal.v1`.
 
 | Split | Accuracy | Balanced | Precision | Recall | F1 | MCC | ROC-AUC | PR-AUC |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | Validation | 0.777 | 0.800 | 0.666 | 0.970 | 0.790 | 0.616 | 0.955 | 0.946 |
-| Calibration | 0.778 | 0.803 | 0.665 | 0.975 | 0.790 | 0.621 | 0.958 | 0.947 |
+| Calibration | 0.778 | 0.803 | 0.665 | 0.975 | 0.790 | 0.621 | 0.957 | 0.947 |
 | **Test** | **0.748** | **0.766** | 0.649 | **0.972** | 0.778 | **0.569** | **0.950** | **0.947** |
 | Test baseline | 0.544 | 0.500 | 0 | 0 | 0 | 0.000 | 0.500 | 0.274 |
 
@@ -247,7 +248,13 @@ the initialisation and the batch order, but the graph convolutions reduce with
 non-deterministic kernels.
 
 Measured: two runs of this protocol with the same seed and the same splits
-produced weight files with different digests. Of 106113 scores, 6% were bit
-identical, the mean absolute difference was 2e-6, the largest was 3e-4, and one
-sample changed side of the threshold. The model is reproducible as a model, and
+produced weight files with different digests. Of 106113 scores, 4% were bit
+identical, the mean absolute difference was 4e-6, the largest was 8e-4, and one
+sample changed side of the threshold. Every metric in the table above is
+unchanged to three decimal places. The model is reproducible as a model, and
 not as a file.
+
+What *is* reproducible is the split. The second run derived its assignment from
+the seed rather than reusing the first one's `splits.csv`, and the two agree
+exactly, so the sample a number describes never moves even when the number
+wobbles in its last digits.
