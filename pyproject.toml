@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-qrf95 = [
+models = [
     "dscribe==2.1.2",
     "matminer==0.10.1",
     "numpy==2.5.2",

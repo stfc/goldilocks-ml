@@ -213,6 +213,48 @@ def test_select_threshold_maximises_the_requested_metric() -> None:
     assert labels == ["insulator", "insulator", "metal", "metal"]
 
 
+def test_select_threshold_honours_a_recall_floor() -> None:
+    predictions = _classification(
+        [
+            ("insulator", "", 0.1),
+            ("metal", "", 0.2),
+            ("insulator", "", 0.4),
+            ("metal", "", 0.6),
+            ("metal", "", 0.9),
+        ]
+    )
+
+    unconstrained = select_threshold(predictions, "mcc", "metal", "insulator")
+    floored = select_threshold(predictions, "mcc", "metal", "insulator", min_recall=1.0)
+
+    def recall(threshold: float) -> float:
+        caught = sum(
+            1
+            for item in predictions
+            if item.truth == "metal" and float(item.score) >= threshold
+        )
+        return caught / 3
+
+    # MCC alone leaves the 0.2 metal behind; the floor moves the line below it.
+    assert recall(unconstrained) < 1.0
+    assert recall(floored) == 1.0
+    assert floored < unconstrained
+
+
+def test_select_threshold_reports_an_unreachable_recall_floor() -> None:
+    predictions = _classification([("insulator", "", 0.9), ("insulator", "", 0.1)])
+
+    with pytest.raises(ValueError, match="no decision threshold reaches a recall"):
+        select_threshold(predictions, "mcc", "metal", "insulator", min_recall=0.9)
+
+
+def test_select_threshold_rejects_an_out_of_range_recall_floor() -> None:
+    predictions = _classification([("metal", "", 0.9), ("insulator", "", 0.1)])
+
+    with pytest.raises(ValueError, match=r"min_recall must lie in \(0, 1\]"):
+        select_threshold(predictions, "mcc", "metal", "insulator", min_recall=1.5)
+
+
 def test_select_threshold_rejects_ranking_metrics() -> None:
     predictions = _classification([("metal", "", 0.9), ("insulator", "", 0.1)])
 

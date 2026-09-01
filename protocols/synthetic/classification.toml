@@ -1,7 +1,7 @@
 # Pinned classification counterpart to regression.toml. Exercises stratified
 # group splitting, validation-only threshold selection, and ranking metrics.
 schema_version = 1
-id = "synthetic-classification-v1"
+id = "synthetic.is_metal.logistic.synthetic_metallic.v1"
 task = "classification"
 trainer = "logistic_regression"
 

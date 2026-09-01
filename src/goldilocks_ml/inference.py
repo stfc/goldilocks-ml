@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from goldilocks_ml.registry import get_predictor
 
-if TYPE_CHECKING:  # a consumer can read these types without the qrf95 stack
+if TYPE_CHECKING:  # a consumer can read these types without the model stack
     from pymatgen.core.structure import Structure
 
 MODEL_RECORD_FILE = "model.json"

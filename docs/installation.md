@@ -36,7 +36,7 @@ and pymatgen among them — which are not installed by default because they are
 slow to install and most people do not need them straight away:
 
 ```bash
-uv sync --extra qrf95
+uv sync --extra models
 ```
 
 Continue with [Train a model](training/index.md) or

@@ -15,7 +15,9 @@ from pathlib import Path
 from goldilocks_ml.inference import load_model
 from pymatgen.core import Structure
 
-model = load_model(Path("local_runs/qrf95-v6/model"), model_id="kmesh/qrf95@v6")
+model = load_model(
+    Path("local_runs/qrf-v6/model"), model_id="k_points.k_distance.qrf@v6"
+)
 
 prediction = model.predict(Structure.from_file("Si.cif"))
 prediction.parameter  # 'k_points'
@@ -117,5 +119,5 @@ quantity, is what pins the convention.
 
 `goldilocks_ml.inference` imports on a base install. A consumer can read
 `ModelPrediction` and the contract table without `torch`, `pymatgen`, or the
-rest of the `qrf95` extra; those load when a prediction is actually made, and a
+rest of the `models` extra; those load when a prediction is actually made, and a
 missing one is reported by name.

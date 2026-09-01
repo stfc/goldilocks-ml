@@ -724,7 +724,7 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-qrf95 = [
+models = [
     { name = "dscribe" },
     { name = "matminer" },
     { name = "numpy" },
@@ -748,16 +748,16 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "data-collections-api", specifier = "==0.1.0" },
-    { name = "dscribe", marker = "extra == 'qrf95'", specifier = "==2.1.2" },
-    { name = "matminer", marker = "extra == 'qrf95'", specifier = "==0.10.1" },
-    { name = "numpy", marker = "extra == 'qrf95'", specifier = "==2.5.2" },
-    { name = "pymatgen", marker = "extra == 'qrf95'", specifier = "==2026.5.4" },
-    { name = "scikit-learn", marker = "extra == 'qrf95'", specifier = "==1.7.2" },
-    { name = "sklearn-quantile", marker = "extra == 'qrf95'", specifier = "==0.1.1" },
-    { name = "torch", marker = "extra == 'qrf95'", specifier = "==2.13.0" },
-    { name = "torch-geometric", marker = "extra == 'qrf95'", specifier = "==2.8.0.post1" },
+    { name = "dscribe", marker = "extra == 'models'", specifier = "==2.1.2" },
+    { name = "matminer", marker = "extra == 'models'", specifier = "==0.10.1" },
+    { name = "numpy", marker = "extra == 'models'", specifier = "==2.5.2" },
+    { name = "pymatgen", marker = "extra == 'models'", specifier = "==2026.5.4" },
+    { name = "scikit-learn", marker = "extra == 'models'", specifier = "==1.7.2" },
+    { name = "sklearn-quantile", marker = "extra == 'models'", specifier = "==0.1.1" },
+    { name = "torch", marker = "extra == 'models'", specifier = "==2.13.0" },
+    { name = "torch-geometric", marker = "extra == 'models'", specifier = "==2.8.0.post1" },
 ]
-provides-extras = ["qrf95"]
+provides-extras = ["models"]
 
 [package.metadata.requires-dev]
 dev = [

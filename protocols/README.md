@@ -13,6 +13,7 @@ code.
 
 ## Scientific protocols
 
-- `kmesh/qrf95.toml` retrains the QRF95-compatible k-distance quantile model.
-  It needs the `qrf95` optional dependencies, a conforming structure snapshot,
+- `k_points/k_distance/qrf/goldilocks_kdist_ultra.v1.toml` retrains the
+  QRF95-compatible k-distance quantile model.
+  It needs the `models` optional dependencies, a conforming structure snapshot,
   and the two pinned metallicity artifacts named in the protocol.
