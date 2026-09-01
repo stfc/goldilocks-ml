@@ -163,11 +163,13 @@ def _parameters(protocol: TrainingProtocol) -> dict[str, Any]:
     """Validate and default the trainer's hyperparameters."""
     given = dict(protocol.model.parameters)
     known = {
-        "epochs": 60,
+        "epochs": 100,
         "batch_size": 128,
-        "learning_rate": 0.01,
-        "weight_decay": 0.0,
+        "learning_rate": 0.001,
+        "weight_decay": 0.0001,
         "patience": 8,
+        "scheduler_factor": 0.5,
+        "scheduler_patience": 3,
         "device": "auto",
         "architecture": {},
     }
@@ -175,7 +177,7 @@ def _parameters(protocol: TrainingProtocol) -> dict[str, Any]:
     if unknown:
         raise ValueError(f"unknown {TRAINER} parameter(s): {', '.join(unknown)}")
     settings = {**known, **given}
-    for name in ("epochs", "batch_size", "patience"):
+    for name in ("epochs", "batch_size", "patience", "scheduler_patience"):
         value = settings[name]
         if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
             raise ValueError(f"model.parameters.{name} must be a positive integer")
@@ -185,6 +187,11 @@ def _parameters(protocol: TrainingProtocol) -> dict[str, Any]:
             raise ValueError(f"model.parameters.{name} must not be negative")
     if not settings["learning_rate"] > 0:
         raise ValueError("model.parameters.learning_rate must be positive")
+    factor = settings["scheduler_factor"]
+    if not isinstance(factor, (int, float)) or isinstance(factor, bool):
+        raise ValueError("model.parameters.scheduler_factor must be a number")
+    if not 0 < factor < 1:
+        raise ValueError("model.parameters.scheduler_factor must lie in (0, 1)")
     if settings["device"] not in {"auto", "cpu", "mps", "cuda"}:
         raise ValueError("model.parameters.device must be auto, cpu, mps, or cuda")
     if not isinstance(settings["architecture"], dict):
@@ -251,10 +258,20 @@ def fit(protocol: TrainingProtocol, context: TrainingContext) -> FittedModel:
     model = CGCNN(**architecture).to(device)
     train_targets = train_targets.to(device)
     validation_targets = validation_targets.to(device)
-    optimiser = torch.optim.Adam(
+    # AdamW rather than Adam: decoupled decay is what the published run
+    # configured, and it is the correct pairing for a non-zero weight decay.
+    optimiser = torch.optim.AdamW(
         model.parameters(),
         lr=float(settings["learning_rate"]),
         weight_decay=float(settings["weight_decay"]),
+    )
+    # The published run configured OneCycle, which needs a step budget fixed in
+    # advance and so cannot coexist with stopping when validation stops
+    # improving. Halving on a plateau reaches the same place without one.
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimiser,
+        factor=float(settings["scheduler_factor"]),
+        patience=int(settings["scheduler_patience"]),
     )
     criterion = torch.nn.CrossEntropyLoss()
     batch_size = int(settings["batch_size"])
@@ -286,11 +303,13 @@ def fit(protocol: TrainingProtocol, context: TrainingContext) -> FittedModel:
         validation_loss = _epoch_loss(
             model, validation_graphs, validation_targets, criterion, batch_size, device
         )
+        scheduler.step(validation_loss)
         history.append(
             {
                 "epoch": epoch,
                 "train_loss": train_loss,
                 "validation_loss": validation_loss,
+                "learning_rate": optimiser.param_groups[0]["lr"],
             }
         )
         if validation_loss < best_loss:
@@ -336,6 +355,8 @@ def fit(protocol: TrainingProtocol, context: TrainingContext) -> FittedModel:
                 "learning_rate",
                 "weight_decay",
                 "patience",
+                "scheduler_factor",
+                "scheduler_patience",
                 "device",
             )
         },
@@ -344,7 +365,9 @@ def fit(protocol: TrainingProtocol, context: TrainingContext) -> FittedModel:
             "validation_loss": best_loss,
             "epochs_run": len(history),
             "criterion": "cross_entropy",
-            "optimiser": "adam",
+            "optimiser": "adamw",
+            "scheduler": "reduce_on_plateau",
+            "class_weights": False,
             "device": device.type,
             "stopped_early": len(history) < int(settings["epochs"]),
             "history": history,

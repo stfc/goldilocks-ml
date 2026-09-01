@@ -97,21 +97,49 @@ is refused rather than ignored.
 
 ## Fitting
 
-Adam on cross entropy, one seed, early stopping on validation loss with the
-weights restored from the best epoch. Training never reads the calibration or
-test splits.
+The published checkpoint carries its own training configuration, and where that
+configuration is sound this protocol adopts it: AdamW at a learning rate of
+0.001 with weight decay 1e-4, cross entropy, and no class weighting.
 
 ```toml
 [model.parameters]
-epochs = 60
+epochs = 100
 batch_size = 128
-learning_rate = 0.01
+learning_rate = 0.001
+weight_decay = 0.0001
 patience = 8
+scheduler_factor = 0.5
+scheduler_patience = 3
 ```
+
+Two of its settings are not carried over, for reasons worth stating.
+
+**OneCycle becomes a plateau schedule.** OneCycle needs its total step budget
+fixed before the first batch, which cannot coexist with stopping when the
+validation loss stops improving. Halving the learning rate on a plateau reaches
+the same place without committing to an epoch count in advance.
+
+**Stochastic weight averaging is dropped.** The published run configured it to
+begin at epoch 50 and stopped at epoch 0, so it never took effect there either.
+It is a real improvement worth adding later, but it needs a batch-norm update
+pass over the training set and belongs in a change that can be measured on its
+own.
+
+Training stops when validation loss has not improved for eight epochs and
+restores the weights from the best one. It never reads the calibration or test
+splits.
 
 `device` selects `cpu`, `mps`, or `cuda`, and defaults to `auto`, which prefers
 an accelerator when one is present. The record states which device actually
-fitted the model.
+fitted the model, the epoch selected, and the learning rate at every epoch.
+
+### What the published run actually did
+
+Its checkpoint records `epochs: 1`, reached `epoch: 0` at `global_step: 2246`,
+and is labelled `run_name: test0`, `experiment_name: cgcnn_basic`. At a batch
+size of 64 that is roughly 144000 samples: a single pass. Reproducing that
+exactly would reproduce a smoke test, which is also the likeliest reason its
+record reports no accuracy.
 
 ## Evaluation
 

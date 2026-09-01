@@ -37,11 +37,19 @@ sha256 = "cb90bd2257dbf8cfc4e6b2b6d4348d4616e8e9680f1339b1461137032e0f1894"
 [model]
 seed = 42
 
+# Optimiser, learning rate, and weight decay are the ones the published
+# checkpoint recorded for this architecture. Its OneCycle schedule needs a step
+# budget fixed in advance, so a plateau schedule replaces it; its stochastic
+# weight averaging was configured to begin at epoch 50 and the run stopped at
+# epoch 0, so it never took effect and is not carried over.
 [model.parameters]
-epochs = 60
+epochs = 100
 batch_size = 128
-learning_rate = 0.01
+learning_rate = 0.001
+weight_decay = 0.0001
 patience = 8
+scheduler_factor = 0.5
+scheduler_patience = 3
 
 [evaluation]
 primary_metric = "mcc"
