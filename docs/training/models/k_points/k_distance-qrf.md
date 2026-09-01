@@ -134,7 +134,7 @@ The model directory contains:
 These are consumed by the `goldilocks_ml` runtime predictor, not by a consumer
 directly. `load_model` applies the calibration and returns an already-calibrated
 `ModelPrediction`; Goldilocks Core converts its value into a mesh and must not
-apply the correction a second time. See [Use a model](../../inference.md).
+apply the correction a second time. See [Use a model](../../../inference.md).
 
 `QRF95.pkl` uses Python pickle. Loading executes code, so `model.json` pins its
 SHA-256 and the loader refuses to unpickle a file that does not match.

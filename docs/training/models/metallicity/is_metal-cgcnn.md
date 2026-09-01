@@ -170,7 +170,7 @@ min_recall = 0.97
 Read as: *of the thresholds that miss no more than 3% of metals, take the one
 with the best MCC.* The floor is what belongs on the model card; the threshold
 it produces belongs only to these weights. See
-[Choosing a decision threshold](../protocol.md#choosing-a-decision-threshold).
+[Choosing a decision threshold](../../protocol.md#choosing-a-decision-threshold).
 
 The threshold is chosen on the validation split alone and applied unchanged to
 calibration and test — it is a fitted parameter, so choosing it on test would be
@@ -199,11 +199,11 @@ floor, while the 0.97 threshold delivers 0.9721 and so keeps 0.95 as well.
 ## Run
 
 ```bash
-uv run goldilocks-train validate protocols/metallicity/cgcnn2.toml \
+uv run goldilocks-ml train validate protocols/metallicity/cgcnn2.toml \
   --dataset local_data/snapshots/mp-is-metal \
   --artifact-directory local_data/artifacts
 
-uv run goldilocks-train run protocols/metallicity/cgcnn2.toml \
+uv run goldilocks-ml train run protocols/metallicity/cgcnn2.toml \
   --dataset local_data/snapshots/mp-is-metal \
   --artifact-directory local_data/artifacts \
   --output local_runs/cgcnn2-v1

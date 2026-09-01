@@ -56,15 +56,14 @@ uv run goldilocks-ml train run PROTOCOL --dataset snapshots/mine \
 
 ## Which models you can train
 
-| Configuration | Fits | Needs |
-| --- | --- | --- |
-| `protocols/synthetic/*.toml` | linear and logistic regression | nothing extra |
-| `protocols/kmesh/qrf95.toml` | a k-point distance model with uncertainty | `--extra qrf95` |
+The synthetic configurations in `protocols/synthetic/` run anywhere with no
+extra dependencies, and are the fastest way to see the shape of a run without
+waiting for anything.
 
-The synthetic ones run anywhere and are the fastest way to see the shape of a
-run. [QRF95](kmesh/qrf95.md) is the real thing, and needs the scientific
-libraries the optional dependency set installs.
+The real ones need the scientific stack the optional dependency set installs.
+[Models](models/index.md) lists them, filed under the calculation setting each
+one advises.
 
 [Prepare your data](your-data.md){ .md-button .md-button--primary }
 [Configuration reference](protocol.md){ .md-button }
-[What a run produces](run-bundle.md){ .md-button }
+[Models](models/index.md){ .md-button }
