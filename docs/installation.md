@@ -23,13 +23,20 @@ uv sync
 `uv sync` installs Goldilocks ML and its required dependencies into a local
 `.venv` managed by `uv`.
 
-## Check the installation
-
-Both command-line tools should display their help:
+## Check it worked
 
 ```bash
-uv run goldilocks-ml train --help
-uv run goldilocks-ml publish --help
+uv run goldilocks-ml --help
+```
+
+You should see the two things this tool does: `train` and `publish`.
+
+Training the real scientific models needs a larger set of libraries — PyTorch
+and pymatgen among them — which are not installed by default because they are
+slow to install and most people do not need them straight away:
+
+```bash
+uv sync --extra qrf95
 ```
 
 Continue with [Train a model](training/index.md) or

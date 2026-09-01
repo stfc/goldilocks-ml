@@ -8,7 +8,8 @@ Remove group and other access:
 chmod 600 "$HOME/.config/goldilocks-ml/psdi.token"
 ```
 
-The CLI intentionally refuses a readable secret file.
+A file anyone on the machine can read is not a safe place for a secret, so
+the tool refuses to use one.
 
 ## `read: not an identifier`
 
@@ -16,21 +17,26 @@ The shell expects a variable name after `read`, not the token itself. Use the
 token setup block in [Publish a model](publishing.md#2-store-the-token-safely).
 The secret is entered only after the prompt appears.
 
-## Token is rejected
+## The token is rejected
 
-Create the token on PSDI. The CLI uses PSDI for all remote operations.
+Tokens come from PSDI Data Collections, and only PSDI tokens work here. If
+yours is from somewhere else, or has expired, create a new one on the PSDI
+website.
 
 ## `upload requires --confirm-upload`
 
-This is a safety check. Confirm that you intend to create a real PSDI draft,
-inspect the command again, then add `--confirm-upload` deliberately.
+Upload creates a real draft on a shared production service, so it does not
+happen by accident. Read the command once more, and if it is what you meant,
+add `--confirm-upload`.
 
 ## Size or SHA-256 mismatch
 
-The artifact is not the byte-identical file described by the manifest. Do not
-edit the digest to silence the error until you determine why the file changed.
-Common causes are retraining, re-serialization, downloading a different model
-version, or using the wrong artifact directory.
+The file on disk is not the one the manifest describes. Usually that means you
+retrained, re-saved the model, downloaded a different version, or pointed
+`--artifact-directory` somewhere else.
+
+Find out which before you touch the digest. Editing it to make the error go
+away is how a published record ends up describing a file nobody has.
 
 Run `goldilocks-ml publish checksum` on the intended final artifact and review the
 corresponding model card and inference requirements before updating the manifest.
@@ -45,8 +51,9 @@ If deletion also fails, the error includes the original upload failure, the
 cleanup failure, and the PSDI draft identifier. Remove that partial draft in the
 PSDI web interface before retrying.
 
-Large artifacts can take several minutes. Do not interrupt the process merely
-because the terminal is quiet.
+A large model can take several minutes to upload with nothing printed in the
+meantime. That silence is normal — interrupting it leaves a partial draft
+behind.
 
 ## Review submission fails
 

@@ -1,23 +1,29 @@
 # Publish a model
 
-This guide is for a colleague publishing a new Goldilocks model release to the
-PSDI Data to Knowledge community.
+Publishing puts your trained model in [PSDI Data
+Collections](https://data-collections.psdi.ac.uk) with a permanent identifier
+and a page describing it. People can then cite it, download it, and check they
+have the same file you published.
 
-## What the CLI will and will not do
+This walks through the whole path, from the files you write to a record
+awaiting review.
 
-These hold for every command on this page, so that a mistake costs you a draft
-rather than a published record:
+## Nothing happens by accident
 
-- upload goes directly to PSDI, and only after metadata, file size, and SHA-256
-  validation succeeds;
-- a draft is created but never submitted for review — a person does that in the
-  PSDI web interface, having looked at it;
-- upload happens only with an explicit `--confirm-upload`;
-- a token is read from a file with mode `600` or stricter, and is never
-  printed;
-- a failed metadata, file, or community-binding step removes the partial draft.
+Uploading to a shared production service deserves care, so the tool is built so
+that a mistake costs you a draft rather than a published record:
 
-No model binary and no API token is committed to this repository.
+- everything is checked locally — the description, the file sizes, the
+  checksums — before anything is sent;
+- a draft is created, never submitted; **you** submit it on the PSDI website,
+  after looking at how it turned out;
+- uploading needs an explicit `--confirm-upload`, so it cannot happen from a
+  mistyped command;
+- your token is read from a file only you can read, and is never printed;
+- if any step fails partway, the half-made draft is deleted rather than left
+  lying around.
+
+Neither the model file nor your token is ever committed to this repository.
 
 ## 1. Prerequisites
 
