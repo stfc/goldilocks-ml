@@ -80,9 +80,10 @@ that is missing from the manifest, so every consumed byte is integrity-protected
 
 ## Pinned artifacts
 
-Some feature contracts need a released model artifact. The k-mesh feature vector
-embeds the metallicity model's learned representation, so its checkpoint is part
-of the feature definition and its digest is pinned in the protocol.
+Some feature contracts need a released model artifact. The k-distance model's
+feature vector embeds a metallicity model's learned representation, so that
+checkpoint is part of the feature definition and its digest is pinned in the
+protocol.
 
 Put those files under `local_data/artifacts/<record_id>/<file>`:
 

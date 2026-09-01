@@ -145,7 +145,7 @@ class SplitSpec:
 class ArtifactDependency:
     """A released model artifact a feature contract needs, pinned by digest.
 
-    The k-mesh feature contract embeds the metallicity model's learned
+    The k-distance feature contract embeds the metallicity model's learned
     representation, so the exact checkpoint is part of the feature definition.
     """
 
