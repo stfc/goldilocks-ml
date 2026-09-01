@@ -27,8 +27,7 @@ qrf95 = [
 ]
 
 [project.scripts]
-goldilocks-psdi = "goldilocks_ml.psdi:cli"
-goldilocks-train = "goldilocks_ml.cli:cli"
+goldilocks-ml = "goldilocks_ml.console:main"
 
 [dependency-groups]
 dev = [

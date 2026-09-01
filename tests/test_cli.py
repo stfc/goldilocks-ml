@@ -1,4 +1,4 @@
-"""End-to-end tests for goldilocks-train seal, validate, and run."""
+"""End-to-end tests for goldilocks-ml train seal, validate, and run."""
 
 from __future__ import annotations
 
@@ -20,7 +20,8 @@ from conftest import (
     write_protocol,
 )
 
-from goldilocks_ml.cli import cli, seal
+from goldilocks_ml.cli import seal
+from goldilocks_ml.console import main
 from goldilocks_ml.runs import MANIFEST_NAME, RUN_MARKER
 
 BUNDLE_FILES = {
@@ -68,8 +69,8 @@ def _setup(
 
 
 def _run(monkeypatch: pytest.MonkeyPatch, *argv: str) -> None:
-    monkeypatch.setattr("sys.argv", ["goldilocks-train", *argv])
-    cli()
+    del monkeypatch  # the parser takes its arguments directly
+    main(["train", *argv])
 
 
 def _bundle_files(directory: Path) -> set[str]:

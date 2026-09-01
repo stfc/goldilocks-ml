@@ -28,8 +28,8 @@ uv sync
 Both command-line tools should display their help:
 
 ```bash
-uv run goldilocks-train --help
-uv run goldilocks-psdi --help
+uv run goldilocks-ml train --help
+uv run goldilocks-ml publish --help
 ```
 
 Continue with [Train a model](training/index.md) or

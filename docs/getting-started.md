@@ -21,10 +21,10 @@ Complete the [installation](installation.md) before preparing a publication.
 There are two different things:
 
 - the **PSDI token** is the secret text issued by the PSDI website;
-- `goldilocks-psdi.token` is a local text file that you create to hold that
+- `goldilocks-ml publish.token` is a local text file that you create to hold that
   secret for the upload CLI.
 
-PSDI does not create or download the `goldilocks-psdi.token` file for you.
+PSDI does not create or download the `goldilocks-ml publish.token` file for you.
 
 ### Create the PSDI token
 
@@ -33,7 +33,7 @@ PSDI does not create or download the `goldilocks-psdi.token` file for you.
 3. Create a personal access token and copy the token value when PSDI displays
    it. Treat it like a password.
 
-### Create `goldilocks-psdi.token` locally
+### Create `goldilocks-ml publish.token` locally
 
 Copy the complete block below into a Bash or Zsh terminal and run it. Do not
 replace `psdi_token` in the commands with the secret itself.
@@ -107,7 +107,7 @@ fields and review checklist.
 Generate a manifest entry for every artifact:
 
 ```bash
-uv run goldilocks-psdi checksum \
+uv run goldilocks-ml publish checksum \
   local_data/models/<task>/<model>/model-file.bin
 ```
 
@@ -132,7 +132,7 @@ For example, the CGCNN deposit has separate entries for `is_metal.ckpt` and
 Validation makes no network request:
 
 ```bash
-uv run goldilocks-psdi validate deposits/<task>/<model> \
+uv run goldilocks-ml publish validate deposits/<task>/<model> \
   --artifact-directory local_data/models/<task>/<model>
 ```
 
@@ -151,7 +151,7 @@ Do not proceed until this succeeds.
 Create a draft on PSDI:
 
 ```bash
-uv run goldilocks-psdi upload deposits/<task>/<model> \
+uv run goldilocks-ml publish upload deposits/<task>/<model> \
   --artifact-directory local_data/models/<task>/<model> \
   --token-file "$HOME/.config/goldilocks-ml/psdi.token" \
   --confirm-upload

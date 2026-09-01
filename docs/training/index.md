@@ -13,9 +13,9 @@ The repository includes pinned synthetic regression and classification
 snapshots. They exercise the installed package, not test-only substitutes:
 
 ```bash
-uv run goldilocks-train validate protocols/synthetic/regression.toml \
+uv run goldilocks-ml train validate protocols/synthetic/regression.toml \
   --dataset tests/fixtures/kdist
-uv run goldilocks-train run protocols/synthetic/regression.toml \
+uv run goldilocks-ml train run protocols/synthetic/regression.toml \
   --dataset tests/fixtures/kdist --output local_runs/synthetic-regression
 ```
 
@@ -28,16 +28,16 @@ implemented yet.
 
 ```bash
 # 1. Convert your data, then record a digest for every file.
-uv run goldilocks-train seal snapshots/mine \
+uv run goldilocks-ml train seal snapshots/mine \
   --record-id my-data --version v1 \
   --target energy --target-contract my-project.energy.v1 \
   --target-definition "Total energy per atom." --target-units eV/atom
 
 # 2. Check the protocol and your data. Trains nothing, contacts nothing.
-uv run goldilocks-train validate PROTOCOL --dataset snapshots/mine
+uv run goldilocks-ml train validate PROTOCOL --dataset snapshots/mine
 
 # 3. Train, evaluate, and write the bundle.
-uv run goldilocks-train run PROTOCOL --dataset snapshots/mine \
+uv run goldilocks-ml train run PROTOCOL --dataset snapshots/mine \
   --output local_runs/mine-v1
 ```
 

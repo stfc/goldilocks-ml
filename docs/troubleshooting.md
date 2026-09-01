@@ -32,7 +32,7 @@ edit the digest to silence the error until you determine why the file changed.
 Common causes are retraining, re-serialization, downloading a different model
 version, or using the wrong artifact directory.
 
-Run `goldilocks-psdi checksum` on the intended final artifact and review the
+Run `goldilocks-ml publish checksum` on the intended final artifact and review the
 corresponding model card and inference requirements before updating the manifest.
 
 ## Upload fails

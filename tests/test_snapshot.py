@@ -217,7 +217,7 @@ def test_load_snapshot_rejects_a_missing_manifest(
     build_snapshot(snapshot_dir)
     (snapshot_dir / "manifest.json").unlink()
 
-    with pytest.raises(FileNotFoundError, match="goldilocks-train seal"):
+    with pytest.raises(FileNotFoundError, match="goldilocks-ml train seal"):
         _load(tmp_path, snapshot_dir)
 
 

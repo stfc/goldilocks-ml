@@ -36,7 +36,7 @@ Omit it and the snapshot supports random splitting only.
 ## Seal the directory
 
 ```bash
-uv run goldilocks-train seal snapshots/mine --record-id my-data --version v1 \
+uv run goldilocks-ml train seal snapshots/mine --record-id my-data --version v1 \
   --target k_distance \
   --target-contract my-project.k-distance.v1 \
   --target-definition "Maximum adjacent reciprocal-space k-point spacing." \

@@ -8,11 +8,11 @@ from pathlib import Path
 
 import pytest
 
+from goldilocks_ml.console import main
 from goldilocks_ml.psdi import (
     PSDI_API,
     Deposition,
     DraftCleanupError,
-    cli,
     create_deposition,
     describe_artifact,
     load_deposition,
@@ -381,9 +381,9 @@ def test_checksum_cli_prints_manifest_entry(
 ) -> None:
     artifact = tmp_path / "model.bin"
     artifact.write_bytes(b"model")
-    monkeypatch.setattr("sys.argv", ["goldilocks-psdi", "checksum", str(artifact)])
+    del monkeypatch  # the parser takes its arguments directly
 
-    cli()
+    main(["publish", "checksum", str(artifact)])
 
     assert json.loads(capsys.readouterr().out) == {
         "name": "model.bin",
@@ -396,18 +396,11 @@ def test_validate_cli_reports_verified_files(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     directory, artifacts = _write_deposition(tmp_path)
-    monkeypatch.setattr(
-        "sys.argv",
-        [
-            "goldilocks-psdi",
-            "validate",
-            str(directory),
-            "--artifact-directory",
-            str(artifacts),
-        ],
-    )
+    del monkeypatch  # the parser takes its arguments directly
 
-    cli()
+    main(
+        ["publish", "validate", str(directory), "--artifact-directory", str(artifacts)]
+    )
 
     output = capsys.readouterr().out
     assert "Valid deposition for data-to-knowledge" in output
@@ -428,10 +421,9 @@ def test_upload_cli_creates_draft_without_submitting_review(
         return "draft-2"
 
     monkeypatch.setattr("goldilocks_ml.psdi.create_deposition", fake_create)
-    monkeypatch.setattr(
-        "sys.argv",
+    main(
         [
-            "goldilocks-psdi",
+            "publish",
             "upload",
             str(directory),
             "--artifact-directory",
@@ -439,10 +431,8 @@ def test_upload_cli_creates_draft_without_submitting_review(
             "--token-file",
             str(token_file),
             "--confirm-upload",
-        ],
+        ]
     )
-
-    cli()
 
     assert len(calls) == 1
     assert calls[0][0].community == "data-to-knowledge"
