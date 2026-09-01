@@ -1,15 +1,22 @@
 # Train QRF95
 
-QRF95 recommends a k-point mesh indirectly. It predicts three quantiles of a
-scalar k-distance in Å⁻¹. The runtime predictor calibrates them and publishes
-the median as the value, keeping the interval as recorded provenance;
-Goldilocks Core converts that value into an explicit mesh. It is not a discrete
-k-index model.
+QRF95 answers "how dense does this k-point mesh need to be" — but not as a grid.
+It predicts a **k-distance**: the largest spacing between neighbouring k-points,
+in Å⁻¹, that still gives a converged answer. Smaller means denser. Goldilocks
+Core turns that one number into an actual `4 4 3` grid using the crystal's
+reciprocal lattice, which is why the model does not have to know anything about
+the shape of the cell.
+
+It predicts three numbers rather than one: a low estimate, a middle one, and a
+high one. The middle one is the recommendation; the outer two say how sure the
+model is, which is worth recording even though nothing downstream acts on them
+today.
 
 ## Install the training dependencies
 
-The scientific feature stack is optional so publication-only installations do
-not pull in Torch and materials libraries:
+Training this model needs PyTorch and several materials libraries. They are not
+installed by default, because someone who only wants to publish a model should
+not have to wait for them:
 
 ```bash
 uv sync --extra qrf95

@@ -1,9 +1,12 @@
-# Protocol reference
+# Configuration reference
 
-Reviewed protocols live under `protocols/`. Unknown fields are rejected, so a
-protocol cannot quietly carry settings nothing reads.
+Every field a training configuration can contain. The ready-made ones are in
+`protocols/`, and copying the closest is usually easier than starting blank.
 
-## Schema
+A field this file does not list is an error, not something ignored — a typo in
+a setting name stops the run instead of silently changing nothing.
+
+## A complete example
 
 ```toml
 schema_version = 1

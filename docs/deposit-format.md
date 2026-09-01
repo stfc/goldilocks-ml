@@ -1,7 +1,10 @@
 # Deposit format
 
-A release consists of tracked sidecars and untracked artifacts. Together they
-identify the exact model files and the requirements for using them correctly.
+Publishing a model means publishing two different kinds of thing: the model
+file itself, which is large and stays out of version control, and a few small
+files describing it, which are committed alongside the code.
+
+This page is what those small files have to contain.
 
 ## Directory layout
 

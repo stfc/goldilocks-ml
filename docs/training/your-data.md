@@ -1,7 +1,8 @@
 # Prepare your data
 
-Convert your data into the layout this project already uses. Nothing here
-converts it for you.
+A training run reads a directory laid out like this. You produce it from
+whatever your calculations already live in — there is no importer, because
+every group's data starts somewhere different.
 
 ```text
 snapshot/
@@ -15,23 +16,31 @@ mp-149,0.2143,Si-diamond
 mp-2534,0.1872,GaAs-zincblende
 ```
 
-## Sample ids must be stable
+## Give each sample a real name
 
-A split derived from row positions changes whenever rows are reordered,
-deduplicated, or filtered, which makes the run irreproducible. Historical
-preprocessing wrote the dataframe index here, so the same material could change
-identity between two runs of the same script.
+The first column identifies the sample, and it has to mean the same thing every
+time. Use whatever your data already calls it: a Materials Project id, an
+internal calculation id, a hash of the structure.
 
-Consecutive integers are therefore rejected. Use a real identifier — the source
-database id is the obvious choice.
+What will not work is a row number. Sort your file differently, drop a
+duplicate, or filter out a failed calculation, and every sample after that
+point silently becomes a different sample — so the split changes, and two runs
+of the same script no longer mean the same thing. Plain `0, 1, 2, ...` is
+rejected for that reason.
 
-## The third column is the group
+## The third column keeps near-duplicates together
 
-It names each sample's group: a structure prototype, a composition, a
-calculation family, whatever your leakage concern is. Group splitting needs it,
-so that highly similar materials cannot straddle a split boundary.
+Materials data is full of samples that are almost the same: polymorphs of one
+composition, the same structure at several volumes, a family of calculations
+that differ in one setting. If some land in training and their near-twins land
+in testing, the test score flatters the model — it has effectively seen the
+answers.
 
-Omit it and the snapshot supports random splitting only.
+The third column is a name you choose for that grouping — a composition, a
+structure prototype, a project code. Everything sharing a name goes into the
+same split, together.
+
+You can leave it out, and then only random splitting is available.
 
 ## Seal the directory
 

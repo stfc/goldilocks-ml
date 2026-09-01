@@ -1,54 +1,78 @@
 # Goldilocks ML
 
-Train, evaluate, and publish the models Goldilocks uses to recommend DFT
-inputs.
+Setting up a DFT calculation means choosing things that are hard to choose
+well. How dense does the k-point mesh need to be? Is this material a metal, so
+that it needs smearing? Too coarse and the answer is wrong; too fine and you
+burn compute for nothing.
 
-A model here is not a file someone produced once. It is a versioned protocol
-that pins its dataset, its split, its trainer, and its metrics; a run bundle
-recording what happened; and a published record anyone can verify by digest.
+Goldilocks answers those questions with models trained on past calculations.
+**This site is where those models are made.**
 
-!!! tip "Looking for a k-point mesh, not a model?"
+!!! tip "Just want the answers, not the models?"
 
     Then you want [Goldilocks Core](https://github.com/stfc/goldilocks-core).
-    It fetches the published models, runs them, and writes the input files.
-    This site is for the other side: producing the models it uses.
+    Give it a structure and it downloads the right model, runs it, and writes
+    your input files. You never touch this repository.
 
-## Train a model on your own data
+    Read on if you want to train a model yourself — on your own calculations,
+    your own chemistry, or your own definition of "converged".
+
+## Try it in one command
 
 ```bash
 uv run goldilocks-ml train run protocols/synthetic/regression.toml \
   --dataset tests/fixtures/kdist --output local_runs/first
 ```
 
-That runs end to end on a snapshot shipped with the repository, and writes a
-bundle recording what data was used, how it was split, what was fitted, how it
-scored against a baseline, and a SHA-256 for every file it read or wrote.
+That trains a model on a small dataset included with the repository, so it
+works before you have prepared anything of your own.
 
-Then bring your own: a protocol is an executable TOML file, and
-[Prepare your data](training/your-data.md) is the layout it expects.
+Look in `local_runs/first`. Every training run leaves a folder like it,
+containing:
 
-## Publish it
+- what the model predicted for each sample, next to the true value;
+- which samples went into training, validation, and testing;
+- how it scored, and how a trivial baseline scored on the same data;
+- a checksum for every file it read or wrote.
+
+The last two matter more than they sound. A score means nothing without knowing
+what a naive guess would have got, and six months from now the checksums are
+how you prove which data produced which model.
+
+## Train on your own data
+
+You describe a training job in a small configuration file — which dataset,
+how to split it, which model, which metrics — and run it. Nothing is decided in
+a notebook and forgotten.
+
+[Prepare your data](training/your-data.md) covers the format your calculations
+need to be in. [Train a model](training/index.md) walks through a real one.
+
+## Share what you trained
 
 ```bash
 uv run goldilocks-ml publish validate deposits/kmesh/qrf95 \
   --artifact-directory local_data/models/kmesh/qrf95
 ```
 
-Validation is offline and complete before anything reaches the network. The
-[publishing guide](publishing.md) covers the whole path to a reviewed PSDI
-record.
+Publishing puts a model in [PSDI Data
+Collections](https://data-collections.psdi.ac.uk) with a permanent identifier,
+so other people can cite it and check they have the same file you did.
+Everything is checked locally before anything is uploaded, and nothing is ever
+submitted for review without you looking at it first.
+
+[Publishing a model](publishing.md) is the full walkthrough.
 
 ## Models published this way
 
-Both records passed review by the PSDI Data to Knowledge community.
-
-| Model | Predicts | Record |
+| Model | Answers | Record |
 | --- | --- | --- |
-| QRF95 | k-point distance, with a 90% interval | [fex36-67b11](https://data-collections.psdi.ac.uk/records/fex36-67b11) |
-| CGCNN | metallicity | [ptc95-vbq12](https://data-collections.psdi.ac.uk/records/ptc95-vbq12) |
+| QRF95 | how dense a k-point mesh needs to be | [fex36-67b11](https://data-collections.psdi.ac.uk/records/fex36-67b11) |
+| CGCNN | whether a material is a metal | [ptc95-vbq12](https://data-collections.psdi.ac.uk/records/ptc95-vbq12) |
 
-Their deposit definitions are under `deposits/` and are the concrete examples
-to copy. The artifacts themselves stay in ignored local storage.
+Both were reviewed and accepted by the PSDI Data to Knowledge community. Their
+deposit definitions are in `deposits/`, and are the examples to copy when you
+publish your own.
 
 ## Where to go
 
