@@ -21,6 +21,12 @@ prediction.value  # 0.2134
 The directory is what a training run writes and what a published deposit
 contains: the estimator named in `model.json`, alongside `model.json` itself.
 
+**There is no inference command.** Predicting from a published model is what
+Goldilocks Core does, and this package gives it a library rather than a second
+command line — `goldilocks-ml` covers [training](training/index.md) and
+[publishing](publishing.md) only. A notebook is the runnable form of this page;
+see [issue #13](https://github.com/stfc/goldilocks-ml/issues/13).
+
 ## One prediction type for every parameter
 
 Goldilocks advises more than k-points — smearing, magnetism, spin-orbit,

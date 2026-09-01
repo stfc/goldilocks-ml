@@ -33,4 +33,4 @@ uv run goldilocks-ml publish --help
 ```
 
 Continue with [Train a model](training/index.md) or
-[Publish a model](getting-started.md).
+[Publish a model](publishing.md).

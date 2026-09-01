@@ -13,7 +13,7 @@ The CLI intentionally refuses a readable secret file.
 ## `read: not an identifier`
 
 The shell expects a variable name after `read`, not the token itself. Use the
-token setup block in [Publish a model](getting-started.md#2-store-the-token-safely).
+token setup block in [Publish a model](publishing.md#2-store-the-token-safely).
 The secret is entered only after the prompt appears.
 
 ## Token is rejected
