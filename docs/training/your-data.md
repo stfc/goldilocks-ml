@@ -54,7 +54,7 @@ uv run goldilocks-ml train seal snapshots/mine --record-id my-data --version v1 
 
 This writes `manifest.json` with the size and SHA-256 of every file, and prints
 the manifest's own digest. A protocol may pin that digest to reproduce exactly
-this snapshot; see [Protocol reference](protocol.md#pinning-a-snapshot).
+this snapshot; see [Configuration reference](protocol.md#pinning-a-snapshot).
 
 Every structure file must be present or none may be: a snapshot with structures
 for some samples and not others is rejected rather than silently trained on a

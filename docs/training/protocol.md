@@ -1,100 +1,166 @@
 # Configuration reference
 
-Every field a training configuration can contain. The ready-made ones are in
-`protocols/`, and copying the closest is usually easier than starting blank.
+A training job is described by one TOML file: which data, how to split it, what
+to fit, and how to score it. Working examples live in `protocols/` — copying the
+closest one is faster than starting from a blank file.
 
-A field this file does not list is an error, not something ignored — a typo in
-a setting name stops the run instead of silently changing nothing.
+Unknown fields are rejected. Writing `stratifiy = true` does not silently do
+nothing; the run stops and names the field. A setting that quietly fails is
+worse than one that fails loudly.
 
-## A complete example
+## Top level
 
-```toml
-schema_version = 1
-id = "tabular-regression-v1"
-task = "regression"
-trainer = "linear_regression"
+| Field | Value | |
+| --- | --- | --- |
+| `schema_version` | `1` | required — the only version so far |
+| `id` | string | required — names the model this file produces |
+| `task` | `regression` or `classification` | required |
+| `trainer` | a trainer name | required — see the table below |
 
-[dataset]
-target = "energy"
-target_contract = "my-project.energy.v1"
-target_units = "eV/atom"
-requires = ["features", "groups"]
+| Trainer | Fits | Task |
+| --- | --- | --- |
+| `linear_regression` | ordinary least squares | regression |
+| `logistic_regression` | logistic regression | classification |
+| `quantile_random_forest` | a forest predicting three quantiles | regression |
+| `cgcnn_classifier` | a crystal graph neural network | classification |
 
-[split]
-method = "group"
-train = 0.7
-validation = 0.1
-calibration = 0.1
-test = 0.1
-seed = 42
+## `[dataset]`
 
-[features]
-schema = "tabular"
+| Field | Value | |
+| --- | --- | --- |
+| `target` | string | required — the quantity being predicted |
+| `target_contract` | string | required — its scientific definition |
+| `target_units` | string | optional |
+| `requires` | any of `structures`, `features`, `groups` | optional — what the snapshot must provide |
+| `record_id` | string | optional — see [Pinning a snapshot](#pinning-a-snapshot) |
+| `snapshot_version` | string | optional — with `record_id` |
+| `manifest_sha256` | lowercase SHA-256 | optional — with `record_id` |
 
-[features.parameters]
-columns = ["density", "volume_per_atom"]
+`target` is the name of the second column in your `id_prop.csv`.
+`target_contract` says what the numbers in it actually mean, and the snapshot
+must declare the same name, contract, and units. Two datasets can both hold a
+column called `k_distance` and define it differently; the contract is what stops
+them being mixed. Changing that definition — a new label rule, a different
+convention — needs a new contract version. A matching numeric column is not
+enough.
 
-[model]
-seed = 42
+## `[split]`
 
-[model.parameters]
-l2 = 1e-6
+| Field | Value | |
+| --- | --- | --- |
+| `method` | `random` or `group` | required |
+| `train` | 0 to 1 | required, greater than 0 |
+| `validation` | 0 to 1 | required |
+| `calibration` | 0 to 1 | required |
+| `test` | 0 to 1 | required, greater than 0 |
+| `seed` | non-negative integer | required |
+| `stratify` | boolean | optional, default `false` — classification only |
 
-[evaluation]
-primary_metric = "mae"
-metrics = ["mae", "rmse", "r2"]
-baseline = "train_median"
-```
+The four ratios must add up to 1. Set one to `0` to skip that split, except
+`train` and `test`, which must always exist.
 
-`[model.parameters]` and `[features.parameters]` are the schema's two free-form
-tables. Everything outside them is checked here; everything inside is checked by
-the trainer or feature contract that consumes it.
+## `[features]`
 
-### Target contract
+| Field | Value | |
+| --- | --- | --- |
+| `schema` | a feature contract name | required |
+| `[features.parameters]` | free-form table | passed to the contract |
+| `[features.depends_on.NAME]` | table | optional — a published artifact the contract needs |
 
-`target_contract` identifies the scientific definition of the second column in
-`id_prop.csv`. The snapshot must declare the same name, contract, and units.
-Changing a label schedule or switching between two definitions requires a new
-contract version; a matching numeric column is not enough.
+Each `depends_on` entry takes `record_id`, `file` (a bare filename), and
+`sha256`. The digest is verified before anything is computed, because a feature
+contract that embeds a published model produces different numbers with a
+different checkpoint — silently, and without failing. See
+[Prepare your data](your-data.md#pinned-artifacts) for where the files go.
 
-### Pinned artifacts
+## `[model]`
 
-`[features.depends_on]` pins a released model artifact that a feature contract
-needs. The k-mesh feature vector embeds the metallicity model's learned
-representation, so a different checkpoint silently produces different features.
-Their SHA-256 is verified before anything is computed. See
-[Prepare your data](your-data.md#pinned-artifacts) for where the files live.
+| Field | Value | |
+| --- | --- | --- |
+| `seed` | non-negative integer | required |
+| `[model.parameters]` | free-form table | passed to the trainer |
 
-### Pinning a snapshot
+## `[evaluation]`
 
-A protocol may pin `record_id`, `snapshot_version`, and `manifest_sha256`
-together, or omit all three. Pinning is what makes a run a *reproduction*; a
-protocol that pins nothing accepts any conforming snapshot, and the run bundle
-still records that snapshot's real digest. Either way the run is auditable.
+| Field | Value | |
+| --- | --- | --- |
+| `metrics` | array of metric names | required |
+| `primary_metric` | one of `metrics` | required |
+| `baseline` | fixed by task | required — `train_median` or `train_majority` |
+| `threshold_metric` | one of `metrics` | optional — classification only |
+| `positive_label` | string | optional — classification only |
+| `min_recall` | above 0, up to 1 | optional — classification only |
 
-## Splits and leakage
+| Task | Metrics you can ask for |
+| --- | --- |
+| regression | `mae`, `rmse`, `r2` |
+| classification | `accuracy`, `balanced_accuracy`, `precision`, `recall`, `f1`, `mcc`, `roc_auc`, `pr_auc` |
 
-Split assignment is derived from stable sample ids, never row order: keys are
-sorted, shuffled with the protocol's seed, then allocated by largest remaining
-sample deficit. `method = "group"` allocates whole groups. `stratify = true`
-allocates each stratum separately, using a group's majority label.
+A trainer that predicts intervals also reports `interval_coverage`,
+`mean_interval_width`, and `pinball_loss` without being asked.
 
-Every assignment — freshly derived, or reloaded with `--splits` — is checked for
-complete coverage, unknown samples, unrequested splits, empty splits, and group
-leakage before any training starts.
+`positive_label` names the class that counts as a "hit" for precision, recall,
+F1, MCC, and the ranking metrics. Left out, it defaults to the last class name
+alphabetically, which is worth setting explicitly rather than discovering.
+
+The baseline is not configurable. Every run reports the model and a
+train-derived baseline side by side, per split, so a headline number cannot be
+read without its reference point.
+
+## The two free-form tables
+
+`[model.parameters]` and `[features.parameters]` are the only places this schema
+does not check. Everything outside them is validated here; everything inside is
+validated by the trainer or feature contract that reads it — which is what lets
+this file reject unknown fields without knowing every trainer that will ever
+exist.
+
+## Pinning a snapshot
+
+Give `record_id`, `snapshot_version`, and `manifest_sha256` together, or leave
+out all three.
+
+Pinned, the configuration reproduces *one exact dataset* and refuses to run
+against anything else. Unpinned, it is a template that accepts any dataset
+meeting its contract. Both are auditable — the run bundle records the real
+digest of whatever it was given either way.
+
+## Splits that do not leak
+
+Which sample lands in which split is decided by sample id, never by row order,
+so re-sorting your CSV changes nothing. Ids are sorted, shuffled with `seed`,
+and allocated to whichever split is furthest below its target share.
+
+`method = "group"` moves whole groups instead of individual samples. Use it when
+near-duplicates exist — two polymorphs of the same composition, the same
+molecule at two geometries. Split those at random and the model sees a close
+relative of every test sample during training, and its test score becomes
+fiction. The third column of `id_prop.csv` carries the group.
+
+`stratify = true` allocates each class separately, so a rare class does not end
+up concentrated in one split. With `method = "group"`, a group is stratified by
+its majority label.
+
+Every assignment is checked before training starts, whether it was just derived
+or reloaded with `--splits`: every sample assigned exactly once, no unknown ids,
+no empty splits, and no group appearing in two splits.
 
 ### What the test split is for
 
-The test split is scored once, after every choice has been made. It is never
-used for early stopping, threshold selection, calibration, or model choice. A
-classification protocol's decision threshold is selected on validation data and
-nowhere else; the run refuses to start if a protocol asks for threshold
-selection without a validation split.
+The test split is scored once, at the end, after every choice has been made. It
+is never used for early stopping, threshold selection, calibration, or picking
+between models.
 
-### Choosing a decision threshold
+Learned preprocessing is fitted on training data alone. A trainer may read the
+validation split for early stopping and the calibration split for calibration,
+but no test sample, label, or feature reaches it. The test suite asserts that
+boundary rather than trusting it.
 
-A classifier scores; it does not label. Turning a score into a label needs a
-threshold, and the threshold is a choice, not a property of the model.
+## Choosing a decision threshold
+
+A classifier returns a score, not a label. Turning that score into a label needs
+a threshold, and the threshold is a choice you make — not something the model
+tells you.
 
 ```toml
 [evaluation]
@@ -104,69 +170,23 @@ positive_label = "metal"
 min_recall = 0.97
 ```
 
-`threshold_metric` picks the threshold that maximises one metric on validation
-data. That is the right default when both mistakes cost the same. They often do
-not: metrics like MCC and F1 weigh a missed positive and a false alarm equally,
-so a model tuned on them will happily trade the expensive error for the cheap
+`threshold_metric` picks the threshold scoring best on that metric, measured on
+validation data. That is right when both mistakes cost the same. Often they do
+not: MCC and F1 weigh a missed positive exactly like a false alarm, so a
+threshold tuned on them will trade away the expensive error to buy the cheap
 one.
 
-`min_recall` states the error the protocol refuses to make. The search is
-restricted to thresholds that catch at least that share of the positive class,
-and `threshold_metric` chooses among the survivors. Recall must be listed in
-`metrics`, and setting a floor requires a `threshold_metric` to break the
-remaining ties.
+`min_recall` states the mistake this configuration refuses to make. The search
+is restricted to thresholds catching at least that share of the positive class,
+and `threshold_metric` picks among the survivors. It needs `recall` listed in
+`metrics` and a `threshold_metric` to break the remaining ties.
 
-Write the floor rather than the number it produces. A threshold is only valid
-for the weights that were fitted alongside it, so it is wrong the moment the
-model is retrained; a floor is a sentence about acceptable failure that a model
-card can carry and a later run can re-solve. The selected threshold, the metric,
-and the floor are all recorded in `metrics.json` under `decision_threshold`.
+Write the floor, not the number it produces. A threshold belongs to the weights
+fitted alongside it and is wrong the moment you retrain; a floor is a sentence
+about acceptable failure that a model card can carry and the next run can
+re-solve. The chosen threshold, the metric, and the floor are all recorded in
+`metrics.json` under `decision_threshold`.
 
-The floor is honoured on the validation split, which is a sample. Held-out
-recall lands near it, not exactly on it, and can fall slightly below — so choose
-a floor with the margin the downstream cost actually needs.
-
-Learned preprocessing is fitted on the training split alone. A trainer may read
-the named validation split for early stopping and the calibration split for
-calibration, but its context contains no test samples, labels, or features. The
-test suite asserts that boundary.
-
-## The run bundle
-
-```text
-local_runs/<run-id>/
-├── run.json          # run id, timestamps, git commit, status
-├── protocol.toml     # the fully resolved protocol, defaults made explicit
-├── dataset.json      # snapshot identity, digest, feature schema, artifacts
-├── environment.json  # Python, packages, lock digest, hardware facts
-├── splits.csv        # stable sample-to-split assignment
-├── metrics.json      # baseline and model metrics for every split
-├── predictions.csv   # point/score and optional lower/upper interval
-├── model/            # model artifacts
-├── .goldilocks-run   # safety marker required before --overwrite may delete files
-└── manifest.json     # size and SHA-256 for every file above
-```
-
-`local_runs/` is ignored by Git. Nothing needs a remote tracking service; the
-filesystem bundle is authoritative.
-
-`manifest.json` carries a `deterministic_digest` over every file except
-`run.json` and `environment.json`. Those two record when and where a run
-happened; everything the science depends on does not vary. Running the same
-protocol against the same snapshot twice produces the same digest.
-
-`metrics.json` always reports the model and a train-derived baseline side by
-side, per split, so a headline number cannot be read without its reference
-point.
-
-### What reproducibility means here
-
-A run is scientifically reproducible when the same snapshot, protocol, code
-commit, and locked environment are available. Byte-identical model artifacts are
-promised only for trainers documented as deterministic; each model's
-`model.json` records whether it is.
-
-The QRF95 protocol reproduces a seeded training method, not the exact historical
-artifact: the published forest has no random seed. CGCNN training is not
-implemented yet. Model-specific documentation records recovered data, target,
-split, dependency, and determinism limits.
+One caveat: the floor is met on the validation split, which is a sample.
+Held-out recall lands near it, not exactly on it, and can fall a little below —
+so leave the margin the downstream cost actually needs.

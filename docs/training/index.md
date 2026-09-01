@@ -20,7 +20,8 @@ uv run goldilocks-ml train run protocols/synthetic/regression.toml \
 Open `local_runs/first`. You get the predictions next to the true values, the
 split that was used, the scores, and a record of every file involved. Compare
 `model` and `baseline` in the metrics: the baseline just predicts the training
-median, so anything that cannot beat it has not learned.
+median, so anything that cannot beat it has not learned. The whole folder is
+described in [What a run produces](run-bundle.md).
 
 ## Then use your own data
 
@@ -66,4 +67,4 @@ libraries the optional dependency set installs.
 
 [Prepare your data](your-data.md){ .md-button .md-button--primary }
 [Configuration reference](protocol.md){ .md-button }
-[Train QRF95](kmesh/qrf95.md){ .md-button }
+[What a run produces](run-bundle.md){ .md-button }

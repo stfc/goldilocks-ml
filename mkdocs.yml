@@ -44,7 +44,8 @@ nav:
   - Train a model:
       - Overview: training/index.md
       - Prepare your data: training/your-data.md
-      - Protocol reference: training/protocol.md
+      - Configuration reference: training/protocol.md
+      - What a run produces: training/run-bundle.md
       - Models:
           - QRF95 k-mesh: training/kmesh/qrf95.md
           - CGCNN metallicity: training/metallicity/cgcnn2.md
