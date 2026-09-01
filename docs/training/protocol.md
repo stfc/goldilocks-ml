@@ -91,6 +91,41 @@ classification protocol's decision threshold is selected on validation data and
 nowhere else; the run refuses to start if a protocol asks for threshold
 selection without a validation split.
 
+### Choosing a decision threshold
+
+A classifier scores; it does not label. Turning a score into a label needs a
+threshold, and the threshold is a choice, not a property of the model.
+
+```toml
+[evaluation]
+metrics = ["accuracy", "precision", "recall", "f1", "mcc"]
+threshold_metric = "mcc"
+positive_label = "metal"
+min_recall = 0.97
+```
+
+`threshold_metric` picks the threshold that maximises one metric on validation
+data. That is the right default when both mistakes cost the same. They often do
+not: metrics like MCC and F1 weigh a missed positive and a false alarm equally,
+so a model tuned on them will happily trade the expensive error for the cheap
+one.
+
+`min_recall` states the error the protocol refuses to make. The search is
+restricted to thresholds that catch at least that share of the positive class,
+and `threshold_metric` chooses among the survivors. Recall must be listed in
+`metrics`, and setting a floor requires a `threshold_metric` to break the
+remaining ties.
+
+Write the floor rather than the number it produces. A threshold is only valid
+for the weights that were fitted alongside it, so it is wrong the moment the
+model is retrained; a floor is a sentence about acceptable failure that a model
+card can carry and a later run can re-solve. The selected threshold, the metric,
+and the floor are all recorded in `metrics.json` under `decision_threshold`.
+
+The floor is honoured on the validation split, which is a sample. Held-out
+recall lands near it, not exactly on it, and can fall slightly below — so choose
+a floor with the margin the downstream cost actually needs.
+
 Learned preprocessing is fitted on the training split alone. A trainer may read
 the named validation split for early stopping and the calibration split for
 calibration, but its context contains no test samples, labels, or features. The

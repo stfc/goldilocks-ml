@@ -195,6 +195,22 @@ def test_classification_accepts_ranking_metrics_and_threshold(tmp_path: Path) ->
 
     assert protocol.evaluation.threshold_metric == "mcc"
     assert protocol.evaluation.positive_label == "metal"
+    assert protocol.evaluation.min_recall is None
+
+
+def test_classification_accepts_a_recall_floor(tmp_path: Path) -> None:
+    protocol = load_protocol(
+        _classification(
+            tmp_path,
+            evaluation={
+                "metrics": ["accuracy", "recall", "mcc"],
+                "threshold_metric": "mcc",
+                "min_recall": 0.97,
+            },
+        )
+    )
+
+    assert protocol.evaluation.min_recall == 0.97
 
 
 @pytest.mark.parametrize(
@@ -203,6 +219,34 @@ def test_classification_accepts_ranking_metrics_and_threshold(tmp_path: Path) ->
         ({"threshold_metric": "f1"}, "must be listed in metrics"),
         ({"threshold_metric": "roc_auc"}, "threshold-dependent"),
         ({"positive_label": ""}, "positive_label must be a non-empty string"),
+        (
+            {
+                "metrics": ["accuracy", "recall", "mcc"],
+                "threshold_metric": "mcc",
+                "min_recall": 0.0,
+            },
+            r"min_recall must lie in \(0, 1\]",
+        ),
+        (
+            {
+                "metrics": ["accuracy", "recall", "mcc"],
+                "threshold_metric": "mcc",
+                "min_recall": "high",
+            },
+            "min_recall must be a number",
+        ),
+        (
+            {"metrics": ["accuracy", "mcc"], "min_recall": 0.97},
+            "min_recall requires evaluation.threshold_metric",
+        ),
+        (
+            {
+                "metrics": ["accuracy", "mcc"],
+                "threshold_metric": "mcc",
+                "min_recall": 0.97,
+            },
+            "min_recall requires recall in metrics",
+        ),
         ({"baseline": "train_median"}, "baseline must be train_majority"),
         ({"metrics": ["mae"]}, "unsupported classification metric"),
     ],

@@ -144,14 +144,57 @@ record reports no accuracy.
 ## Evaluation
 
 The primary metric is Matthews correlation, against a `train_majority`
-baseline. The decision threshold is chosen on the validation split alone, by
-the same metric, and then applied unchanged to calibration and test — the
-threshold is a fitted parameter, so choosing it on test would be reading the
-answer.
+baseline. Accuracy, balanced accuracy, precision, recall, F1, MCC, ROC-AUC, and
+PR-AUC are all reported. With a 43.5% positive rate, accuracy alone would be a
+poor summary; balanced accuracy and MCC are the ones to read.
 
-Accuracy, balanced accuracy, precision, recall, F1, MCC, ROC-AUC, and PR-AUC
-are all reported. With a 43.5% positive rate, accuracy alone would be a poor
-summary and balanced accuracy and MCC are the ones to read.
+### The decision threshold
+
+The classifier returns the probability that a structure is metallic. Calling it
+a metal needs a threshold, and here the two mistakes do not cost the same:
+
+- **Calling a metal an insulator** understates the mesh the downstream
+  calculation needs. The Fermi surface is undersampled and the resulting number
+  can be wrong without looking wrong.
+- **Calling an insulator a metal** spends compute on a denser mesh than
+  necessary.
+
+One is a wrong answer; the other is a bill. Maximising MCC treats them as
+interchangeable, so the protocol constrains the search instead:
+
+```toml
+threshold_metric = "mcc"
+min_recall = 0.97
+```
+
+Read as: *of the thresholds that miss no more than 3% of metals, take the one
+with the best MCC.* The floor is what belongs on the model card; the threshold
+it produces belongs only to these weights. See
+[Choosing a decision threshold](../protocol.md#choosing-a-decision-threshold).
+
+The threshold is chosen on the validation split alone and applied unchanged to
+calibration and test — it is a fitted parameter, so choosing it on test would be
+reading the answer.
+
+The floor is not free. Buying recall costs precision, and the price rises
+steeply; measured on validation:
+
+| Recall floor | Threshold | Precision | MCC | Metals missed | False alarms |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| unconstrained (MCC) | 0.477 | 0.904 | 0.794 | 649 | 420 |
+| 0.95 | 0.133 | 0.745 | 0.699 | 229 | 1492 |
+| **0.97** | **0.066** | **0.666** | **0.616** | **137** | **2227** |
+| 0.99 | 0.023 | 0.554 | 0.453 | 45 | 3655 |
+
+Over 10603 validation samples, 4585 of them metals. Moving from the
+unconstrained threshold to 0.95 saves 420 metals for 1072 extra false alarms;
+moving from 0.97 to 0.99 saves 92 more for 1428. The useful range ends before
+0.99, where 77% of structures would be sent to a dense mesh — against the 100%
+of doing no classification at all.
+
+0.97 rather than 0.95 buys margin. A floor is honoured on validation, which is
+a sample: the 0.95 threshold delivers 0.9455 recall on test, below its own
+floor, while the 0.97 threshold delivers 0.9721 and so keeps 0.95 as well.
 
 ## Run
 

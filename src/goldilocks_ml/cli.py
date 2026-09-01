@@ -292,7 +292,13 @@ def _train_classification(
             positive,
             negative,
         )
-        threshold = select_threshold(candidates, metric, positive, negative)
+        threshold = select_threshold(
+            candidates,
+            metric,
+            positive,
+            negative,
+            min_recall=protocol.evaluation.min_recall,
+        )
         selected_on = SELECTION_SPLIT
 
     fitted = _classification_predictions(parts, scores, threshold, positive, negative)
@@ -305,6 +311,7 @@ def _train_classification(
             "decision_threshold": {
                 "value": threshold,
                 "metric": metric,
+                "min_recall": protocol.evaluation.min_recall,
                 "selected_on": selected_on,
             },
         },

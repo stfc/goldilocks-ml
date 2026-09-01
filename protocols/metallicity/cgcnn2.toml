@@ -57,3 +57,8 @@ metrics = ["accuracy", "balanced_accuracy", "precision", "recall", "f1", "mcc", 
 baseline = "train_majority"
 threshold_metric = "mcc"
 positive_label = "metal"
+# Missing a metal understates the mesh a downstream calculation needs, and the
+# resulting Fermi-surface undersampling is not visible in the answer. Calling an
+# insulator a metal only spends compute. The floor states which error this
+# protocol refuses; MCC then chooses among the thresholds that honour it.
+min_recall = 0.97

@@ -462,9 +462,9 @@ def test_classification_selects_its_threshold_on_validation_only(
     seen: list[tuple[str, ...]] = []
     original = core_cli.select_threshold
 
-    def spy(predictions, metric, positive, negative):
+    def spy(predictions, metric, positive, negative, **options):
         seen.append(tuple(item.split for item in predictions))
-        return original(predictions, metric, positive, negative)
+        return original(predictions, metric, positive, negative, **options)
 
     monkeypatch.setattr(core_cli, "select_threshold", spy)
     _run(

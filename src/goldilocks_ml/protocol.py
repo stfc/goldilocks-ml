@@ -135,6 +135,7 @@ class EvaluationSpec:
     baseline: str
     threshold_metric: str | None = None
     positive_label: str | None = None
+    min_recall: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -192,6 +193,7 @@ _EVALUATION_KEYS = {
     "baseline",
     "threshold_metric",
     "positive_label",
+    "min_recall",
 }
 
 
@@ -403,12 +405,28 @@ def _load_evaluation(root: dict[str, Any], task: str) -> EvaluationSpec:
             )
         if not isinstance(positive_label, str) or not positive_label.strip():
             raise ValueError("evaluation.positive_label must be a non-empty string")
+    min_recall = table.get("min_recall")
+    if min_recall is not None:
+        # A recall floor states the error the protocol refuses to make. The
+        # threshold metric then chooses among the thresholds that honour it.
+        if threshold_metric is None:
+            raise ValueError(
+                "evaluation.min_recall requires evaluation.threshold_metric"
+            )
+        if isinstance(min_recall, bool) or not isinstance(min_recall, int | float):
+            raise ValueError("evaluation.min_recall must be a number")
+        min_recall = float(min_recall)
+        if not 0.0 < min_recall <= 1.0:
+            raise ValueError("evaluation.min_recall must lie in (0, 1]")
+        if "recall" not in metrics:
+            raise ValueError("evaluation.min_recall requires recall in metrics")
     return EvaluationSpec(
         primary_metric=primary_metric,
         metrics=metrics,
         baseline=baseline,
         threshold_metric=threshold_metric,
         positive_label=positive_label,
+        min_recall=min_recall,
     )
 
 
