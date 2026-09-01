@@ -40,8 +40,8 @@ the directory loadable by something that was not there when it was trained.
 `manifest.json` carries a `deterministic_digest` covering every file except
 `run.json` and `environment.json`. Those two record *when and where* a run
 happened, which legitimately differs between two runs of the same thing.
-Everything the science depends on does not, so two runs of the same
-configuration against the same data produce the same digest.
+Everything the science depends on does not — provided the trainer is
+deterministic, which is the next section.
 
 A run repeats when four things are available: the same dataset snapshot, the
 same configuration, the same code commit, and the locked environment. The
@@ -49,9 +49,19 @@ bundle records all four, which is why it can be handed to someone else.
 
 Whether the fitted artifact comes back byte-for-byte is a separate and narrower
 question, and it depends on the trainer. Each model's `model.json` states what
-it claims. Model-specific pages record the limits — the published QRF95 forest,
-for one, was fitted without a random seed, so its exact bytes cannot be
-recovered by anyone, including us.
+it claims in a `deterministic` field, and the claim is worth reading rather than
+assuming.
+
+The forest trainer is deterministic under its seed. The CGCNN classifier is
+not: seeding fixes the initialisation and the batch order, but its graph
+convolutions reduce with non-deterministic kernels. Two runs of the same
+protocol on the same machine agree to about one part in ten thousand per score
+and produce different weight bytes. The model is the same model; the file is a
+different file, and the bundle digest differs with it.
+
+A third limit is historical rather than technical: the published QRF95 forest
+was fitted with no random seed at all, so its exact bytes cannot be recovered
+by anyone, including us. Model-specific pages record which limit applies.
 
 ## Overwriting
 

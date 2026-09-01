@@ -15,8 +15,8 @@ from pymatgen.core import Lattice, Structure
 from goldilocks_ml.cli import execute
 from goldilocks_ml.hashing import sha256_file
 from goldilocks_ml.inference import SUPPORTED_RECORD_SCHEMA_VERSIONS
-from goldilocks_ml.models.kmesh.qrf95 import features as qrf_features
-from goldilocks_ml.models.kmesh.qrf95.features import (
+from goldilocks_ml.models.k_points.k_distance.qrf import features as qrf_features
+from goldilocks_ml.models.k_points.k_distance.qrf.features import (
     SOAP_DEFAULTS,
     TOTAL_WIDTH,
     composition_block,
@@ -24,7 +24,7 @@ from goldilocks_ml.models.kmesh.qrf95.features import (
     soap_block,
     structure_block,
 )
-from goldilocks_ml.models.kmesh.qrf95.trainer import (
+from goldilocks_ml.models.k_points.k_distance.qrf.trainer import (
     CALIBRATION_METHOD,
     ENDPOINT_ADJUSTMENT,
     RUNTIME,
@@ -36,11 +36,15 @@ from goldilocks_ml.protocol import load_protocol
 from goldilocks_ml.registry import get_trainer
 from goldilocks_ml.snapshot import Sample, Snapshot, load_snapshot
 
-QRF_PROTOCOL = Path(__file__).parents[1] / "protocols" / "kmesh" / "qrf95.toml"
+QRF_PROTOCOL = (
+    Path(__file__).parents[1]
+    / "protocols/k_points/k_distance/qrf/goldilocks_kdist_ultra.v1.toml"
+)
 
 
 def _qrf_document(**parameters: object) -> dict[str, object]:
     document = regression_document(
+        id="k_points.k_distance.qrf.synthetic.v1",
         trainer="quantile_random_forest",
         split={
             "train": 0.5,

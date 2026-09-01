@@ -32,7 +32,7 @@ def _classification(tmp_path: Path, **overrides: Any) -> Path:
 def test_load_protocol_returns_validated_configuration(tmp_path: Path) -> None:
     protocol = load_protocol(_regression(tmp_path))
 
-    assert protocol.id == "synthetic-regression-v1"
+    assert protocol.id == "synthetic.value.linear.synthetic.v1"
     assert protocol.task == "regression"
     assert protocol.trainer == "linear_regression"
     assert protocol.features.schema == "tabular"
@@ -180,6 +180,67 @@ def test_invalid_feature_dependencies_are_rejected(
         load_protocol(
             _regression(tmp_path, features={"depends_on": {"metallicity": dependency}})
         )
+
+
+def test_a_release_name_parses_into_its_parts(tmp_path: Path) -> None:
+    protocol = load_protocol(_regression(tmp_path))
+
+    assert protocol.release.parameter == "synthetic"
+    assert protocol.release.quantity == "value"
+    assert protocol.release.family == "linear"
+    assert protocol.release.dataset == "synthetic"
+    assert protocol.release.version == 1
+    assert protocol.release.runtime == "synthetic.value.linear"
+    assert str(protocol.release) == protocol.id
+
+
+@pytest.mark.parametrize(
+    "protocol_id",
+    [
+        "synthetic-regression-v1",
+        "synthetic.value.linear.v1",
+        "synthetic.value.linear.synthetic.synthetic.v1",
+        "synthetic.value.linear.synthetic",
+        "synthetic.value.linear.synthetic.v0",
+        "Synthetic.Value.Linear.Synthetic.v1",
+    ],
+)
+def test_load_protocol_rejects_a_name_that_is_not_a_release(
+    tmp_path: Path, protocol_id: str
+) -> None:
+    with pytest.raises(ValueError, match="must name a release"):
+        load_protocol(_regression(tmp_path, id=protocol_id))
+
+
+def test_a_release_name_may_not_contradict_the_pinned_dataset(
+    tmp_path: Path,
+) -> None:
+    document = regression_document(
+        id="synthetic.value.linear.elsewhere.v1",
+        dataset={
+            "record_id": "synthetic",
+            "snapshot_version": "v1",
+            "manifest_sha256": DIGEST,
+        },
+    )
+
+    with pytest.raises(ValueError, match="names dataset 'elsewhere'"):
+        load_protocol(write_protocol(tmp_path / "protocol.toml", document))
+
+
+def test_a_hyphenated_record_id_is_spelled_with_underscores(tmp_path: Path) -> None:
+    document = regression_document(
+        id="synthetic.value.linear.two_words.v1",
+        dataset={
+            "record_id": "two-words",
+            "snapshot_version": "v1",
+            "manifest_sha256": DIGEST,
+        },
+    )
+
+    protocol = load_protocol(write_protocol(tmp_path / "protocol.toml", document))
+
+    assert protocol.dataset.pinned.record_id == "two-words"
 
 
 def test_classification_accepts_ranking_metrics_and_threshold(tmp_path: Path) -> None:

@@ -5,5 +5,7 @@ for periodic DFT calculations.
 
 Models may expose different intermediate targets. QRF95 predicts a continuous
 `k_distance`; Goldilocks converts that value to an integer k-mesh using the
-reciprocal lattice. Future k-mesh models belong beside `qrf95/` in their own
+reciprocal lattice. These directory names predate the release naming this repository now uses;
+the next version deposited here will be named for its release. Future
+k-mesh models belong beside `qrf95/` in their own
 subdirectories.

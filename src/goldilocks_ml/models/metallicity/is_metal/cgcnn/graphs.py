@@ -16,7 +16,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from goldilocks_ml.models.metallicity.cgcnn import build_graph
+from goldilocks_ml.models.k_points.k_distance.qrf.embedding import build_graph
 from goldilocks_ml.registry import FeatureMatrix, register_feature_contract
 
 if TYPE_CHECKING:

@@ -1,5 +1,12 @@
 # Train QRF95
 
+| | |
+| --- | --- |
+| Release | `k_points.k_distance.qrf.goldilocks_kdist_ultra.v1` |
+| Runtime | `k_points.k_distance.qrf` |
+| Target contract | `goldilocks.k_distance.mesh_lower_bound.2pi.v1` |
+| Dataset | `goldilocks-kdist-ultra`, 21053 structures |
+
 QRF95 answers "how dense does this k-point mesh need to be" — but not as a grid.
 It predicts a **k-distance**: the largest spacing between neighbouring k-points,
 in Å⁻¹, that still gives a converged answer. Smaller means denser. Goldilocks
@@ -19,7 +26,7 @@ installed by default, because someone who only wants to publish a model should
 not have to wait for them:
 
 ```bash
-uv sync --extra qrf95
+uv sync --extra models
 ```
 
 ## Target contract
@@ -108,15 +115,17 @@ nil.
 ## Run
 
 Prepare and seal a snapshot with stable sample IDs, CIF files, and a composition
-group in the third `id_prop.csv` column. Then run:
+group in the third `id_prop.csv` column. This configuration pins the snapshot it
+reproduces, so it accepts that one and refuses any other; drop the three pin
+fields to run it against your own data. Then:
 
 ```bash
-uv run goldilocks-ml train validate protocols/kmesh/qrf95.toml \
+uv run goldilocks-ml train validate protocols/k_points/k_distance/qrf/goldilocks_kdist_ultra.v1.toml \
   --dataset SNAPSHOT --artifact-directory ARTIFACTS
 
-uv run goldilocks-ml train run protocols/kmesh/qrf95.toml \
+uv run goldilocks-ml train run protocols/k_points/k_distance/qrf/goldilocks_kdist_ultra.v1.toml \
   --dataset SNAPSHOT --artifact-directory ARTIFACTS \
-  --output local_runs/qrf95-v1
+  --output local_runs/qrf-v1
 ```
 
 The estimator fits only the training split. The calibration split determines a

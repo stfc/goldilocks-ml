@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,6 +39,59 @@ BASELINES: dict[str, str] = {
     "regression": "train_median",
     "classification": "train_majority",
 }
+
+
+# A release name is five parts: which setting it advises, what its number is,
+# what was fitted, which data it learned from, and which attempt this is. The
+# first three are the serving runtime; a consumer that can read one release of
+# a runtime can read every release of it.
+_SEGMENT = r"[a-z][a-z0-9_]*"
+_RELEASE_PATTERN = re.compile(
+    rf"^(?P<parameter>{_SEGMENT})\.(?P<quantity>{_SEGMENT})\."
+    rf"(?P<family>{_SEGMENT})\.(?P<dataset>{_SEGMENT})\.v(?P<version>[1-9][0-9]*)$"
+)
+
+
+@dataclass(frozen=True, slots=True)
+class ReleaseName:
+    """One trained model's name, parsed into the parts that mean something."""
+
+    parameter: str
+    quantity: str
+    family: str
+    dataset: str
+    version: int
+
+    @property
+    def runtime(self) -> str:
+        """Return the serving runtime this release must be read back through."""
+        return f"{self.parameter}.{self.quantity}.{self.family}"
+
+    def __str__(self) -> str:
+        return f"{self.runtime}.{self.dataset}.v{self.version}"
+
+
+def parse_release_name(value: str) -> ReleaseName:
+    """Parse a release name, rejecting anything that is not five parts."""
+    match = _RELEASE_PATTERN.fullmatch(value)
+    if match is None:
+        raise ValueError(
+            f"protocol.id {value!r} must name a release as "
+            "<parameter>.<quantity>.<family>.<dataset>.v<n>, lowercase, "
+            "for example 'k_points.k_distance.qrf.goldilocks_kdist_ultra.v1'"
+        )
+    return ReleaseName(
+        parameter=match["parameter"],
+        quantity=match["quantity"],
+        family=match["family"],
+        dataset=match["dataset"],
+        version=int(match["version"]),
+    )
+
+
+def dataset_segment(record_id: str) -> str:
+    """Return the release-name spelling of a snapshot record id."""
+    return record_id.replace("-", "_").lower()
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,6 +198,7 @@ class TrainingProtocol:
 
     schema_version: int
     id: str
+    release: ReleaseName
     task: Task
     trainer: str
     dataset: DatasetSpec
@@ -440,17 +495,31 @@ def load_protocol(path: Path) -> TrainingProtocol:
         raise ValueError("schema_version must be 1")
 
     protocol_id = _string(root, "id", "protocol")
+    release = parse_release_name(protocol_id)
     task = _string(root, "task", "protocol")
     if task not in TASKS:
         raise ValueError("protocol.task must be regression or classification")
     trainer = _string(root, "trainer", "protocol")
 
+    dataset = _load_dataset(root)
+    if dataset.pinned is not None:
+        expected = dataset_segment(dataset.pinned.record_id)
+        if release.dataset != expected:
+            # The name says which data this learned from, so it cannot be
+            # allowed to say something the pin contradicts.
+            raise ValueError(
+                f"protocol.id names dataset {release.dataset!r} but "
+                f"dataset.record_id is {dataset.pinned.record_id!r}, which "
+                f"belongs in the name as {expected!r}"
+            )
+
     return TrainingProtocol(
         schema_version=1,
         id=protocol_id,
+        release=release,
         task=cast(Task, task),
         trainer=trainer,
-        dataset=_load_dataset(root),
+        dataset=dataset,
         split=_load_split(root, task),
         features=_load_features(root),
         model=_load_model(root),

@@ -1,6 +1,6 @@
 # Metallicity classification from a crystal graph, on Matbench mp_is_metal.
 schema_version = 1
-id = "metallicity-cgcnn2-v1"
+id = "metallicity.is_metal.cgcnn.matbench_mp_is_metal.v1"
 task = "classification"
 trainer = "cgcnn_classifier"
 

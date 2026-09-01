@@ -13,7 +13,7 @@ worse than one that fails loudly.
 | Field | Value | |
 | --- | --- | --- |
 | `schema_version` | `1` | required — the only version so far |
-| `id` | string | required — names the model this file produces |
+| `id` | release name | required — see [Naming a release](#naming-a-release) |
 | `task` | `regression` or `classification` | required |
 | `trainer` | a trainer name | required — see the table below |
 
@@ -23,6 +23,31 @@ worse than one that fails loudly.
 | `logistic_regression` | logistic regression | classification |
 | `quantile_random_forest` | a forest predicting three quantiles | regression |
 | `cgcnn_classifier` | a crystal graph neural network | classification |
+
+### Naming a release
+
+`id` names the model this file produces, in five parts:
+
+```text
+k_points . k_distance . qrf . goldilocks_kdist_ultra . v1
+└ setting   └ quantity   └ family └ dataset            └ version
+```
+
+Lowercase, `a-z0-9_` within a part, and the version starts at `v1`. The shape
+is fixed; the words are yours. Nothing here checks that `k_points` is a real
+setting — pick vocabulary that suits your project and stay consistent, because
+the shape is what lets a catalogue be built from the names rather than
+maintained by hand.
+
+Two rules follow from the name meaning something:
+
+- The **first three parts are the serving runtime**. A trainer producing a
+  different runtime is rejected, so a file named for one setting cannot quietly
+  be fitted by a model that serves another. Reference trainers such as
+  `linear_regression` declare no runtime and are exempt.
+- The **fourth part must be the pinned dataset**, when a dataset is pinned. It
+  is the `record_id` with hyphens written as underscores. A name claiming data
+  the pin contradicts is rejected rather than left to drift.
 
 ## `[dataset]`
 

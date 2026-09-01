@@ -28,7 +28,7 @@ from pymatgen.core.structure import Structure
 from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
 
-from goldilocks_ml.models.metallicity.cgcnn import (
+from goldilocks_ml.models.k_points.k_distance.qrf.embedding import (
     REPRESENTATION_WIDTH,
     crystal_representations,
 )

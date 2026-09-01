@@ -1,6 +1,6 @@
 """Serve the QRF95 k-distance model for single structures.
 
-The serving counterpart of :mod:`goldilocks_ml.models.kmesh.qrf95.trainer`. It
+The serving counterpart of this package's :mod:`trainer`. It
 reads back what that trainer wrote and applies the same calibration, so the two
 cannot disagree about what a stored correction means.
 """
@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 from goldilocks_ml.hashing import sha256_file
 from goldilocks_ml.inference import ModelPrediction, contract_for
-from goldilocks_ml.models.kmesh.qrf95.trainer import (
+from goldilocks_ml.models.k_points.k_distance.qrf.trainer import (
     CALIBRATION_METHOD,
     ENDPOINT_ADJUSTMENT,
     RUNTIME,
@@ -47,8 +47,10 @@ class QRF95Predictor:
 
     def predict_batch(self, structures: Sequence[Structure]) -> list[ModelPrediction]:
         """Return one prediction per structure, featurising them together."""
-        from goldilocks_ml.models.kmesh.qrf95 import features as qrf_features
-        from goldilocks_ml.models.kmesh.qrf95.trainer import (
+        from goldilocks_ml.models.k_points.k_distance.qrf import (
+            features as qrf_features,
+        )
+        from goldilocks_ml.models.k_points.k_distance.qrf.trainer import (
             calibrate_interval,
             prediction_matrix,
         )
@@ -119,7 +121,7 @@ def load(
     record: Mapping[str, Any], directory: Path, artifacts: Mapping[str, Path]
 ) -> QRF95Predictor:
     """Build a predictor from a stored record, checking what it declares."""
-    from goldilocks_ml.models.kmesh.qrf95 import features as qrf_features
+    from goldilocks_ml.models.k_points.k_distance.qrf import features as qrf_features
 
     version = record.get("runtime", {}).get("version")
     if version != RUNTIME_VERSION:

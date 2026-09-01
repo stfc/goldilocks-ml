@@ -1,5 +1,12 @@
 # Train the metallicity classifier
 
+| | |
+| --- | --- |
+| Release | `metallicity.is_metal.cgcnn.matbench_mp_is_metal.v1` |
+| Runtime | `metallicity.is_metal.cgcnn` |
+| Target contract | `goldilocks.is_metal.dft_band_gap_zero.v1` |
+| Dataset | `matbench_mp_is_metal`, 106113 structures |
+
 A crystal graph convolutional network that answers one question: does DFT give
 this crystal a zero band gap. Metals need denser k-point sampling than
 insulators, so the answer feeds Goldilocks Core's analysis of a structure
@@ -8,7 +15,8 @@ before any other recommendation is made.
 ## Why this exists alongside the published checkpoint
 
 `ptc95-vbq12` already publishes a metallicity CGCNN, and this repository ports
-it under `models/metallicity/cgcnn`. That port stays exactly where it is,
+it under `models/k_points/k_distance/qrf/embedding.py`, beside the feature
+contract that consumes it. That port stays exactly where it is,
 because the QRF95 feature contract pins the checkpoint by digest and reads its
 pooled representation.
 
@@ -20,7 +28,7 @@ which is not a claim Core should make.
 This trainer fits the same architecture from a sealed snapshot and writes a
 record that states the dataset, the split, the seed, the stopping epoch, and
 the measured performance. The two models never load as each other: this one
-registers under runtime `metallicity.cgcnn2`.
+registers under runtime `metallicity.is_metal.cgcnn`.
 
 ## Data
 
@@ -30,7 +38,7 @@ Matminer distributes it with a published SHA-256, so the source is pinned
 without a Materials Project API key.
 
 ```bash
-uv run --extra qrf95 python scripts/matbench_to_snapshot.py \
+uv run --extra models python scripts/matbench_to_snapshot.py \
     --output local_data/snapshots/mp-is-metal
 ```
 
@@ -199,12 +207,47 @@ floor, while the 0.97 threshold delivers 0.9721 and so keeps 0.95 as well.
 ## Run
 
 ```bash
-uv run goldilocks-ml train validate protocols/metallicity/cgcnn2.toml \
+uv run goldilocks-ml train validate protocols/metallicity/is_metal/cgcnn/matbench_mp_is_metal.v1.toml \
   --dataset local_data/snapshots/mp-is-metal \
   --artifact-directory local_data/artifacts
 
-uv run goldilocks-ml train run protocols/metallicity/cgcnn2.toml \
+uv run goldilocks-ml train run protocols/metallicity/is_metal/cgcnn/matbench_mp_is_metal.v1.toml \
   --dataset local_data/snapshots/mp-is-metal \
   --artifact-directory local_data/artifacts \
-  --output local_runs/cgcnn2-v1
+  --output local_runs/cgcnn-v1
 ```
+
+## Measured results
+
+A full run over the sealed snapshot takes about 55 minutes on an Apple M-series
+GPU, stopping at epoch 32 with the weights from epoch 24 restored.
+
+| Split | Accuracy | Balanced | Precision | Recall | F1 | MCC | ROC-AUC | PR-AUC |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Validation | 0.777 | 0.800 | 0.666 | 0.970 | 0.790 | 0.616 | 0.955 | 0.946 |
+| Calibration | 0.778 | 0.803 | 0.665 | 0.975 | 0.790 | 0.621 | 0.958 | 0.947 |
+| **Test** | **0.748** | **0.766** | 0.649 | **0.972** | 0.778 | **0.569** | **0.950** | **0.947** |
+| Test baseline | 0.544 | 0.500 | 0 | 0 | 0 | 0.000 | 0.500 | 0.274 |
+
+The baseline predicts the majority class, so it never finds a metal at all.
+
+Read ROC-AUC and PR-AUC first: they do not depend on the threshold, so they
+measure how well the model *ranks* structures by metallicity. At 0.950 and
+0.947 on test, the ranking is strong. Accuracy and MCC are lower than they
+could be because the threshold is deliberately not set where they peak — the
+recall floor moved it, and the section above records what that cost.
+
+Recall on test is 0.972 against a floor of 0.97 chosen on validation, so the
+promise the protocol makes survives the split it was not chosen on.
+
+## Reproducibility
+
+This trainer is **not** deterministic, and `model.json` says so. Seeding fixes
+the initialisation and the batch order, but the graph convolutions reduce with
+non-deterministic kernels.
+
+Measured: two runs of this protocol with the same seed and the same splits
+produced weight files with different digests. Of 106113 scores, 6% were bit
+identical, the mean absolute difference was 2e-6, the largest was 3e-4, and one
+sample changed side of the threshold. The model is reproducible as a model, and
+not as a file.

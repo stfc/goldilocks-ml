@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 
 from goldilocks_ml.cli import seal
+from goldilocks_ml.protocol import dataset_segment
 from goldilocks_ml.runs import dumps_toml
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -116,7 +117,7 @@ def regression_document(**overrides: Any) -> dict[str, Any]:
     """Return the baseline synthetic regression protocol document."""
     base = {
         "schema_version": 1,
-        "id": "synthetic-regression-v1",
+        "id": "synthetic.value.linear.synthetic.v1",
         "task": "regression",
         "trainer": "linear_regression",
         "dataset": {
@@ -148,7 +149,7 @@ def classification_document(**overrides: Any) -> dict[str, Any]:
     """Return the baseline synthetic classification protocol document."""
     base = {
         "schema_version": 1,
-        "id": "synthetic-classification-v1",
+        "id": "synthetic.label.logistic.synthetic.v1",
         "task": "classification",
         "trainer": "logistic_regression",
         "dataset": {
@@ -177,15 +178,23 @@ def classification_document(**overrides: Any) -> dict[str, Any]:
 
 
 def pin(document: dict[str, Any], digest: str, **identity: str) -> dict[str, Any]:
-    """Return the document with a snapshot pinned into its dataset section."""
+    """Return the document with a snapshot pinned into its dataset section.
+
+    The release name has to keep naming the pinned dataset, so the id's fourth
+    segment is rewritten alongside the pin rather than left to drift.
+    """
+    record_id = identity.get("record_id", "synthetic")
+    parts = str(document["id"]).split(".")
+    parts[3] = dataset_segment(record_id)
     return merge(
         document,
         {
+            "id": ".".join(parts),
             "dataset": {
-                "record_id": identity.get("record_id", "synthetic"),
+                "record_id": record_id,
                 "snapshot_version": identity.get("snapshot_version", "v1"),
                 "manifest_sha256": digest,
-            }
+            },
         },
     )
 

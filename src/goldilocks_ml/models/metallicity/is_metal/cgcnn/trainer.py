@@ -22,8 +22,8 @@ import torch
 from torch_geometric.data import Batch
 
 from goldilocks_ml.hashing import sha256_file
-from goldilocks_ml.models.metallicity.cgcnn import CGCNN
-from goldilocks_ml.models.metallicity.cgcnn2.graphs import ATOM_INIT, graphs_for
+from goldilocks_ml.models.k_points.k_distance.qrf.embedding import CGCNN
+from goldilocks_ml.models.metallicity.is_metal.cgcnn.graphs import ATOM_INIT, graphs_for
 from goldilocks_ml.registry import FeatureMatrix, FittedModel, register_trainer
 
 if TYPE_CHECKING:
@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     from goldilocks_ml.snapshot import Sample
 
 TRAINER = "cgcnn_classifier"
-RUNTIME = "metallicity.cgcnn2"
+RUNTIME = "metallicity.is_metal.cgcnn"
 RUNTIME_VERSION = 1
 RECORD_SCHEMA_VERSION = 1
 MODEL_FILE = "is_metal.pt"
@@ -95,7 +95,11 @@ class CGCNNClassifier:
             "trainer": TRAINER,
             "task": "classification",
             "seed": self.seed,
-            "deterministic": True,
+            # Seeding fixes the initialisation and the batch order, but the
+            # graph convolutions reduce with non-deterministic kernels: two
+            # runs of this protocol on the same device agree to about 1e-4 per
+            # score and produce different weight bytes.
+            "deterministic": False,
             "architecture": dict(self.architecture),
             "classes": {
                 "positive": self.positive_label,

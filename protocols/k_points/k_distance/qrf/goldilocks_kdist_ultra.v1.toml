@@ -1,6 +1,6 @@
 # QRF95-compatible k-distance quantile regression.
 schema_version = 1
-id = "kmesh-qrf95-v1"
+id = "k_points.k_distance.qrf.goldilocks_kdist_ultra.v1"
 task = "regression"
 trainer = "quantile_random_forest"
 
@@ -9,6 +9,9 @@ target = "k_distance"
 target_contract = "goldilocks.k_distance.mesh_lower_bound.2pi.v1"
 target_units = "1/angstrom"
 requires = ["structures", "groups"]
+record_id = "goldilocks-kdist-ultra"
+snapshot_version = "75959-bwa52-legacy"
+manifest_sha256 = "1221f0bec4b007172726ad3bc969f2349abb5a54d66ef2d823157290cb902066"
 
 [split]
 method = "group"

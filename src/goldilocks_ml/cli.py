@@ -329,6 +329,24 @@ def build_features(
     return features, resolved
 
 
+def _check_runtime(protocol: TrainingProtocol, model: FittedModel) -> None:
+    """Reject a trainer whose serving runtime the release name does not claim.
+
+    A release name's first three parts are its runtime, so a protocol naming
+    one setting cannot quietly be fitted by a trainer that serves another.
+    Reference trainers declare no runtime and are exempt.
+    """
+    runtime = model.describe().get("runtime")
+    if runtime is None:
+        return
+    produced = runtime.get("id")
+    if produced != protocol.release.runtime:
+        raise ValueError(
+            f"protocol.id names runtime {protocol.release.runtime!r} but "
+            f"trainer {protocol.trainer!r} produces {produced!r}"
+        )
+
+
 def execute(
     protocol: TrainingProtocol,
     snapshot: Snapshot,
@@ -376,6 +394,7 @@ def execute(
     )
     # Test samples, labels, and features never reach the trainer.
     model = get_trainer(protocol.trainer)(protocol, context)
+    _check_runtime(protocol, model)
     model.save(directory / "model")
 
     quantiles = (

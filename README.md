@@ -31,7 +31,7 @@ uv run goldilocks-ml train run protocols/synthetic/regression.toml \
 manifest, environment, metrics, predictions, model, and a SHA-256 for every
 file. The shipped linear and logistic trainers are deliberately lightweight
 reference implementations. The QRF95-compatible trainer and 483-column feature
-contract are available through the optional `qrf95` dependency set; CGCNN
+contract are available through the optional `models` dependency set; CGCNN
 training is not implemented yet.
 
 The data layout, split rules, and reproducibility limits are in the
@@ -59,7 +59,7 @@ is in the [PSDI publication guide](https://stfc.github.io/goldilocks-ml/publishi
 ## Development
 
 ```bash
-uv sync --group dev --extra qrf95
+uv sync --group dev --extra models
 uv run pytest
 uv run ruff check .
 uv run ruff format --check .

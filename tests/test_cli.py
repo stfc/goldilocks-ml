@@ -20,8 +20,9 @@ from conftest import (
     write_protocol,
 )
 
-from goldilocks_ml.cli import seal
+from goldilocks_ml.cli import _check_runtime, seal
 from goldilocks_ml.console import main
+from goldilocks_ml.protocol import load_protocol
 from goldilocks_ml.runs import MANIFEST_NAME, RUN_MARKER
 
 BUNDLE_FILES = {
@@ -165,7 +166,7 @@ def test_validate_reports_the_split_without_training(
     _run(monkeypatch, "validate", str(protocol), "--dataset", str(snapshot_dir))
 
     output = capsys.readouterr().out
-    assert "Valid protocol synthetic-regression-v1" in output
+    assert "Valid protocol synthetic.value.linear.synthetic.v1" in output
     assert "24 samples, 3 features" in output
     assert "train=12" in output
     assert not list(tmp_path.glob("**/metrics.json"))
@@ -481,6 +482,34 @@ def test_classification_selects_its_threshold_on_validation_only(
     metrics = json.loads((output / "metrics.json").read_text())
     assert metrics["decision_threshold"]["selected_on"] == "validation"
     assert "confusion_matrix" in metrics["splits"]["model"]["test"]
+
+
+class _Stub:
+    """A fitted model that reports only the record field under test."""
+
+    def __init__(self, record: dict[str, Any]) -> None:
+        self.record = record
+
+    def describe(self) -> dict[str, Any]:
+        return self.record
+
+
+def test_a_trainer_may_not_serve_a_runtime_the_name_does_not_claim(
+    tmp_path: Path,
+) -> None:
+    protocol = load_protocol(write_protocol(tmp_path / "p.toml", regression_document()))
+    stub = _Stub({"runtime": {"id": "elsewhere.value.linear", "version": 1}})
+
+    with pytest.raises(ValueError, match="names runtime 'synthetic.value.linear'"):
+        _check_runtime(protocol, stub)
+
+
+def test_a_reference_trainer_declares_no_runtime_and_is_exempt(
+    tmp_path: Path,
+) -> None:
+    protocol = load_protocol(write_protocol(tmp_path / "p.toml", regression_document()))
+
+    _check_runtime(protocol, _Stub({"trainer": "linear_regression"}))
 
 
 def test_threshold_selection_requires_a_validation_split(

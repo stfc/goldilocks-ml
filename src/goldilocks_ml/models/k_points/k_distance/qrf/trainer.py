@@ -30,7 +30,7 @@ TRAINER = "quantile_random_forest"
 # The serving runtime that reads these artifacts back. It is versioned
 # separately from the trainer: the same fitting algorithm can produce a
 # model with a different feature schema, calibration, or output contract.
-RUNTIME = "kmesh.qrf95"
+RUNTIME = "k_points.k_distance.qrf"
 RUNTIME_VERSION = 1
 RECORD_SCHEMA_VERSION = 1
 CALIBRATION_METHOD = "split_conformal_quantile_regression"

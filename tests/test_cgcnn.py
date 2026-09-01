@@ -14,8 +14,8 @@ from conftest import write_protocol
 from pymatgen.core import Lattice, Structure
 
 from goldilocks_ml.cli import seal
-from goldilocks_ml.models.metallicity.cgcnn2 import graphs as crystal_graphs
-from goldilocks_ml.models.metallicity.cgcnn2.trainer import (
+from goldilocks_ml.models.metallicity.is_metal.cgcnn import graphs as crystal_graphs
+from goldilocks_ml.models.metallicity.is_metal.cgcnn.trainer import (
     ARCHITECTURE,
     RUNTIME,
     RUNTIME_VERSION,
@@ -31,7 +31,10 @@ from goldilocks_ml.registry import (
 )
 from goldilocks_ml.snapshot import Snapshot, load_snapshot
 
-PROTOCOL = Path(__file__).parents[1] / "protocols" / "metallicity" / "cgcnn2.toml"
+PROTOCOL = (
+    Path(__file__).parents[1]
+    / "protocols/metallicity/is_metal/cgcnn/matbench_mp_is_metal.v1.toml"
+)
 ATOM_TABLE = {str(number): [0.1] * 92 for number in (8, 14, 26)}
 
 
@@ -127,7 +130,7 @@ def test_the_shipped_protocol_parses() -> None:
 
 def test_the_runtime_is_distinct_from_the_published_one() -> None:
     """The published checkpoint and this one must never load as each other."""
-    assert RUNTIME == "metallicity.cgcnn2"
+    assert RUNTIME == "metallicity.is_metal.cgcnn"
     assert RUNTIME != "metallicity.cgcnn"
     assert RUNTIME_VERSION == 1
 
