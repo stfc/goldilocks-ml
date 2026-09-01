@@ -1,8 +1,9 @@
 """CGCNN representation used by the QRF95 feature contract.
 
 Adapted from ``stfc/goldilocks_kpoints`` (``models/cgcnn.py`` and graph
-utilities), © 2024 Science and Technology Facilities Council, CC BY 4.0.
-Layer names and shapes are fixed by the published metallicity checkpoint.
+utilities), © 2024 Science and Technology Facilities Council, CC BY 4.0, and
+redistributed under this repository's LICENSE. Layer names and shapes are
+fixed by the published metallicity checkpoint.
 """
 
 from __future__ import annotations

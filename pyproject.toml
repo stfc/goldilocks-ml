@@ -6,6 +6,9 @@ build-backend = "hatchling.build"
 name = "goldilocks-ml"
 version = "0.1.0"
 description = "Training, evaluation, and model publication workflows for Goldilocks"
+readme = "README.md"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
 dependencies = [
     "data-collections-api==0.1.0",
