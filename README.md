@@ -54,7 +54,7 @@ uv run goldilocks-ml publish validate deposits/kmesh/qrf95 \
 ```
 
 The complete token, draft, inspection, and review workflow
-is in the [PSDI publication guide](https://stfc.github.io/goldilocks-ml/getting-started/).
+is in the [PSDI publication guide](https://stfc.github.io/goldilocks-ml/publishing/).
 
 ## Development
 

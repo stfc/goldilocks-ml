@@ -3,6 +3,22 @@
 This guide is for a colleague publishing a new Goldilocks model release to the
 PSDI Data to Knowledge community.
 
+## What the CLI will and will not do
+
+These hold for every command on this page, so that a mistake costs you a draft
+rather than a published record:
+
+- upload goes directly to PSDI, and only after metadata, file size, and SHA-256
+  validation succeeds;
+- a draft is created but never submitted for review — a person does that in the
+  PSDI web interface, having looked at it;
+- upload happens only with an explicit `--confirm-upload`;
+- a token is read from a file with mode `600` or stricter, and is never
+  printed;
+- a failed metadata, file, or community-binding step removes the partial draft.
+
+No model binary and no API token is committed to this repository.
+
 ## 1. Prerequisites
 
 You need:

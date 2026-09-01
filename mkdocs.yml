@@ -40,16 +40,16 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Installation: installation.md
+  - Install: installation.md
   - Train a model:
       - Overview: training/index.md
       - Prepare your data: training/your-data.md
       - Protocol reference: training/protocol.md
       - Models:
           - QRF95 k-mesh: training/kmesh/qrf95.md
-  - Use a model: inference.md
-  - Publish a model:
-      - Workflow: getting-started.md
+  - Publish a model: publishing.md
+  - Reference:
+      - Inference API: inference.md
+      - CLI: cli-reference.md
       - Deposit format: deposit-format.md
-  - CLI reference: cli-reference.md
-  - Troubleshooting: troubleshooting.md
+      - Troubleshooting: troubleshooting.md

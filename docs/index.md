@@ -1,56 +1,57 @@
-# Goldilocks model training and publication
+# Goldilocks ML
 
-`goldilocks-ml` covers two halves of the same contract. A versioned training
-protocol turns an immutable dataset snapshot into an auditable run bundle, and
-the deposit workflow turns a model release into a reviewed, reproducible PSDI
-Data Collections record.
+Train, evaluate, and publish the models Goldilocks uses to recommend DFT
+inputs.
 
-## Training a model
+A model here is not a file someone produced once. It is a versioned protocol
+that pins its dataset, its split, its trainer, and its metrics; a run bundle
+recording what happened; and a published record anyone can verify by digest.
 
-A protocol is an executable TOML file that pins the dataset snapshot, the split
-and its leakage controls, the trainer and its parameters, and the metrics and
-baseline. One command validates it offline; one command runs it and writes a
-bundle that records what data was used, how it was split, what was fitted, how
-it scored, and a SHA-256 for every file.
+!!! tip "Looking for a k-point mesh, not a model?"
 
-## Publishing a model
+    Then you want [Goldilocks Core](https://github.com/stfc/goldilocks-core).
+    It fetches the published models, runs them, and writes the input files.
+    This site is for the other side: producing the models it uses.
 
-The deposit workflow validates the metadata, model card, file sizes, and
-SHA-256 digests before it contacts PSDI.
+## Train a model on your own data
 
-The workflow is deliberately split:
+```bash
+uv run goldilocks-ml train run protocols/synthetic/regression.toml \
+  --dataset tests/fixtures/kdist --output local_runs/first
+```
 
-1. prepare the release sidecars;
-2. validate everything offline;
-3. create a PSDI draft without submitting it;
-4. inspect the rendered record;
-5. submit the inspected draft in the PSDI web interface.
+That runs end to end on a snapshot shipped with the repository, and writes a
+bundle recording what data was used, how it was split, what was fitted, how it
+scored against a baseline, and a SHA-256 for every file it read or wrote.
 
-No model binary or API token is committed to this repository.
+Then bring your own: a protocol is an executable TOML file, and
+[Prepare your data](training/your-data.md) is the layout it expects.
 
-## Published examples
+## Publish it
 
-These records were created with the workflow documented here and passed review
-by the PSDI Data to Knowledge community.
+```bash
+uv run goldilocks-ml publish validate deposits/kmesh/qrf95 \
+  --artifact-directory local_data/models/kmesh/qrf95
+```
 
-| Model | Files | Record |
+Validation is offline and complete before anything reaches the network. The
+[publishing guide](publishing.md) covers the whole path to a reviewed PSDI
+record.
+
+## Models published this way
+
+Both records passed review by the PSDI Data to Knowledge community.
+
+| Model | Predicts | Record |
 | --- | --- | --- |
-| QRF95 k-mesh recommendation | `QRF95.pkl`, model card, manifest | [fex36-67b11](https://data-collections.psdi.ac.uk/records/fex36-67b11) |
-| CGCNN metallicity classifier | `is_metal.ckpt`, `atom_init.json`, model card, manifest | [ptc95-vbq12](https://data-collections.psdi.ac.uk/records/ptc95-vbq12) |
+| QRF95 | k-point distance, with a 90% interval | [fex36-67b11](https://data-collections.psdi.ac.uk/records/fex36-67b11) |
+| CGCNN | metallicity | [ptc95-vbq12](https://data-collections.psdi.ac.uk/records/ptc95-vbq12) |
 
-Their deposit definitions live under `deposits/` and can be used as concrete
-examples. The large artifact files remain under ignored local storage.
+Their deposit definitions are under `deposits/` and are the concrete examples
+to copy. The artifacts themselves stay in ignored local storage.
 
-## Safety guarantees
+## Where to go
 
-- The CLI uploads directly to PSDI.
-- The CLI uploads drafts but never submits them for review.
-- Upload requires the explicit `--confirm-upload` flag.
-- Tokens are read from files with mode `600` or stricter and are never printed.
-- Upload starts only after metadata, size, and SHA-256 validation succeeds.
-- A failed metadata, file, or community-binding step removes the partial draft.
-
-[Installation](installation.md){ .md-button .md-button--primary }
+[Install](installation.md){ .md-button .md-button--primary }
 [Train a model](training/index.md){ .md-button }
-[Publish a model](getting-started.md){ .md-button }
-[Understand the deposit files](deposit-format.md){ .md-button }
+[Publish a model](publishing.md){ .md-button }
