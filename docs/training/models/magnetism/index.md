@@ -45,6 +45,14 @@ identical and the run usually settles back to the non-magnetic solution. So
 `is_magnetic` on its own does not buy a magnetic calculation. `magnetic_moments`
 is the quantity that does.
 
+It is worse on the non-collinear path. When spin-orbit coupling is enabled Core
+writes `noncolin` and `lspinorb` and drops the magnetism advice entirely, so the
+case spin-orbit exists for -- a magnetic heavy-element system -- gets the most
+expensive spin treatment available and no magnetism at all. A non-collinear run
+needs directions as well as magnitudes, which is a fourth thing a model could
+be asked for and a reason to settle the shape of this advice before fitting
+anything to it.
+
 **An antiferromagnetic ordering may not fit in the chemical cell.** Converging
 one can require a magnetic supercell, which changes the structure every later
 recommendation is made for — including the k-point mesh. Magnetism is the first
