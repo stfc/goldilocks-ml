@@ -5,44 +5,42 @@ inputs.
 
 A model here is not a file someone produced once. It is a versioned protocol
 that pins its dataset, its split, its trainer, and its metrics; a run bundle
-that records what happened; and a published record anyone can verify by digest.
+recording what happened; and a published record anyone can verify by digest.
 
-## Use a published model
+!!! tip "Looking for a k-point mesh, not a model?"
 
-```python
-from pathlib import Path
+    Then you want [Goldilocks Core](https://github.com/stfc/goldilocks-core).
+    It fetches the published models, runs them, and writes the input files.
+    This site is for the other side: producing the models it uses.
 
-from goldilocks_ml.inference import load_model
-from pymatgen.core import Structure
-
-model = load_model(Path("local_data/models/kmesh/qrf95"))
-prediction = model.predict(Structure.from_file("Si.cif"))
-
-prediction.parameter  # 'k_points'
-prediction.quantity  # 'k_distance'
-prediction.value  # 0.2134
-```
-
-That is the whole interface: a structure in, one value out, with the DFT
-parameter it advises and the quantity it is expressed in. [Use a
-model](inference.md) covers what travels alongside it.
-
-## Train one on your own data
+## Train a model on your own data
 
 ```bash
-uv run goldilocks-ml train run protocols/kmesh/qrf95.toml \
-  --dataset SNAPSHOT --output local_runs/my-model
+uv run goldilocks-ml train run protocols/synthetic/regression.toml \
+  --dataset tests/fixtures/kdist --output local_runs/first
 ```
 
-A protocol is an executable TOML file. One command validates it offline against
-your snapshot; one command runs it and writes a bundle recording what data was
-used, how it was split, what was fitted, how it scored, and a SHA-256 for every
-file. [Train a model](training/index.md) starts from your data.
+That runs end to end on a snapshot shipped with the repository, and writes a
+bundle recording what data was used, how it was split, what was fitted, how it
+scored against a baseline, and a SHA-256 for every file it read or wrote.
 
-## Published models
+Then bring your own: a protocol is an executable TOML file, and
+[Prepare your data](training/your-data.md) is the layout it expects.
 
-Both records were created with the workflow documented here and passed review
-by the PSDI Data to Knowledge community.
+## Publish it
+
+```bash
+uv run goldilocks-ml publish validate deposits/kmesh/qrf95 \
+  --artifact-directory local_data/models/kmesh/qrf95
+```
+
+Validation is offline and complete before anything reaches the network. The
+[publishing guide](publishing.md) covers the whole path to a reviewed PSDI
+record.
+
+## Models published this way
+
+Both records passed review by the PSDI Data to Knowledge community.
 
 | Model | Predicts | Record |
 | --- | --- | --- |
@@ -50,11 +48,10 @@ by the PSDI Data to Knowledge community.
 | CGCNN | metallicity | [ptc95-vbq12](https://data-collections.psdi.ac.uk/records/ptc95-vbq12) |
 
 Their deposit definitions are under `deposits/` and are the concrete examples
-to copy from. The artifacts themselves stay in ignored local storage.
+to copy. The artifacts themselves stay in ignored local storage.
 
 ## Where to go
 
 [Install](installation.md){ .md-button .md-button--primary }
-[Use a model](inference.md){ .md-button }
 [Train a model](training/index.md){ .md-button }
 [Publish a model](publishing.md){ .md-button }

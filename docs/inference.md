@@ -1,8 +1,13 @@
-# Use a model
+# Inference API
 
-A trained model is consumed through one call: hand over a pymatgen `Structure`,
-receive one value, the DFT parameter it advises, and the quantity it is
-expressed in.
+The interface Goldilocks Core reads a trained model through. This page
+documents the seam, not the task: if you want a k-point mesh for a structure,
+[Goldilocks Core](https://github.com/stfc/goldilocks-core) is the tool that
+fetches a published model, runs it, and converts the answer into input files.
+What lives here is the contract between the two.
+
+A model is consumed through one call: hand over a pymatgen `Structure`, receive
+one value, the DFT parameter it advises, and the quantity it is expressed in.
 
 ```python
 from pathlib import Path
@@ -18,14 +23,22 @@ prediction.quantity  # 'k_distance'
 prediction.value  # 0.2134
 ```
 
-The directory is what a training run writes and what a published deposit
-contains: the estimator named in `model.json`, alongside `model.json` itself.
+The directory is what a training run writes: the estimator named in
+`model.json`, alongside `model.json` itself.
 
-**There is no inference command.** Predicting from a published model is what
-Goldilocks Core does, and this package gives it a library rather than a second
-command line — `goldilocks-ml` covers [training](training/index.md) and
-[publishing](publishing.md) only. A notebook is the runnable form of this page;
-see [issue #13](https://github.com/stfc/goldilocks-ml/issues/13).
+!!! warning "Records published before this seam existed"
+
+    `model.json` is written by the trainer, so a model this repository has
+    trained can be loaded directly. The two records already on PSDI predate it
+    and carry no `model.json`, and nothing here downloads a record in the first
+    place — resolving a pinned artifact reports where to fetch it by hand.
+    Tracked in
+    [#20](https://github.com/stfc/goldilocks-ml/issues/20) and
+    [#21](https://github.com/stfc/goldilocks-ml/issues/21).
+
+**There is no inference command**, by design. `goldilocks-ml` covers
+[training](training/index.md) and [publishing](publishing.md); the side that
+issues a prediction command is Core.
 
 ## One prediction type for every parameter
 
