@@ -126,19 +126,21 @@ _TRAINERS: dict[str, Trainer] = {}
 _FEATURES: dict[str, FeatureContract] = {}
 _PREDICTORS: dict[str, Predictor] = {}
 _BUILTIN_TRAINERS = {
-    "quantile_random_forest": "goldilocks_ml.models.kmesh.qrf95.trainer",
-    "cgcnn_classifier": "goldilocks_ml.models.metallicity.cgcnn2.trainer",
+    "quantile_random_forest": "goldilocks_ml.models.k_points.k_distance.qrf.trainer",
+    "cgcnn_classifier": "goldilocks_ml.models.metallicity.is_metal.cgcnn.trainer",
 }
 # Keyed by serving runtime, not by trainer: one fitting algorithm can produce
 # models that must be read back differently.
 _BUILTIN_PREDICTORS = {
-    "kmesh.qrf95": "goldilocks_ml.models.kmesh.qrf95.predictor",
+    "k_points.k_distance.qrf": "goldilocks_ml.models.k_points.k_distance.qrf.predictor",
 }
+_QRF = "goldilocks_ml.models.k_points.k_distance.qrf"
+_CGCNN = "goldilocks_ml.models.metallicity.is_metal.cgcnn"
 _BUILTIN_FEATURES = {
-    "comp_struct_soap_lattice_metal.v1": "goldilocks_ml.models.kmesh.qrf95.features",
-    "crystal_graph.v1": "goldilocks_ml.models.metallicity.cgcnn2.graphs",
+    "comp_struct_soap_lattice_metal.v1": f"{_QRF}.features",
+    "crystal_graph.v1": f"{_CGCNN}.graphs",
 }
-_QRF95_DEPENDENCIES = {
+_MODEL_DEPENDENCIES = {
     "ase",
     "dscribe",
     "matminer",
@@ -158,10 +160,10 @@ def _load_builtin(name: str, modules: Mapping[str, str]) -> None:
     try:
         import_module(module)
     except ModuleNotFoundError as error:
-        if error.name and error.name.split(".")[0] in _QRF95_DEPENDENCIES:
+        if error.name and error.name.split(".")[0] in _MODEL_DEPENDENCIES:
             raise ValueError(
                 f"{name!r} needs the QRF95 dependencies; install them with "
-                "'uv sync --extra qrf95'"
+                "'uv sync --extra models'"
             ) from error
         raise
 

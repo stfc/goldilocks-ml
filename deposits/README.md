@@ -13,15 +13,15 @@ model host or fallback source.
 Validate a locally cached artifact before making any network request:
 
 ```bash
-uv run goldilocks-ml publish validate deposits/kmesh/qrf95 \
-  --artifact-directory /path/to/qrf95-snapshot
+uv run goldilocks-ml publish validate deposits/k_points/k_distance/qrf \
+  --artifact-directory /path/to/qrf-artifacts
 ```
 
 Create a draft on PSDI:
 
 ```bash
-uv run goldilocks-ml publish upload deposits/kmesh/qrf95 \
-  --artifact-directory /path/to/qrf95-snapshot \
+uv run goldilocks-ml publish upload deposits/k_points/k_distance/qrf \
+  --artifact-directory /path/to/qrf-artifacts \
   --token-file "$HOME/.config/goldilocks-ml/psdi.token" \
   --confirm-upload
 ```

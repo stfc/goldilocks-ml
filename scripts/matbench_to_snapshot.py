@@ -10,7 +10,7 @@ dataset produces the same snapshot. Groups are reduced formulae, so polymorphs
 and differently sized cells of one composition cannot be split across the
 train and test sets.
 
-    uv run --extra qrf95 python scripts/matbench_to_snapshot.py \
+    uv run --extra models python scripts/matbench_to_snapshot.py \
         --output local_data/snapshots/mp-is-metal
 """
 

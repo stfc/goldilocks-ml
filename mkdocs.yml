@@ -44,10 +44,18 @@ nav:
   - Train a model:
       - Overview: training/index.md
       - Prepare your data: training/your-data.md
-      - Protocol reference: training/protocol.md
+      - Configuration reference: training/protocol.md
+      - What a run produces: training/run-bundle.md
       - Models:
-          - QRF95 k-mesh: training/kmesh/qrf95.md
-          - CGCNN metallicity: training/metallicity/cgcnn2.md
+          - Overview: training/models/index.md
+          - k-point mesh:
+              - Overview: training/models/k_points/index.md
+              - k-distance / QRF: training/models/k_points/k_distance-qrf.md
+          - Metallicity:
+              - Overview: training/models/metallicity/index.md
+              - is-metal / CGCNN: training/models/metallicity/is_metal-cgcnn.md
+          - Magnetism: training/models/magnetism/index.md
+          - Hubbard U: training/models/hubbard_u/index.md
   - Publish a model: publishing.md
   - Reference:
       - Inference API: inference.md

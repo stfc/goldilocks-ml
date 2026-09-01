@@ -319,10 +319,20 @@ def select_threshold(
     metric: str,
     positive: str,
     negative: str,
+    *,
+    min_recall: float | None = None,
 ) -> float:
-    """Choose the decision threshold maximising one metric on a single split."""
+    """Choose the decision threshold maximising one metric on a single split.
+
+    A ``min_recall`` floor restricts the search to thresholds that miss no more
+    of the positive class than the protocol accepts. Metrics such as MCC weigh
+    both error directions equally; a floor states that this protocol does not,
+    and it survives retraining in a way a hardcoded threshold does not.
+    """
     if metric not in THRESHOLD_METRICS:
         raise ValueError(f"{metric} does not depend on a decision threshold")
+    if min_recall is not None and not 0.0 < min_recall <= 1.0:
+        raise ValueError("min_recall must lie in (0, 1]")
     scores = [item.score for item in predictions]
     if any(score is None for score in scores):
         raise ValueError("threshold selection needs prediction scores")
@@ -333,16 +343,27 @@ def select_threshold(
     )
     candidates.append(math.nextafter(values[-1], math.inf))
     truth = [str(item.truth) for item in predictions]
-    best_threshold = candidates[0]
+    best_threshold: float | None = None
     best_value = -math.inf
+    best_recall = 0.0
     for threshold in candidates:
         predicted = [
             label_at(float(item.score), threshold, positive, negative)
             for item in predictions
             if item.score is not None
         ]
+        if min_recall is not None:
+            recall = _classification_metric("recall", truth, predicted, None, positive)
+            best_recall = max(best_recall, recall)
+            if recall < min_recall:
+                continue
         value = _classification_metric(metric, truth, predicted, None, positive)
         if value > best_value:
             best_value = value
             best_threshold = threshold
+    if best_threshold is None:
+        raise ValueError(
+            f"no decision threshold reaches a recall of {min_recall}; "
+            f"the best available is {best_recall:.4f}"
+        )
     return best_threshold

@@ -19,8 +19,8 @@ from goldilocks_ml.inference import (
     contract_for,
     load_model,
 )
-from goldilocks_ml.models.kmesh.qrf95 import features as qrf_features
-from goldilocks_ml.models.kmesh.qrf95.trainer import (
+from goldilocks_ml.models.k_points.k_distance.qrf import features as qrf_features
+from goldilocks_ml.models.k_points.k_distance.qrf.trainer import (
     CALIBRATION_METHOD,
     ENDPOINT_ADJUSTMENT,
     RUNTIME,
@@ -127,7 +127,9 @@ def test_a_prediction_names_the_parameter_it_advises(
     tmp_path: Path, stub_features: None
 ) -> None:
     """Core routes on the parameter, so a model must say which one it speaks to."""
-    model = load(write_model(tmp_path / "model"), model_id="kmesh/qrf95@test")
+    model = load(
+        write_model(tmp_path / "model"), model_id="k_points.k_distance.qrf@test"
+    )
 
     prediction = model.predict(structure())
 
@@ -136,7 +138,7 @@ def test_a_prediction_names_the_parameter_it_advises(
     assert prediction.quantity == "k_distance"
     assert prediction.value == pytest.approx(0.22)
     assert prediction.target_contract == K_DISTANCE_CONTRACT
-    assert prediction.model_id == "kmesh/qrf95@test"
+    assert prediction.model_id == "k_points.k_distance.qrf@test"
     assert prediction.confidence == pytest.approx(0.9)
 
 

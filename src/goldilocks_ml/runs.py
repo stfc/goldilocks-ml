@@ -81,6 +81,8 @@ def resolved_document(protocol: TrainingProtocol) -> dict[str, Any]:
         evaluation["threshold_metric"] = protocol.evaluation.threshold_metric
     if protocol.evaluation.positive_label is not None:
         evaluation["positive_label"] = protocol.evaluation.positive_label
+    if protocol.evaluation.min_recall is not None:
+        evaluation["min_recall"] = protocol.evaluation.min_recall
 
     dataset: dict[str, Any] = {
         "target": protocol.dataset.target,

@@ -54,7 +54,7 @@ uv run goldilocks-ml train seal snapshots/mine --record-id my-data --version v1 
 
 This writes `manifest.json` with the size and SHA-256 of every file, and prints
 the manifest's own digest. A protocol may pin that digest to reproduce exactly
-this snapshot; see [Protocol reference](protocol.md#pinning-a-snapshot).
+this snapshot; see [Configuration reference](protocol.md#pinning-a-snapshot).
 
 Every structure file must be present or none may be: a snapshot with structures
 for some samples and not others is rejected rather than silently trained on a
@@ -80,9 +80,10 @@ that is missing from the manifest, so every consumed byte is integrity-protected
 
 ## Pinned artifacts
 
-Some feature contracts need a released model artifact. The k-mesh feature vector
-embeds the metallicity model's learned representation, so its checkpoint is part
-of the feature definition and its digest is pinned in the protocol.
+Some feature contracts need a released model artifact. The k-distance model's
+feature vector embeds a metallicity model's learned representation, so that
+checkpoint is part of the feature definition and its digest is pinned in the
+protocol.
 
 Put those files under `local_data/artifacts/<record_id>/<file>`:
 

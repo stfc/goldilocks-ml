@@ -26,7 +26,7 @@ jobs:
           enable-cache: true
 
       - name: Install development dependencies
-        run: uv sync --frozen --group dev --extra qrf95
+        run: uv sync --frozen --group dev --extra models
 
       - name: Check formatting
         run: uv run --frozen ruff format --check .
@@ -69,7 +69,7 @@ jobs:
           ]
           if heavy:
               raise SystemExit(
-                  "the base install pulled in the qrf95 stack: " + ", ".join(heavy)
+                  "the base install pulled in the model stack: " + ", ".join(heavy)
               )
           print("base install is clean")
           PY
@@ -114,7 +114,7 @@ jobs:
               try:
                   lookup(name)
               except ValueError as error:
-                  if "qrf95" not in str(error):
+                  if "models" not in str(error):
                       raise SystemExit(f"{name} should name the extra: {error}")
                   print(f"{name}: {error}")
               else:

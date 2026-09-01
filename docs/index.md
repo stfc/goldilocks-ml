@@ -51,8 +51,8 @@ need to be in. [Train a model](training/index.md) walks through a real one.
 ## Share what you trained
 
 ```bash
-uv run goldilocks-ml publish validate deposits/kmesh/qrf95 \
-  --artifact-directory local_data/models/kmesh/qrf95
+uv run goldilocks-ml publish validate deposits/k_points/k_distance/qrf \
+  --artifact-directory local_data/models/k_points/k_distance/qrf
 ```
 
 Publishing puts a model in [PSDI Data
