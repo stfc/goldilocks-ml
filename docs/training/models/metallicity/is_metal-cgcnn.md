@@ -243,18 +243,18 @@ promise the protocol makes survives the split it was not chosen on.
 
 ## Reproducibility
 
-This trainer is **not** deterministic, and `model.json` says so. Seeding fixes
-the initialisation and the batch order, but the graph convolutions reduce with
-non-deterministic kernels.
+This trainer is **not** deterministic, and `model.json` says so. The seed is
+fixed; what varies is the order a GPU adds numbers in, which changes the last
+few digits and compounds over training. [What a run produces](../../run-bundle.md#do-i-get-the-same-file)
+explains the general case.
 
-Measured: two runs of this protocol with the same seed and the same splits
-produced weight files with different digests. Of 106113 scores, 4% were bit
-identical, the mean absolute difference was 4e-6, the largest was 8e-4, and one
-sample changed side of the threshold. Every metric in the table above is
-unchanged to three decimal places. The model is reproducible as a model, and
-not as a file.
+Measured here: two runs with the same seed and the same splits produced weight
+files with different checksums. Of 106113 scores, 4% were bit identical, the
+average difference was 4e-6, the largest was 8e-4, and one structure changed
+side of the threshold. **Every metric in the table above is unchanged to three
+decimal places.** The model is reproducible as a model, not as a file.
 
-What *is* reproducible is the split. The second run derived its assignment from
-the seed rather than reusing the first one's `splits.csv`, and the two agree
-exactly, so the sample a number describes never moves even when the number
-wobbles in its last digits.
+The split, on the other hand, is exactly reproducible. The second run worked out
+its own assignment from the seed rather than copying the first one's
+`splits.csv`, and the two agree row for row — so the set of structures a number
+describes never moves, even when the number wobbles in its last digits.

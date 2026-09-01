@@ -37,31 +37,59 @@ the directory loadable by something that was not there when it was trained.
 
 ## Repeating a run
 
-`manifest.json` carries a `deterministic_digest` covering every file except
-`run.json` and `environment.json`. Those two record *when and where* a run
-happened, which legitimately differs between two runs of the same thing.
-Everything the science depends on does not — provided the trainer is
-deterministic, which is the next section.
+Two different questions hide inside "can I repeat this", and they have
+different answers.
 
-A run repeats when four things are available: the same dataset snapshot, the
-same configuration, the same code commit, and the locked environment. The
-bundle records all four, which is why it can be handed to someone else.
+### Do I get the same science?
 
-Whether the fitted artifact comes back byte-for-byte is a separate and narrower
-question, and it depends on the trainer. Each model's `model.json` states what
-it claims in a `deterministic` field, and the claim is worth reading rather than
-assuming.
+Yes, and that is what the bundle is for. A run repeats when four things are
+available: the same dataset snapshot, the same configuration, the same code
+commit, and the locked environment. All four are recorded, which is why the
+directory can be handed to someone else.
 
-The forest trainer is deterministic under its seed. The CGCNN classifier is
-not: seeding fixes the initialisation and the batch order, but its graph
-convolutions reduce with non-deterministic kernels. Two runs of the same
-protocol on the same machine agree to about one part in ten thousand per score
-and produce different weight bytes. The model is the same model; the file is a
-different file, and the bundle digest differs with it.
+### Do I get the same file?
 
-A third limit is historical rather than technical: the published QRF95 forest
-was fitted with no random seed at all, so its exact bytes cannot be recovered
-by anyone, including us. Model-specific pages record which limit applies.
+That depends on the trainer, and `model.json` says which in a `deterministic`
+field.
+
+| Trainer | Same bytes every time? |
+| --- | --- |
+| `linear_regression`, `logistic_regression` | yes |
+| `quantile_random_forest` | yes |
+| `cgcnn_classifier` | no |
+
+The first three are settled by the seed: give them the same data and the same
+seed and they produce the same numbers, down to the last bit. A test in the
+suite runs the forest twice and compares the files.
+
+The neural network is not, and the reason is not the seed — that is fixed too.
+It is the hardware. A GPU adds up hundreds of numbers at the same time, and the
+order they finish in is slightly different on every run. Adding floating-point
+numbers in a different order gives an answer that differs in the last few
+digits, and training compounds that difference over the epochs.
+
+Two runs of the same protocol therefore agree closely but not exactly: on the
+metallicity model, every reported metric matches to three decimal places while
+the weight files have different checksums.
+
+This is a trade rather than a hard limit. PyTorch can be told to use
+deterministic operations instead, which is slower, and some operations have no
+deterministic version on a GPU at all. We took the speed and record what that
+costs.
+
+### When the difference matters
+
+For reading the results, it does not. The metrics are stable and the conclusions
+are the same.
+
+For auditing a published artifact, it does. Given a file and the protocol that
+made it, you can re-run the forest and check the checksums match. You cannot do
+that for the neural network — the honest answer there is that a re-run produces
+a statistically equivalent model, not the same one.
+
+One further limit is historical rather than technical: the published QRF95
+forest was fitted with no random seed at all, so its exact bytes cannot be
+recovered by anyone, including us.
 
 ## Overwriting
 
