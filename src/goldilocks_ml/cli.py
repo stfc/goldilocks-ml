@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
@@ -437,11 +436,16 @@ def execute(
     return {"directory": directory, "metrics": metrics, "manifest": manifest}
 
 
-def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.ArgumentDefaultsHelpFormatter
+def add_parser(groups: argparse._SubParsersAction) -> None:
+    """Register the ``train`` group on the shared command line."""
+    parser = groups.add_parser(
+        "train",
+        help="seal a snapshot, validate a protocol, and run a training job",
+        description=__doc__,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    parser.set_defaults(handler=_run)
+    subparsers = parser.add_subparsers(dest="train_command", required=True)
 
     seal_parser = subparsers.add_parser(
         "seal", help="write manifest.json for a converted snapshot directory"
@@ -481,7 +485,7 @@ def _parser() -> argparse.ArgumentParser:
 
 def _run(args: argparse.Namespace) -> None:
 
-    if args.command == "seal":
+    if args.train_command == "seal":
         result = seal(
             args.snapshot,
             record_id=args.record_id,
@@ -504,7 +508,7 @@ def _run(args: argparse.Namespace) -> None:
     snapshot = load_snapshot(args.dataset, protocol)
     artifact_dir = artifact_store.artifact_directory(args.artifact_directory)
 
-    if args.command == "validate":
+    if args.train_command == "validate":
         features, _ = build_features(protocol, snapshot, artifact_dir)
         assignment = assign_splits(snapshot, protocol)
         sizes: dict[str, int] = {}
@@ -534,23 +538,3 @@ def _run(args: argparse.Namespace) -> None:
         f"(test {primary}: model {scores['model']['test'][primary]:.6g}, "
         f"baseline {scores['baseline']['test'][primary]:.6g})"
     )
-
-
-def cli() -> None:
-    """Run the training protocol command-line interface."""
-    args = _parser().parse_args()
-    try:
-        _run(args)
-    except (
-        ValueError,
-        FileNotFoundError,
-        FileExistsError,
-        NotADirectoryError,
-    ) as error:
-        # These carry an actionable message; a traceback would only bury it.
-        print(f"error: {error}", file=sys.stderr)
-        raise SystemExit(2) from error
-
-
-if __name__ == "__main__":
-    cli()

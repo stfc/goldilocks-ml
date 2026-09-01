@@ -21,9 +21,9 @@ can run both reference workflows entirely offline:
 
 ```bash
 uv sync
-uv run goldilocks-train validate protocols/synthetic/regression.toml \
+uv run goldilocks-ml train validate protocols/synthetic/regression.toml \
   --dataset tests/fixtures/kdist
-uv run goldilocks-train run protocols/synthetic/regression.toml \
+uv run goldilocks-ml train run protocols/synthetic/regression.toml \
   --dataset tests/fixtures/kdist --output local_runs/synthetic-regression
 ```
 
@@ -43,13 +43,13 @@ Install the repository environment and inspect the CLI:
 
 ```bash
 uv sync --group dev --group docs
-uv run goldilocks-psdi --help
+uv run goldilocks-ml publish --help
 ```
 
 Validate a deposit without making a network request:
 
 ```bash
-uv run goldilocks-psdi validate deposits/kmesh/qrf95 \
+uv run goldilocks-ml publish validate deposits/kmesh/qrf95 \
   --artifact-directory local_data/models/kmesh/qrf95
 ```
 

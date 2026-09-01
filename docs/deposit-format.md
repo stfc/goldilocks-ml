@@ -46,12 +46,12 @@ Each artifact entry has three fields:
 | `size_bytes` | Exact integer file size in bytes, not the rounded MB shown by a web page |
 | `sha256` | 64-character lowercase digest calculated from the complete file contents |
 
-Run `goldilocks-psdi checksum PATH` on the final file to generate all three
+Run `goldilocks-ml publish checksum PATH` on the final file to generate all three
 values together. A model with multiple required files needs one artifact entry
 per file.
 
 Artifact names must be basenames, not paths. Generate each entry from the final
-file with `goldilocks-psdi checksum`; do not reuse a digest from an unverified or
+file with `goldilocks-ml publish checksum`; do not reuse a digest from an unverified or
 re-serialized copy. Artifact names must not be `README.md`, `manifest.json`, or
 `metadata.json`, which are reserved for the deposit sidecars.
 

@@ -104,10 +104,10 @@ Prepare and seal a snapshot with stable sample IDs, CIF files, and a composition
 group in the third `id_prop.csv` column. Then run:
 
 ```bash
-uv run goldilocks-train validate protocols/kmesh/qrf95.toml \
+uv run goldilocks-ml train validate protocols/kmesh/qrf95.toml \
   --dataset SNAPSHOT --artifact-directory ARTIFACTS
 
-uv run goldilocks-train run protocols/kmesh/qrf95.toml \
+uv run goldilocks-ml train run protocols/kmesh/qrf95.toml \
   --dataset SNAPSHOT --artifact-directory ARTIFACTS \
   --output local_runs/qrf95-v1
 ```

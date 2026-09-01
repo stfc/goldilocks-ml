@@ -95,9 +95,9 @@ jobs:
 
       - name: Train with the built-in baselines
         run: |
-          /tmp/base/bin/goldilocks-train run protocols/synthetic/regression.toml \
+          /tmp/base/bin/goldilocks-ml train run protocols/synthetic/regression.toml \
             --dataset tests/fixtures/kdist --output /tmp/run/regression
-          /tmp/base/bin/goldilocks-train run protocols/synthetic/classification.toml \
+          /tmp/base/bin/goldilocks-ml train run protocols/synthetic/classification.toml \
             --dataset tests/fixtures/metallic --output /tmp/run/classification
           test -f /tmp/run/regression/metrics.json
           test -f /tmp/run/classification/metrics.json

@@ -86,7 +86,8 @@ def _load_manifest(directory: Path) -> tuple[dict[str, Any], str]:
     manifest_path = directory / MANIFEST_NAME
     if not manifest_path.is_file():
         raise FileNotFoundError(
-            f"{manifest_path} is missing; run 'goldilocks-train seal' on the snapshot"
+            f"{manifest_path} is missing; run 'goldilocks-ml train seal' on "
+            "the snapshot"
         )
     digest = sha256_file(manifest_path)
     with manifest_path.open(encoding="utf-8") as handle:

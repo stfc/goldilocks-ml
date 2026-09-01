@@ -276,12 +276,16 @@ def _add_remote_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+def add_parser(groups: argparse._SubParsersAction) -> None:
+    """Register the ``publish`` group on the shared command line."""
+    parser = groups.add_parser(
+        "publish",
+        help="validate and upload a model deposit to PSDI Data Collections",
         description=__doc__,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    parser.set_defaults(handler=_run)
+    subparsers = parser.add_subparsers(dest="publish_command", required=True)
 
     validate = subparsers.add_parser(
         "validate", help="validate metadata and artifact integrity offline"
@@ -304,10 +308,9 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def cli() -> None:
-    """Run the PSDI deposition command-line interface."""
-    args = _parser().parse_args()
-    if args.command == "checksum":
+def _run(args: argparse.Namespace) -> None:
+    """Carry out one publish command."""
+    if args.publish_command == "checksum":
         artifact = describe_artifact(args.artifact)
         print(
             json.dumps(
@@ -322,7 +325,7 @@ def cli() -> None:
         return
 
     deposition = load_deposition(args.deposition, args.artifact_directory)
-    if args.command == "validate":
+    if args.publish_command == "validate":
         names = ", ".join(deposition.files)
         print(f"Valid deposition for {deposition.community}: {names}")
         return
@@ -334,7 +337,3 @@ def cli() -> None:
         token=token,
     )
     print(f"Created and bound PSDI draft {draft_id}; review not submitted")
-
-
-if __name__ == "__main__":
-    cli()

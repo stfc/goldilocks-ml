@@ -1,12 +1,27 @@
 # CLI reference
 
-Run commands from a clone with `uv run`. `goldilocks-train` trains and
-evaluates models; `goldilocks-psdi` publishes them.
+One command, grouped by responsibility: a group names what you are working
+with, a command names what to do to it.
 
-## `goldilocks-train seal`
+```
+goldilocks-ml train    seal | validate | run
+goldilocks-ml publish  validate | checksum | upload
+```
+
+Run them from a clone with `uv run`.
+
+Grouping disambiguates a word that means two things. `train validate` checks a
+protocol against a snapshot; `publish validate` checks a deposit against its
+artifacts.
+
+**There is no inference command.** Predicting from a published model is what
+Goldilocks Core does, and this package gives it a library rather than a second
+command line. See [Use a model](inference.md).
+
+## `goldilocks-ml train seal`
 
 ```bash
-uv run goldilocks-train seal DATASET \
+uv run goldilocks-ml train seal DATASET \
   --record-id RECORD --version VERSION \
   --target TARGET --target-contract CONTRACT \
   --target-definition DEFINITION [--target-units UNITS]
@@ -15,20 +30,20 @@ uv run goldilocks-train seal DATASET \
 Writes `manifest.json` with the snapshot identity, target definition, and the
 size and SHA-256 of every file. This command makes no network request.
 
-## `goldilocks-train validate`
+## `goldilocks-ml train validate`
 
 ```bash
-uv run goldilocks-train validate PROTOCOL --dataset DATASET
+uv run goldilocks-ml train validate PROTOCOL --dataset DATASET
 ```
 
 Loads the protocol, verifies the dataset snapshot's identity, checksums, and
 required columns, derives the split, and reports the per-split sample counts.
 It trains nothing and makes no network request.
 
-## `goldilocks-train run`
+## `goldilocks-ml train run`
 
 ```bash
-uv run goldilocks-train run PROTOCOL --dataset DATASET --output OUTPUT \
+uv run goldilocks-ml train run PROTOCOL --dataset DATASET --output OUTPUT \
   [--splits SPLITS] [--overwrite]
 ```
 
@@ -41,29 +56,29 @@ even when the flag is present.
 See [Train a model](training/index.md) for the protocol schema, the
 snapshot contract, and the bundle layout.
 
-## `goldilocks-psdi checksum`
+## `goldilocks-ml publish checksum`
 
 ```bash
-uv run goldilocks-psdi checksum PATH
+uv run goldilocks-ml publish checksum PATH
 ```
 
 Prints the artifact basename, byte size, and SHA-256 as a JSON manifest entry.
 It reads the local file and makes no network request.
 
-## `goldilocks-psdi validate`
+## `goldilocks-ml publish validate`
 
 ```bash
-uv run goldilocks-psdi validate DEPOSITION \
+uv run goldilocks-ml publish validate DEPOSITION \
   --artifact-directory ARTIFACT_DIRECTORY
 ```
 
 Validates metadata and every upload file offline. `DEPOSITION` contains the
 three sidecars; `ARTIFACT_DIRECTORY` contains the files listed in the manifest.
 
-## `goldilocks-psdi upload`
+## `goldilocks-ml publish upload`
 
 ```bash
-uv run goldilocks-psdi upload DEPOSITION \
+uv run goldilocks-ml publish upload DEPOSITION \
   --artifact-directory ARTIFACT_DIRECTORY \
   --token-file TOKEN_FILE \
   --confirm-upload
