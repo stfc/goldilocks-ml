@@ -47,6 +47,7 @@ nav:
       - Protocol reference: training/protocol.md
       - Models:
           - QRF95 k-mesh: training/kmesh/qrf95.md
+          - CGCNN metallicity: training/metallicity/cgcnn2.md
   - Publish a model: publishing.md
   - Reference:
       - Inference API: inference.md
