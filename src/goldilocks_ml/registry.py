@@ -127,6 +127,7 @@ _FEATURES: dict[str, FeatureContract] = {}
 _PREDICTORS: dict[str, Predictor] = {}
 _BUILTIN_TRAINERS = {
     "quantile_random_forest": "goldilocks_ml.models.kmesh.qrf95.trainer",
+    "cgcnn_classifier": "goldilocks_ml.models.metallicity.cgcnn2.trainer",
 }
 # Keyed by serving runtime, not by trainer: one fitting algorithm can produce
 # models that must be read back differently.
@@ -135,6 +136,7 @@ _BUILTIN_PREDICTORS = {
 }
 _BUILTIN_FEATURES = {
     "comp_struct_soap_lattice_metal.v1": "goldilocks_ml.models.kmesh.qrf95.features",
+    "crystal_graph.v1": "goldilocks_ml.models.metallicity.cgcnn2.graphs",
 }
 _QRF95_DEPENDENCIES = {
     "ase",
