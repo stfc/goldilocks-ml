@@ -10,14 +10,19 @@ which an insulator does not.
 ## Files
 
 - `is_metal.pt`: the fitted weights and the architecture they belong to.
+- `atom_init.json`: the atomic embedding table the graphs are built from.
 - `model.json`: architecture, feature contract, target contract, decision
-  threshold and the rule that chose it, digests, and the one supporting
-  artifact this model needs. Written by the run that fitted the model.
+  threshold and the rule that chose it, and digests. Written by the run that
+  fitted the model.
 
-`atom_init.json` is **not** in this record. It is the atomic embedding table
-from record `ptc95-vbq12`, pinned here by digest. A different table produces
-different graphs and therefore different answers, with no error, which is why
-it is pinned rather than bundled.
+Everything needed to run the model is here: download this record and nothing
+else.
+
+`atom_init.json` is the same file as the one in record `ptc95-vbq12`, and
+`model.json` still pins it there by digest, so the copy in this record is
+verified against the original on load. That matters more than it sounds: a
+different embedding table produces different graphs and therefore different
+answers, with no error and nothing to see.
 
 ## Training data
 

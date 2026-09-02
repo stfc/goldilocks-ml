@@ -165,6 +165,7 @@ def required_artifacts(
     record: Mapping[str, Any],
     artifact_directory: Path | None = None,
     overrides: Mapping[str, Path] | None = None,
+    record_directory: Path | None = None,
 ) -> dict[str, Path]:
     """Resolve and verify the supporting artifacts a record declares.
 
@@ -172,6 +173,11 @@ def required_artifacts(
     embeds a metallicity checkpoint. The record pins each by record id and
     digest, so a consumer never needs to know that any of them exist. An
     override supplies a path but does not excuse it from verification.
+
+    A deposit may also ship a copy of a small dependency beside its own
+    ``model.json``, which makes the record self-contained: one download runs
+    the model. A file found there is preferred over the pinned record's copy
+    and is verified against the same digest, so the two cannot drift.
     """
     declared = record.get("requires_artifacts", ())
     if not declared:
@@ -190,7 +196,13 @@ def required_artifacts(
         )
         for item in declared
     ]
-    return resolve(dependencies, default_directory(artifact_directory), overrides)
+    supplied = dict(overrides or {})
+    if record_directory is not None:
+        for dependency in dependencies:
+            beside = Path(record_directory) / dependency.file
+            if dependency.name not in supplied and beside.is_file():
+                supplied[dependency.name] = beside
+    return resolve(dependencies, default_directory(artifact_directory), supplied)
 
 
 def load_model(
@@ -240,7 +252,9 @@ def load_model(
     contract = contract_for(record["target"]["contract"])
     contract.check_units(record["target"].get("units"))
 
-    resolved = required_artifacts(record, artifact_directory, artifacts)
+    resolved = required_artifacts(
+        record, artifact_directory, artifacts, record_directory=directory
+    )
     runtime = record.get("runtime", {})
     predictor = get_predictor(runtime.get("id"))
     model = predictor(record, directory, resolved)

@@ -226,6 +226,58 @@ def test_declared_artifacts_are_resolved_and_verified(
     assert model.predict(structure()).value == pytest.approx(0.22)
 
 
+def test_a_record_may_ship_its_own_dependency(
+    tmp_path: Path, stub_features: None
+) -> None:
+    """A deposit that carries the file is loadable without the pinned record."""
+    directory = tmp_path / "model"
+    directory.mkdir(parents=True)
+    declared = []
+    for name, filename in (
+        ("metallicity_checkpoint", "is_metal.ckpt"),
+        ("metallicity_atom_init", "atom_init.json"),
+    ):
+        beside = directory / filename
+        beside.write_text(f"contents of {filename}", encoding="utf-8")
+        declared.append(
+            {
+                "name": name,
+                "record_id": "ptc95-vbq12",
+                "file": filename,
+                "sha256": sha256_file(beside),
+            }
+        )
+
+    # No artifact store at all: everything the record needs is in the record.
+    model = load_model(
+        write_model(directory, requires_artifacts=declared),
+        artifact_directory=tmp_path / "empty",
+    )
+
+    assert model.predict(structure()).value == pytest.approx(0.22)
+
+
+def test_a_shipped_dependency_is_still_verified(tmp_path: Path) -> None:
+    """Shipping the file beside the record does not excuse it from its digest."""
+    directory = tmp_path / "model"
+    directory.mkdir(parents=True)
+    (directory / "is_metal.ckpt").write_text("something else", encoding="utf-8")
+    declared = [
+        {
+            "name": "metallicity_checkpoint",
+            "record_id": "ptc95-vbq12",
+            "file": "is_metal.ckpt",
+            "sha256": "0" * 64,
+        }
+    ]
+
+    with pytest.raises(ValueError, match="SHA-256"):
+        load_model(
+            write_model(directory, requires_artifacts=declared),
+            artifact_directory=tmp_path / "empty",
+        )
+
+
 def test_a_tampered_artifact_is_refused(tmp_path: Path) -> None:
     """The record pins a digest, so a swapped checkpoint cannot predict."""
     store = tmp_path / "artifacts" / "ptc95-vbq12"
