@@ -182,6 +182,9 @@
       },
       {
         "subject": "Density functional theory"
+      },
+      {
+        "subject": "Matbench mp_is_metal"
       }
     ],
     "publisher": "PSDI",
