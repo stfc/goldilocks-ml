@@ -67,7 +67,7 @@ def seal(
     *,
     record_id: str,
     snapshot_version: str,
-    structure_suffix: str,
+    structure_suffix: str | None,
     target_name: str,
     target_contract: str,
     target_definition: str,
@@ -91,7 +91,10 @@ def seal(
             raise ValueError(f"{field} must be a non-empty string")
     if target_units is not None and not target_units.strip():
         raise ValueError("target_units must be null or a non-empty string")
-    if (
+    # None means the snapshot has no structure files at all, which is what a
+    # table of features is. Passing a suffix for files that do not exist works
+    # too, but saying so plainly should not be an error.
+    if structure_suffix is not None and (
         not structure_suffix.startswith(".")
         or Path(f"sample{structure_suffix}").name != f"sample{structure_suffix}"
     ):
@@ -108,7 +111,11 @@ def seal(
     if (directory / FEATURES_NAME).is_file():
         features_file = FEATURES_NAME
 
-    structures = [f"{sample_id}{structure_suffix}" for sample_id in sample_ids]
+    structures = (
+        [f"{sample_id}{structure_suffix}" for sample_id in sample_ids]
+        if structure_suffix is not None
+        else []
+    )
     present = [name for name in structures if (directory / name).is_file()]
     if present and len(present) != len(structures):
         missing = sorted(set(structures) - set(present))

@@ -27,6 +27,15 @@ theme:
         icon: material/weather-sunny
         name: Use light mode
 
+plugins:
+  - search
+  - mkdocs-jupyter:
+      # Model notebooks need the model, so they ship with their outputs
+      # committed rather than being re-run on every build.
+      execute: false
+      include_source: true
+      ignore_h1_titles: true
+
 markdown_extensions:
   - admonition
   - attr_list
@@ -54,6 +63,7 @@ nav:
           - Metallicity:
               - Overview: training/models/metallicity/index.md
               - is-metal / CGCNN: training/models/metallicity/is_metal-cgcnn.md
+              - Try it (notebook): notebooks/metallicity-cgcnn.ipynb
           - Magnetism: training/models/magnetism/index.md
           - Hubbard U: training/models/hubbard_u/index.md
   - Publish a model: publishing.md
