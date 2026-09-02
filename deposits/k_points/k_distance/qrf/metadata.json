@@ -8,23 +8,18 @@
     "default_preview": "README.md"
   },
   "custom_fields": {
-    "dsmd": [
-      {
-        "model_family": "quantile random forest",
-        "target": "k_distance",
-        "feature_contract": "qrf_comp_struct_soap_lattice_metal",
-        "quantiles": "0.05, 0.5, 0.95",
-        "scikit_learn_version": "1.7.2",
-        "sklearn_quantile_version": "0.1.1"
-      }
-    ]
+    "dsmd": []
   },
   "metadata": {
     "title": "Goldilocks QRF95 k-mesh recommendation model",
     "description": "<p>A quantile random forest model used by Goldilocks to recommend k-point meshes for periodic DFT calculations. The model predicts k-distance, the maximum spacing between adjacent k-points in reciprocal space, in inverse angstroms, following the convention used by AiiDA-QuantumESPRESSO. Goldilocks converts that continuous value to an integer k-mesh using the reciprocal lattice. The artifact returns the 0.05, 0.5, and 0.95 quantiles and uses the qrf_comp_struct_soap_lattice_metal feature contract.</p><p>The uploaded README and manifest record the feature definition, training target, scope and limitations, artifact checksum, and load-bearing Python library versions. The artifact is a pickle and must only be loaded from a trusted source after checksum verification.</p>",
     "creators": [
       {
-        "affiliations": [{"name": "UKRI STFC"}],
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ],
         "person_or_org": {
           "family_name": "Yin",
           "given_name": "Junwen",
@@ -47,8 +42,14 @@
           "given_name": "Alin-Marin",
           "family_name": "Elena"
         },
-        "role": {"id": "projectmanager"},
-        "affiliations": [{"name": "UKRI STFC"}]
+        "role": {
+          "id": "projectmanager"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
       },
       {
         "person_or_org": {
@@ -57,8 +58,14 @@
           "given_name": "Elena",
           "family_name": "Patyukova"
         },
-        "role": {"id": "projectmember"},
-        "affiliations": [{"name": "UKRI STFC"}]
+        "role": {
+          "id": "projectmember"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
       },
       {
         "person_or_org": {
@@ -67,8 +74,14 @@
           "given_name": "Junwen",
           "family_name": "Yin"
         },
-        "role": {"id": "projectmember"},
-        "affiliations": [{"name": "UKRI STFC"}]
+        "role": {
+          "id": "projectmember"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
       },
       {
         "person_or_org": {
@@ -77,8 +90,14 @@
           "given_name": "Susmita",
           "family_name": "Basak"
         },
-        "role": {"id": "projectmember"},
-        "affiliations": [{"name": "UKRI STFC"}]
+        "role": {
+          "id": "projectmember"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
       },
       {
         "person_or_org": {
@@ -87,8 +106,14 @@
           "given_name": "Jaehoon",
           "family_name": "Cha"
         },
-        "role": {"id": "projectmember"},
-        "affiliations": [{"name": "UKRI STFC"}]
+        "role": {
+          "id": "projectmember"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
       },
       {
         "person_or_org": {
@@ -97,8 +122,14 @@
           "given_name": "Gilberto",
           "family_name": "Teobaldi"
         },
-        "role": {"id": "projectmember"},
-        "affiliations": [{"name": "UKRI STFC"}]
+        "role": {
+          "id": "projectmember"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
       },
       {
         "person_or_org": {
@@ -107,8 +138,14 @@
           "given_name": "Samuel",
           "family_name": "Pinilla Sanchez"
         },
-        "role": {"id": "projectmember"},
-        "affiliations": [{"name": "UKRI STFC"}]
+        "role": {
+          "id": "projectmember"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
       }
     ],
     "rights": [
