@@ -71,15 +71,24 @@ record](https://data-collections.psdi.ac.uk/records/75959-bwa52).
 
 ## Loading it
 
-`model.json` in this record describes the artifact in machine-readable form:
-the serving runtime, the feature contract and its 483 columns in order, the
-target contract, the SHA-256 of the pickle, and the two companion artifacts it
-needs from record `ptc95-vbq12`. With `goldilocks-ml` installed:
+This record holds everything the model needs:
+
+- `QRF95.pkl`: the fitted forest.
+- `is_metal.ckpt`, `atom_init.json`: the metallicity network whose learned
+  representation makes up 64 of the 483 input columns, and the atomic embedding
+  table its graphs are built from. They are the same files as in record
+  `ptc95-vbq12`, and `model.json` still pins them there by digest, so the copies
+  here are verified against the originals on load.
+- `model.json`: the artifact in machine-readable form — the serving runtime, the
+  feature contract and its 483 columns in order, the target contract, and the
+  digests of everything above.
+
+Download this record and nothing else. With `goldilocks-ml` installed:
 
 ```python
 from goldilocks_ml.inference import load_model
 
-model = load_model("path/to/this/record", artifact_directory="path/to/artifacts")
+model = load_model("path/to/this/record")
 prediction = model.predict(structure)  # prediction.value is a k-distance
 ```
 
