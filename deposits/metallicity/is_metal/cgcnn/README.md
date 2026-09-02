@@ -50,12 +50,13 @@ radius and at most 12 neighbours per atom.
 Fitted on the training split alone, with early stopping on validation loss;
 the test split was scored once, at the end.
 
-| Split | Accuracy | Balanced | Precision | Recall | F1 | MCC | ROC-AUC | PR-AUC |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Validation | 0.777 | 0.800 | 0.666 | 0.970 | 0.790 | 0.616 | 0.955 | 0.946 |
-| Calibration | 0.778 | 0.803 | 0.665 | 0.975 | 0.790 | 0.621 | 0.957 | 0.947 |
-| **Test** | **0.748** | **0.766** | 0.649 | **0.972** | 0.778 | **0.569** | **0.950** | **0.947** |
-| Test baseline | 0.544 | 0.500 | 0 | 0 | 0 | 0.000 | 0.500 | 0.274 |
+```text
+split          accuracy  balanced  precision  recall     f1     mcc  roc-auc  pr-auc
+validation        0.777     0.800      0.666   0.970  0.790   0.616    0.955   0.946
+calibration       0.778     0.803      0.665   0.975  0.790   0.621    0.957   0.947
+test              0.748     0.766      0.649   0.972  0.778   0.569    0.950   0.947
+test baseline     0.544     0.500      0.000   0.000  0.000   0.000    0.500   0.274
+```
 
 The baseline predicts the majority class, so it never finds a metal at all.
 
@@ -81,12 +82,13 @@ and applied unchanged to test.
 
 Measured on validation, 10603 structures of which 4585 are metals:
 
-| Recall floor | Threshold | Precision | Metals missed | False alarms |
-| ---: | ---: | ---: | ---: | ---: |
-| none (best MCC) | 0.477 | 0.904 | 649 | 420 |
-| 0.95 | 0.133 | 0.745 | 229 | 1492 |
-| **0.97** | **0.0657** | **0.666** | **137** | **2227** |
-| 0.99 | 0.023 | 0.554 | 45 | 3655 |
+```text
+recall floor       threshold  precision  metals missed  false alarms
+none (best MCC)       0.477      0.904            649           420
+0.95                  0.133      0.745            229          1492
+0.97   <- in use      0.0657     0.666            137          2227
+0.99                  0.023      0.554             45          3655
+```
 
 0.97 rather than 0.95 buys margin. A floor is met on the validation split, which
 is a sample: the 0.95 threshold delivers 0.9455 recall on test, below its own
