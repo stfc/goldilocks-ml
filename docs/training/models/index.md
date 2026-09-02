@@ -56,10 +56,18 @@ name that repeats itself.
 | [Hubbard U](hubbard_u/index.md) | input | — | — | planned |
 
 One published artifact is not in this table: the CGCNN whose pooled
-representation the k-distance feature vector embeds. It advises no setting and
-answers no question of its own, so it is filed apart, under
-`deposits/representation/`, and its record says
-`role: feature_extractor`.
+representation the k-distance feature vector embeds. It was trained on
+metallicity like the classifier above, so it sits under the same setting — but
+what it gives you is a vector rather than an answer, and the second level says
+which:
+
+```text
+deposits/metallicity/is_metal/cgcnn/         a decision
+deposits/metallicity/representation/cgcnn/   64 numbers another model consumes
+```
+
+Its record says `role: feature_extractor`, and `load_model` declines to serve
+it, naming the reason.
 
 **Input** settings are written into a DFT input file. **Property** settings are
 facts about the material that inform several inputs at once.
