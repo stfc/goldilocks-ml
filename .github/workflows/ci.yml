@@ -37,6 +37,16 @@ jobs:
       - name: Test
         run: uv run --frozen pytest
 
+      # A notebook is committed with its outputs, so anything the machine that
+      # ran it printed ships to the public site. A home directory is the one
+      # that gets there by accident.
+      - name: Refuse a workstation path in the documentation
+        run: |
+          if grep -rIn -e '/Users/' -e '/home/' docs/; then
+            echo "::error::a local path reached docs/; clear the cell output that carries it"
+            exit 1
+          fi
+
   # A base install must stay light and must still train. Both halves of that
   # promise break silently -- one stray module-level import in the CLI pulls in
   # the scientific stack, and the unit suite would not notice because it runs
