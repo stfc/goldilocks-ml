@@ -64,7 +64,7 @@ and is recorded in `model.json`. It is a fitted parameter like any other, so it
 travels with the model rather than being reinvented by each consumer — and for
 this model it encodes a deliberate asymmetry, that missing a metal costs more
 than an unnecessary dense mesh. See
-[the model page](training/models/metallicity/is_metal-cgcnn.md#the-decision-threshold).
+[the model page](training/models/metallicity/is_metal-cgcnn.md#where-the-line-is-drawn).
 
 ### `confidence` carries a guarantee, not an estimate
 

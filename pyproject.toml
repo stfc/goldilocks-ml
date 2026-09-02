@@ -35,6 +35,9 @@ dev = [
     "ruff>=0.13",
 ]
 docs = [
+    # Executing a notebook without it makes tqdm print a warning naming the
+    # absolute path of the interpreter, which then ships in the cell output.
+    "ipywidgets>=8.1",
     "mkdocs>=1.6.1",
     "mkdocs-jupyter>=0.26.3",
     "mkdocs-material>=9.7.7",
