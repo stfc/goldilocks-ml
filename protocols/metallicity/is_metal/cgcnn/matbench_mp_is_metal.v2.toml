@@ -1,0 +1,69 @@
+# Metallicity classification from a crystal graph, on Matbench mp_is_metal.
+schema_version = 1
+id = "metallicity.is_metal.cgcnn.matbench_mp_is_metal.v2"
+task = "classification"
+trainer = "cgcnn_classifier"
+
+[dataset]
+target = "is_metal"
+target_contract = "goldilocks.is_metal.dft_band_gap_zero.v1"
+requires = ["structures", "groups"]
+record_id = "matbench_mp_is_metal"
+snapshot_version = "v1"
+manifest_sha256 = "b1c1a6129951baceeda5066ce35273eb395195e3a5028a2544ea1f8bea2207ac"
+
+# Grouped by reduced formula so that polymorphs and differently sized cells of
+# one composition cannot straddle the split, and stratified so that each split
+# carries the dataset's 43.5% metal fraction.
+[split]
+method = "group"
+stratify = true
+train = 0.7
+validation = 0.1
+calibration = 0.1
+test = 0.1
+seed = 42
+
+[features]
+schema = "crystal_graph.v1"
+
+# The 92-wide atomic embedding the architecture expects. Pinned to the record
+# that published it, so a different table cannot silently change the inputs.
+[features.depends_on.atom_init]
+record_id = "ptc95-vbq12"
+file = "atom_init.json"
+sha256 = "cb90bd2257dbf8cfc4e6b2b6d4348d4616e8e9680f1339b1461137032e0f1894"
+
+[model]
+seed = 42
+
+# v1 stopped at epoch 32 after 8 epochs without an improving cross-entropy loss,
+# and reached 0.890 balanced accuracy at its best threshold. The Matbench CGCNN
+# benchmark reaches 0.952 on the same dataset, and its recipe differs in two
+# ways that this protocol adopts: it stops on ROC-AUC rather than on loss, and
+# it waits far longer before deciding a run has finished improving.
+#
+# The split is not adopted. Matbench uses random folds; this protocol groups by
+# reduced formula so polymorphs cannot straddle the split, which is harder and
+# is the number worth quoting.
+[model.parameters]
+epochs = 300
+batch_size = 128
+learning_rate = 0.001
+weight_decay = 0.0001
+patience = 40
+selection_metric = "roc_auc"
+scheduler_factor = 0.5
+scheduler_patience = 10
+
+[evaluation]
+primary_metric = "mcc"
+metrics = ["accuracy", "balanced_accuracy", "precision", "recall", "f1", "mcc", "roc_auc", "pr_auc"]
+baseline = "train_majority"
+threshold_metric = "mcc"
+positive_label = "metal"
+# Missing a metal understates the mesh a downstream calculation needs, and the
+# resulting Fermi-surface undersampling is not visible in the answer. Calling an
+# insulator a metal only spends compute. The floor states which error this
+# protocol refuses; MCC then chooses among the thresholds that honour it.
+min_recall = 0.97
