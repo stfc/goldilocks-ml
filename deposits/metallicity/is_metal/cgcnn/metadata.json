@@ -54,22 +54,6 @@
       {
         "person_or_org": {
           "type": "personal",
-          "name": "Patyukova, Elena",
-          "given_name": "Elena",
-          "family_name": "Patyukova"
-        },
-        "role": {
-          "id": "projectmember"
-        },
-        "affiliations": [
-          {
-            "name": "UKRI STFC"
-          }
-        ]
-      },
-      {
-        "person_or_org": {
-          "type": "personal",
           "name": "Yin, Junwen",
           "given_name": "Junwen",
           "family_name": "Yin"
@@ -134,9 +118,9 @@
       {
         "person_or_org": {
           "type": "personal",
-          "name": "Pinilla Sanchez, Samuel",
-          "given_name": "Samuel",
-          "family_name": "Pinilla Sanchez"
+          "name": "Sparks, Willow",
+          "given_name": "Willow",
+          "family_name": "Sparks"
         },
         "role": {
           "id": "projectmember"
