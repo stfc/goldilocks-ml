@@ -512,6 +512,43 @@ def test_a_reference_trainer_declares_no_runtime_and_is_exempt(
     _check_runtime(protocol, _Stub({"trainer": "linear_regression"}))
 
 
+def test_the_chosen_threshold_lands_in_the_model_record(
+    tmp_path: Path, snapshot_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    protocol = _setup(
+        tmp_path,
+        snapshot_dir,
+        classification=True,
+        evaluation={
+            "metrics": ["accuracy", "recall", "mcc"],
+            "threshold_metric": "mcc",
+            "min_recall": 0.5,
+        },
+    )
+    output = tmp_path / "run-1"
+
+    _run(
+        monkeypatch,
+        "run",
+        str(protocol),
+        "--dataset",
+        str(snapshot_dir),
+        "--output",
+        str(output),
+    )
+
+    record = json.loads((output / "model" / "model.json").read_text())
+    metrics = json.loads((output / "metrics.json").read_text())
+    decision = record["decision"]
+    # The served record must be able to turn its own score into a label
+    # without the run bundle that produced it.
+    assert decision["threshold"] == metrics["decision_threshold"]["value"]
+    assert decision["metric"] == "mcc"
+    assert decision["min_recall"] == 0.5
+    assert decision["selected_on"] == "validation"
+    assert decision["positive_label"] == metrics["positive_label"]
+
+
 def test_threshold_selection_requires_a_validation_split(
     tmp_path: Path, snapshot_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

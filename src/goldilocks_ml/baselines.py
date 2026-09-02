@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import math
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -135,6 +135,13 @@ class _Logistic(_Linear):
     """Batch gradient-descent logistic regression over standardised features."""
 
     positive_label: str = ""
+    # How this classifier's score becomes a label. Chosen after the fit, on the
+    # validation split, so the run fills it in before the record is written.
+    decision: dict[str, Any] = field(default_factory=dict)
+
+    def with_decision(self, decision: Any) -> _Logistic:
+        """Return a copy carrying the threshold rule the run selected."""
+        return replace(self, decision=dict(decision))
 
     def predict(
         self, samples: Sequence[Sample], features: FeatureMatrix
@@ -155,6 +162,7 @@ class _Logistic(_Linear):
             "trainer": "logistic_regression",
             "task": "classification",
             "positive_label": self.positive_label,
+            "decision": dict(self.decision),
         }
 
 

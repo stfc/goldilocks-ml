@@ -214,3 +214,128 @@ def test_an_explicit_device_is_honoured() -> None:
     """The parameter must decide the device, not merely be accepted."""
     assert resolve_device("cpu") == torch.device("cpu")
     assert resolve_device("auto").type in {"cpu", "mps", "cuda"}
+
+
+def fitted_classifier(atom_init: Path, **overrides: Any) -> Any:
+    """An untrained classifier of the shipped shape, for round-trip tests."""
+    from goldilocks_ml.hashing import sha256_file
+    from goldilocks_ml.models.k_points.k_distance.qrf.embedding import CGCNN
+    from goldilocks_ml.models.metallicity.is_metal.cgcnn.trainer import CGCNNClassifier
+
+    torch.manual_seed(0)
+    fields: dict[str, Any] = {
+        "state_dict": CGCNN(**ARCHITECTURE).state_dict(),
+        "architecture": dict(ARCHITECTURE),
+        "atom_init_digest": sha256_file(atom_init),
+        "positive_label": "metal",
+        "negative_label": "insulator",
+        "seed": 42,
+        "target_name": "is_metal",
+        "target_contract": "goldilocks.is_metal.dft_band_gap_zero.v1",
+        "feature_schema": crystal_graphs.SCHEMA,
+        "requires_artifacts": (),
+        "hyperparameters": {},
+        "training": {},
+        "atom_init": atom_init,
+    }
+    fields.update(overrides)
+    return CGCNNClassifier(**fields)
+
+
+def saved_model(tmp_path: Path, **overrides: Any) -> tuple[Path, Path]:
+    """Write a classifier carrying a decision, and return its directory."""
+    atom_init = atom_table(tmp_path)
+    model = fitted_classifier(atom_init, **overrides)
+    if "decision" not in overrides:
+        model = model.with_decision(
+            {
+                "threshold": 0.5,
+                "metric": "mcc",
+                "min_recall": 0.97,
+                "selected_on": "validation",
+                "positive_label": "metal",
+                "negative_label": "insulator",
+            }
+        )
+    directory = tmp_path / "model"
+    directory.mkdir()
+    model.save(directory)
+    return directory, atom_init
+
+
+def a_structure() -> Structure:
+    return Structure(Lattice.cubic(5.43), ["Si", "Si"], [[0, 0, 0], [0.25, 0.25, 0.25]])
+
+
+def test_a_served_classifier_decides_rather_than_scoring(tmp_path: Path) -> None:
+    from goldilocks_ml.inference import load_model
+
+    directory, atom_init = saved_model(tmp_path)
+
+    model = load_model(directory, artifacts={"atom_init": atom_init})
+    prediction = model.predict(a_structure())
+
+    assert isinstance(prediction.value, bool)
+    assert prediction.parameter == "metallicity"
+    assert prediction.quantity == "is_metal"
+    assert prediction.target_contract == "goldilocks.is_metal.dft_band_gap_zero.v1"
+    # The score is provenance, not a claim: `confidence` carries guarantees.
+    assert prediction.confidence is None
+    assert 0.0 <= prediction.details["score"] <= 1.0
+    assert prediction.details["threshold"] == 0.5
+    assert prediction.details["label"] in {"metal", "insulator"}
+    assert (prediction.details["label"] == "metal") is prediction.value
+
+
+def test_a_batch_decides_once_per_structure(tmp_path: Path) -> None:
+    from goldilocks_ml.inference import load_model
+
+    directory, atom_init = saved_model(tmp_path)
+    model = load_model(directory, artifacts={"atom_init": atom_init})
+
+    predictions = model.predict_batch([a_structure(), a_structure()])
+
+    assert len(predictions) == 2
+    assert predictions[0].details["score"] == predictions[1].details["score"]
+    assert model.predict_batch([]) == []
+
+
+def test_a_record_without_a_threshold_cannot_be_served(tmp_path: Path) -> None:
+    from goldilocks_ml.inference import load_model
+
+    directory, atom_init = saved_model(tmp_path, decision={})
+
+    with pytest.raises(ValueError, match="records no decision threshold"):
+        load_model(directory, artifacts={"atom_init": atom_init})
+
+
+def test_substituted_weights_are_refused(tmp_path: Path) -> None:
+    from goldilocks_ml.inference import load_model
+
+    directory, atom_init = saved_model(tmp_path)
+    weights = directory / "is_metal.pt"
+    weights.write_bytes(weights.read_bytes() + b"\x00")
+
+    with pytest.raises(ValueError, match="its record pins"):
+        load_model(directory, artifacts={"atom_init": atom_init})
+
+
+def test_a_substituted_atom_table_is_refused(tmp_path: Path) -> None:
+    from goldilocks_ml.inference import load_model
+
+    directory, atom_init = saved_model(tmp_path)
+    atom_init.write_text(
+        json.dumps({key: [0.2] * 92 for key in ATOM_TABLE}), encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match="its record pins"):
+        load_model(directory, artifacts={"atom_init": atom_init})
+
+
+def test_the_atom_table_must_be_supplied(tmp_path: Path) -> None:
+    from goldilocks_ml.inference import load_model
+
+    directory, _ = saved_model(tmp_path)
+
+    with pytest.raises(ValueError, match="needs artifact"):
+        load_model(directory, artifacts={})

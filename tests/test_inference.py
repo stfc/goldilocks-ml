@@ -355,3 +355,34 @@ def test_every_contract_names_a_parameter_and_a_quantity() -> None:
     for name in inference.CONTRACTS:
         contract = contract_for(name)
         assert contract.parameter and contract.quantity
+
+
+def test_contracts_say_what_kind_of_advice_they_carry() -> None:
+    from goldilocks_ml.inference import (
+        DFT_PARAMETER,
+        KINDS,
+        MATERIAL_PROPERTY,
+        contract_for,
+    )
+
+    mesh = contract_for("goldilocks.k_distance.mesh_lower_bound.2pi.v1")
+    metal = contract_for("goldilocks.is_metal.dft_band_gap_zero.v1")
+
+    # A k-distance is written into an input file; metallicity is a fact about
+    # the material that several inputs depend on.
+    assert mesh.kind == DFT_PARAMETER
+    assert metal.kind == MATERIAL_PROPERTY
+    assert {mesh.kind, metal.kind} <= KINDS
+    assert metal.parameter == "metallicity"
+    assert metal.quantity == "is_metal"
+
+
+def test_a_boolean_quantity_refuses_a_number() -> None:
+    from goldilocks_ml.inference import contract_for
+
+    contract = contract_for("goldilocks.is_metal.dft_band_gap_zero.v1")
+
+    contract.check_value(True)
+    contract.check_value(False)
+    with pytest.raises(ValueError, match="must be a boolean"):
+        contract.check_value(0.87)

@@ -6,6 +6,7 @@
 | Runtime | `metallicity.is_metal.cgcnn` |
 | Target contract | `goldilocks.is_metal.dft_band_gap_zero.v1` |
 | Dataset | `matbench_mp_is_metal`, 106113 structures |
+| Served by | `load_model`, returning a boolean |
 
 A crystal graph convolutional network that answers one question: does DFT give
 this crystal a zero band gap. Metals need denser k-point sampling than
@@ -182,7 +183,10 @@ it produces belongs only to these weights. See
 
 The threshold is chosen on the validation split alone and applied unchanged to
 calibration and test — it is a fitted parameter, so choosing it on test would be
-reading the answer.
+reading the answer. It is written into `model.json` under `decision`, so a
+served model applies the same line rather than leaving each consumer to pick
+one. A record without it is refused at load: a classifier that cannot turn its
+own score into a label is not servable.
 
 The floor is not free. Buying recall costs precision, and the price rises
 steeply; measured on validation:

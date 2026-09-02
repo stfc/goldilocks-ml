@@ -42,6 +42,43 @@ The directory is what a training run writes: the estimator named in
 [training](training/index.md) and [publishing](publishing.md); the side that
 issues a prediction command is Core.
 
+## A classifier decides; it does not hand over a probability
+
+A model that classifies returns the decision, in the same shape:
+
+```python
+model = load_model(
+    Path("local_runs/cgcnn-v3/model"),
+    artifacts={"atom_init": Path("…/atom_init.json")},
+)
+
+prediction = model.predict(Structure.from_file("Fe.cif"))
+prediction.parameter  # 'metallicity'
+prediction.quantity  # 'is_metal'
+prediction.value  # True
+prediction.details  # {'score': 0.93, 'threshold': 0.0657, 'label': 'metal', …}
+```
+
+The threshold that turned 0.93 into `True` was chosen on the validation split
+and is recorded in `model.json`. It is a fitted parameter like any other, so it
+travels with the model rather than being reinvented by each consumer — and for
+this model it encodes a deliberate asymmetry, that missing a metal costs more
+than an unnecessary dense mesh. See
+[the model page](training/models/metallicity/is_metal-cgcnn.md#the-decision-threshold).
+
+### `confidence` carries a guarantee, not an estimate
+
+The k-distance model sets `confidence` to 0.9, which is a conformal coverage
+level: a proof, under exchangeability, that intervals of that construction
+contain the truth 90% of the time.
+
+The classifier leaves `confidence` empty and puts its score in `details`. The
+score behaves well — on held-out data the structures it scores near 0.8 are
+metallic about 80% of the time — but nothing proves it, and a number that
+merely behaves well should not sit in the field where another model puts a
+guarantee. A consumer comparing the two would be comparing different kinds of
+claim.
+
 ## One prediction type for every parameter
 
 Goldilocks advises more than k-points — smearing, magnetism, spin-orbit,
@@ -49,6 +86,18 @@ pseudopotentials, convergence, exchange-correlation — and each will eventually
 have a model behind it. There is still one `ModelPrediction`. A model names the
 parameter it speaks to and the quantity its number is in; the consumer routes
 on the first and converts on the second.
+
+Not everything predicted is an input file setting. A contract also says which
+`kind` it is:
+
+| Kind | Meaning | Example |
+| --- | --- | --- |
+| `dft_parameter` | written into an input file | `k_distance` → a mesh |
+| `material_property` | a fact about the structure that several settings depend on | `is_metal` |
+
+Metallicity changes both how dense a mesh must be and whether smearing is
+appropriate, so it is predicted once and consumed in more than one place. A
+consumer can tell the two apart without a table of special cases.
 
 That keeps both sides open. A model for a parameter nothing covered before adds
 a row to the contract table here and a resolver on the consumer's side. Neither
@@ -92,6 +141,7 @@ retrained model is a data change and nothing more:
 | `requires_artifacts` | supporting artifacts, pinned by record id and digest |
 | `feature_columns` | the width the estimator must accept |
 | `calibration` | the correction, its coverage, and its mean interval width |
+| `decision` | for a classifier, the threshold and the rule that chose it |
 
 `requires_artifacts` is why a consumer never learns that the k-distance model
 embeds a metallicity checkpoint. The record pins it, `load_model` fetches it
@@ -109,6 +159,7 @@ before any prediction is made.
 | `feature_schema` | upgrade `goldilocks-ml` to load it |
 | `requires_artifacts` | the file is missing, or its digest does not match |
 | `feature_columns` | the artifact and its record disagree |
+| `decision` | a classifier with no threshold cannot produce a label |
 
 The first two are the ones that keep the seam honest as models multiply. The
 third matters most for k-distance specifically: two models can both predict a
