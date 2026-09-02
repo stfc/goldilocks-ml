@@ -174,10 +174,13 @@
         "subject": "Materials science"
       },
       {
-        "subject": "Metallicity classification"
+        "subject": "Representation learning"
       },
       {
         "subject": "Graph neural networks"
+      },
+      {
+        "subject": "Feature extraction"
       }
     ],
     "publisher": "PSDI",
