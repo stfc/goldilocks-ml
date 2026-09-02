@@ -29,6 +29,9 @@ def _write_deposition(tmp_path: Path, payload: bytes = b"model") -> tuple[Path, 
     artifact = artifacts / "model.bin"
     artifact.write_bytes(payload)
     (deposition / "README.md").write_text("model card", encoding="utf-8")
+    (deposition / "model.json").write_text(
+        json.dumps({"record_schema_version": 1, "role": "model"}), encoding="utf-8"
+    )
     (deposition / "metadata.json").write_text(
         json.dumps(
             {
@@ -79,7 +82,12 @@ def test_load_deposition_validates_metadata_and_artifacts(tmp_path: Path) -> Non
     deposition = load_deposition(directory, artifacts)
 
     assert deposition.community == "data-to-knowledge"
-    assert set(deposition.files) == {"README.md", "manifest.json", "model.bin"}
+    assert set(deposition.files) == {
+        "README.md",
+        "manifest.json",
+        "model.json",
+        "model.bin",
+    }
     assert deposition.metadata["files"]["default_preview"] == "README.md"
 
 
@@ -102,7 +110,9 @@ def test_load_deposition_rejects_duplicate_artifact_names(tmp_path: Path) -> Non
         load_deposition(directory, artifacts)
 
 
-@pytest.mark.parametrize("name", ["README.md", "manifest.json", "metadata.json"])
+@pytest.mark.parametrize(
+    "name", ["README.md", "manifest.json", "metadata.json", "model.json"]
+)
 def test_load_deposition_rejects_reserved_artifact_names(
     tmp_path: Path, name: str
 ) -> None:
@@ -404,7 +414,7 @@ def test_validate_cli_reports_verified_files(
 
     output = capsys.readouterr().out
     assert "Valid deposition for data-to-knowledge" in output
-    assert "README.md, manifest.json, model.bin" in output
+    assert "README.md, manifest.json, model.json, model.bin" in output
 
 
 def test_upload_cli_creates_draft_without_submitting_review(
@@ -440,3 +450,37 @@ def test_upload_cli_creates_draft_without_submitting_review(
     assert capsys.readouterr().out == (
         "Created and bound PSDI draft draft-2; review not submitted\n"
     )
+
+
+def test_a_deposit_without_a_loadable_record_is_refused(tmp_path: Path) -> None:
+    deposition, artifacts = _write_deposition(tmp_path)
+    (deposition / "model.json").unlink()
+
+    with pytest.raises(FileNotFoundError, match="so the artifact can be loaded"):
+        load_deposition(deposition, artifacts)
+
+
+DEPOSITS = Path(__file__).parents[1] / "deposits"
+
+
+@pytest.mark.parametrize(
+    "deposit",
+    sorted(path.parent for path in DEPOSITS.rglob("model.json")),
+    ids=lambda path: "/".join(path.parts[-3:]),
+)
+def test_every_shipped_deposit_record_agrees_with_its_manifest(deposit: Path) -> None:
+    record = json.loads((deposit / "model.json").read_text())
+    manifest = json.loads((deposit / "manifest.json").read_text())
+
+    assert record["record_schema_version"] == 1
+    assert record["role"] in {"model", "feature_extractor"}
+
+    # Every digest the record pins must be one the manifest publishes, or the
+    # record describes a file the deposit does not contain.
+    published = {item["name"]: item["sha256"] for item in manifest["artifacts"]}
+    artifacts = record["artifacts"]
+    for name, digest in artifacts.items():
+        if not name.endswith("_sha256"):
+            continue
+        file_name = artifacts[name.removesuffix("_sha256")]
+        assert published[file_name] == digest, file_name

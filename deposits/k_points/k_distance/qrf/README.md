@@ -69,6 +69,26 @@ The first of three consecutive meshes whose energy differences were below
 data are available from the [PSDI Data Collections
 record](https://data-collections.psdi.ac.uk/records/75959-bwa52).
 
+## Loading it
+
+`model.json` in this record describes the artifact in machine-readable form:
+the serving runtime, the feature contract and its 483 columns in order, the
+target contract, the SHA-256 of the pickle, and the two companion artifacts it
+needs from record `ptc95-vbq12`. With `goldilocks-ml` installed:
+
+```python
+from goldilocks_ml.inference import load_model
+
+model = load_model("path/to/this/record", artifact_directory="path/to/artifacts")
+prediction = model.predict(structure)  # prediction.value is a k-distance
+```
+
+That record was written after the fact rather than by the run that fitted this
+forest, and says so in `record_origin`. It declares no calibration, because the
+`-0.0016` correction described above was fitted under a different rule than
+current software applies; the median is unaffected by it, so the point
+prediction stands and the interval is returned with no coverage claimed.
+
 ## Runtime and safe loading
 
 - Artifact: `QRF95.pkl`, a trusted joblib/pickle file.
