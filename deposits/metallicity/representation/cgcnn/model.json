@@ -1,0 +1,31 @@
+{
+  "architecture": {
+    "atom_fea_len": 64,
+    "edge_feat_dim": 64,
+    "h_fea_len": 128,
+    "n_conv": 3,
+    "n_h": 3,
+    "num_classes": 2,
+    "orig_atom_fea_len": 92,
+    "pooling_type": "mean_pool"
+  },
+  "artifacts": {
+    "atom_init": "atom_init.json",
+    "atom_init_sha256": "cb90bd2257dbf8cfc4e6b2b6d4348d4616e8e9680f1339b1461137032e0f1894",
+    "checkpoint": "is_metal.ckpt",
+    "checkpoint_sha256": "964d818de8a155e3219d1bff9f7fca12137a003c5c71ff6b4f1d68d472d4c9d1"
+  },
+  "graph": {
+    "max_neighbors": 12,
+    "radius": 10.0
+  },
+  "record_origin": "reconstructed",
+  "record_schema_version": 1,
+  "role": "feature_extractor",
+  "supplies": {
+    "consumed_by": "comp_struct_soap_lattice_metal.v1",
+    "entry_point": "goldilocks_ml.models.k_points.k_distance.qrf.embedding:crystal_representations",
+    "representation": "cgcnn_pooled",
+    "width": 64
+  }
+}

@@ -104,7 +104,7 @@ Its content is model-specific and is preserved in the uploaded manifest.
 The reviewed examples are the best schema reference:
 
 - `deposits/k_points/k_distance/qrf/metadata.json`
-- `deposits/metallicity/cgcnn/metadata.json`
+- `deposits/metallicity/representation/cgcnn/metadata.json`
 
 At minimum, check these fields for every release:
 

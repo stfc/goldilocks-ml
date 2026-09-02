@@ -12,6 +12,19 @@ The second is the same relationship k-distance has to a mesh: predict a
 continuous quantity, let the consumer apply the rule that turns it into a
 decision.
 
+## The other artifact under this setting
+
+There are two published CGCNNs here, and only one of them answers anything.
+
+| | What you get | Can `load_model` serve it? |
+| --- | --- | --- |
+| [`is_metal/cgcnn`](is_metal-cgcnn.md) | metal or insulator | yes |
+| [`representation/cgcnn`](representation-cgcnn.md) | 64 numbers | no |
+
+The second supplies one block of the k-distance model's feature vector and
+answers no question of its own. [Its page](representation-cgcnn.md) explains
+what that means and why it cannot be served as a classifier.
+
 !!! note "Core's side"
 
     This package can now serve a metallicity decision through the

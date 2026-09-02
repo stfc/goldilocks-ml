@@ -1,91 +1,119 @@
-# Goldilocks CGCNN metallicity model
+# Goldilocks CGCNN metallicity classifier
 
-This checkpoint contains a crystal graph convolutional neural network trained
-as a binary Materials Project `is_metal` classifier. Class 0 denotes an
-insulator and class 1 denotes a metal.
+A crystal graph convolutional neural network that answers one question: does
+DFT give this crystal a zero band gap.
 
-The model has two distinct uses:
-
-1. As a classifier, its final layer produces the two-class metallicity output.
-2. In the Goldilocks k-point workflow, `extract_crystal_repr()` returns the
-   learned crystal representation before the classification head. Goldilocks
-   passes this representation, not the predicted class, to the QRF k-distance
-   model as one block of its input features.
+Goldilocks uses metallicity in two places. A metal needs denser reciprocal-space
+sampling, because the Fermi surface has to be resolved, and it needs smearing,
+which an insulator does not.
 
 ## Files
 
-- `is_metal.ckpt`: PyTorch Lightning checkpoint containing the model
-  hyperparameters and weights.
-- `atom_init.json`: atomic-number-to-feature-vector mapping used to construct
-  the checkpoint's node features.
-- `model.json`: a machine-readable description of the two files above — their
-  checksums, the graph construction, the architecture, and what this artifact
-  supplies.
+- `is_metal.pt`: the fitted weights and the architecture they belong to.
+- `model.json`: architecture, feature contract, target contract, decision
+  threshold and the rule that chose it, digests, and the one supporting
+  artifact this model needs. Written by the run that fitted the model.
 
-`model.json` records this artifact's role as `feature_extractor` rather than
-`model`. It is deposited because the Goldilocks k-distance feature contract
-embeds its pooled representation; it carries no decision threshold, and the run
-that produced it recorded no held-out split on which one could have been
-chosen. Software that loads published Goldilocks models will decline to serve
-it as a classifier and say why. Use `extract_crystal_repr()` as described
-below.
+`atom_init.json` is **not** in this record. It is the atomic embedding table
+from record `ptc95-vbq12`, pinned here by digest. A different table produces
+different graphs and therefore different answers, with no error, which is why
+it is pinned rather than bundled.
 
-These files form one inference bundle. Replacing `atom_init.json` with a
-different embedding changes the model input and invalidates the checkpoint.
+## Training data
 
-## Input graph contract
+The Matbench `mp_is_metal` task: 106113 Materials Project structures labelled by
+whether their DFT band gap is zero. Matbench distributes it with a published
+SHA-256, so the source is pinned without a Materials Project API key.
 
-The input is a periodic crystal structure represented as a PyTorch Geometric
-graph:
+Sample identifiers are the content digest of each CIF, so duplicate structures
+collide by construction rather than by bookkeeping.
 
-- each atom is a node whose feature vector is selected from `atom_init.json`
-  using its atomic number;
-- each atom is connected to its nearest neighbours within 10.0 angstroms;
-- at most 12 neighbours are retained per atom;
-- each edge stores the corresponding interatomic distance;
-- edge distances are expanded into 64 radial-basis features inside the model;
-- node representations are combined using graph convolutions and mean pooling.
+The split is 70/10/10/10, **grouped by reduced composition** over 78164 groups
+and stratified by label. Grouping matters here: polymorphs of one composition
+are near duplicates, and splitting them at random puts a close relative of every
+test structure into training, which makes the test score fiction.
 
-The checkpoint was trained from Materials Project metallic and non-metallic
-structures prepared in autumn 2025 after removal of structural duplicates.
+## Architecture
 
-## Outputs
+Unchanged from the published Goldilocks CGCNN (`ptc95-vbq12`), so the two are
+comparable: 92 input node features, 3 convolutions, 64 atom features, 128 hidden
+width, 3 hidden layers, mean pooling, 2 classes. Graphs use a 10.0 angstrom
+radius and at most 12 neighbours per atom.
 
-For classification, the model returns two output values per crystal; the class
-index is obtained from their maximum. For use with QRF95, call
-`extract_crystal_repr()` instead. It returns the pooled graph representation
-immediately after the graph-convolution stack and before the fully connected
-classification layers.
+## Measured performance
 
-The representation is meaningful only with the matching checkpoint, atomic
-features, graph construction, and model implementation. It should not be
-interpreted as a calibrated probability or as an independently defined
-physical observable.
+Fitted on the training split alone, with early stopping on validation loss;
+the test split was scored once, at the end.
+
+| Split | Accuracy | Balanced | Precision | Recall | F1 | MCC | ROC-AUC | PR-AUC |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Validation | 0.777 | 0.800 | 0.666 | 0.970 | 0.790 | 0.616 | 0.955 | 0.946 |
+| Calibration | 0.778 | 0.803 | 0.665 | 0.975 | 0.790 | 0.621 | 0.957 | 0.947 |
+| **Test** | **0.748** | **0.766** | 0.649 | **0.972** | 0.778 | **0.569** | **0.950** | **0.947** |
+| Test baseline | 0.544 | 0.500 | 0 | 0 | 0 | 0.000 | 0.500 | 0.274 |
+
+The baseline predicts the majority class, so it never finds a metal at all.
+
+Read ROC-AUC and PR-AUC first: they do not depend on the threshold, so they
+measure how well the model ranks structures by metallicity. Accuracy and MCC are
+lower than they could be because the threshold is deliberately not set where
+they peak.
+
+## The decision threshold is 0.0657, not 0.5
+
+The two mistakes do not cost the same:
+
+- **Calling a metal an insulator** understates the mesh the calculation needs.
+  The Fermi surface is undersampled and the number that comes back can be wrong
+  without looking wrong.
+- **Calling an insulator a metal** spends compute on a denser mesh than
+  necessary.
+
+One is a wrong answer, the other is a bill. Maximising accuracy, or MCC, or F1
+treats them as interchangeable. The threshold here is instead the best-scoring
+one among those catching at least 97% of metals, chosen on the validation split
+and applied unchanged to test.
+
+Measured on validation, 10603 structures of which 4585 are metals:
+
+| Recall floor | Threshold | Precision | Metals missed | False alarms |
+| ---: | ---: | ---: | ---: | ---: |
+| none (best MCC) | 0.477 | 0.904 | 649 | 420 |
+| 0.95 | 0.133 | 0.745 | 229 | 1492 |
+| **0.97** | **0.0657** | **0.666** | **137** | **2227** |
+| 0.99 | 0.023 | 0.554 | 45 | 3655 |
+
+0.97 rather than 0.95 buys margin. A floor is met on the validation split, which
+is a sample: the 0.95 threshold delivers 0.9455 recall on test, below its own
+floor, while the 0.97 threshold delivers 0.9721.
+
+The threshold is recorded in `model.json`. Software that ignores it and uses 0.5
+discards this decision entirely.
 
 ## Runtime and safe loading
 
-- Artifact format: PyTorch Lightning checkpoint.
-- Checkpoint model version: 1.0.
-- Embedded PyTorch Lightning version: 2.5.2.
-- Training random seed stored in the checkpoint: 42.
+- Artifact format: a `torch.save` dictionary holding `architecture` and
+  `state_dict`. Load with `weights_only=True`.
+- PyTorch 2.13.0, PyTorch Geometric 2.8.0.post1.
+- Verify both the size and the SHA-256 in `manifest.json` before loading.
 
-Load the checkpoint on CPU with `weights_only=True` where supported, reconstruct
-the CGCNN from `checkpoint["hyper_parameters"]["model"]`, remove the Lightning
-`model.` prefix from state-dictionary keys, and then load the weights. Treat the
-checkpoint as trusted code/data and do not deserialize files from untrusted
-sources.
+## Reproducibility
 
-Verify the byte size and SHA-256 value of both files against `manifest.json`
-before loading. The authoritative published copies belong in the PSDI record.
+`model.json` records `deterministic: false`, and it means it. The seed fixes
+initialisation and batch order, but graph convolutions reduce with
+non-deterministic kernels: two runs of this protocol with the same seed and the
+same splits produce weight files with different checksums, agreeing to about
+4e-6 per score. Every figure in the table above is unchanged to three decimal
+places between runs. The model reproduces; the file does not.
 
-## Scope and provenance limitations
+The split does reproduce exactly, being derived from the sample identifiers and
+the seed.
 
-The classifier and its learned representation reflect the Materials Project
-training distribution and the stated graph construction. They are not a
-replacement for an electronic-structure calculation, and predictions for
-unusual chemistries or structures require validation.
+## Scope and limitations
 
-The surviving artifact records the dataset path and configuration but not an
-immutable dataset checksum, training-code commit, or complete evaluation
-report. Those provenance gaps are recorded here rather than replaced with
-guesses.
+- The target is a computed property — the Materials Project DFT band gap being
+  zero — under one functional. It is not a measurement.
+- This is not a substitute for an electronic-structure calculation. Treat an
+  unusual chemistry as unverified.
+- It is deliberately biased towards calling things metallic. Roughly a third of
+  what it labels metal is not.

@@ -6,6 +6,7 @@
 | Runtime | `k_points.k_distance.qrf` |
 | Target contract | `goldilocks.k_distance.mesh_lower_bound.2pi.v1` |
 | Dataset | `goldilocks-kdist-ultra`, 21053 structures |
+| Try it | [notebook](../../../notebooks/k_distance-qrf.ipynb) |
 
 QRF95 answers "how dense does this k-point mesh need to be" — but not as a grid.
 It predicts a **k-distance**: the largest spacing between neighbouring k-points,

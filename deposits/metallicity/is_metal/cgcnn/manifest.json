@@ -3,24 +3,21 @@
   "community": "data-to-knowledge",
   "artifacts": [
     {
-      "name": "is_metal.ckpt",
-      "size_bytes": 2009979,
-      "sha256": "964d818de8a155e3219d1bff9f7fca12137a003c5c71ff6b4f1d68d472d4c9d1"
-    },
-    {
-      "name": "atom_init.json",
-      "size_bytes": 28392,
-      "sha256": "cb90bd2257dbf8cfc4e6b2b6d4348d4616e8e9680f1339b1461137032e0f1894"
+      "name": "is_metal.pt",
+      "size_bytes": 501981,
+      "sha256": "68e03802630f0be991987ddfd79fe1254f8ff70f9d6a3b6c6154ee99d71a8f7d"
     }
   ],
   "inference_requirements": {
-    "artifact_format": "PyTorch Lightning checkpoint",
-    "pytorch_lightning": "2.5.2",
-    "feature_contract": "cgcnn_radius10_neighbors12_atom_init",
+    "artifact_format": "torch state dict with its architecture",
+    "feature_contract": "crystal_graph.v1",
     "target": "is_metal",
-    "labels": {
-      "0": "insulator",
-      "1": "metal"
-    }
+    "target_contract": "goldilocks.is_metal.dft_band_gap_zero.v1",
+    "decision_threshold": 0.06568002700805664,
+    "requires": [
+      "atom_init.json from PSDI record ptc95-vbq12"
+    ],
+    "torch": "2.13.0",
+    "torch_geometric": "2.8.0.post1"
   }
 }

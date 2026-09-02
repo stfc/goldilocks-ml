@@ -1,10 +1,12 @@
 # Metallicity models
 
-Models classifying the electronic character of periodic materials, filed by the
-quantity they predict.
+Networks trained on whether a material conducts, filed by what each artifact
+gives you.
 
-- `is_metal/` — models predicting whether the DFT band gap is zero.
+- `is_metal/` — models that answer the question: metal or insulator.
+- `representation/` — models published for the learned vector they produce,
+  which another model consumes as input features.
 
-`is_metal/cgcnn/` also supplies the learned crystal representation that the
-k-distance model's feature contract embeds, which is why its checkpoint is
-pinned by digest there.
+Both directories hold the same architecture trained on the same kind of label.
+They are separated because a consumer uses them completely differently: one
+returns a decision, the other returns 64 numbers that mean nothing on their own.
