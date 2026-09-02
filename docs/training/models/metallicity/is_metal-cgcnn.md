@@ -7,7 +7,7 @@
 | Target contract | `goldilocks.is_metal.dft_band_gap_zero.v1` |
 | Dataset | `matbench_mp_is_metal`, 106113 structures |
 | Served by | `load_model`, returning a boolean |
-| Try it | [notebook](../../../notebooks/metallicity-cgcnn.ipynb) |
+| Notebook | [run it yourself](../../../notebooks/metallicity-cgcnn.ipynb) |
 | Deposit | `deposits/metallicity/is_metal/cgcnn/`, prepared |
 
 A crystal graph convolutional network that answers one question: does DFT give
