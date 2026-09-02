@@ -60,6 +60,7 @@ nav:
           - k-point mesh:
               - Overview: training/models/k_points/index.md
               - k-distance / QRF: training/models/k_points/k_distance-qrf.md
+              - Try it (notebook): notebooks/k_distance-qrf.ipynb
           - Metallicity:
               - Overview: training/models/metallicity/index.md
               - is-metal / CGCNN: training/models/metallicity/is_metal-cgcnn.md
