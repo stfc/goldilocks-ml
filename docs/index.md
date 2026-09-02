@@ -50,14 +50,16 @@ submitted for review without you looking at it first.
 
 ## Models published this way
 
-| Model | Answers | Record |
+| Model | What it gives you | Record |
 | --- | --- | --- |
-| QRF95 | how dense a k-point mesh needs to be | [fex36-67b11](https://data-collections.psdi.ac.uk/records/fex36-67b11) |
-| CGCNN | whether a material is a metal | [ptc95-vbq12](https://data-collections.psdi.ac.uk/records/ptc95-vbq12) |
+| [QRF95](training/models/k_points/k_distance-qrf.md) | how dense a k-point mesh needs to be | [fex36-67b11](https://data-collections.psdi.ac.uk/records/fex36-67b11) |
+| [CGCNN representation](training/models/metallicity/representation-cgcnn.md) | 64 numbers describing a crystal | [ptc95-vbq12](https://data-collections.psdi.ac.uk/records/ptc95-vbq12) |
 
-Both were reviewed and accepted by the PSDI Data to Knowledge community. Their
-deposit definitions are in `deposits/`, and are the examples to copy when you
-publish your own.
+Both were reviewed and accepted by the PSDI Data to Knowledge community, and
+both are now **historical**: their latest versions are the last, and neither is
+developed here any more. They are kept loadable and citable. Their deposit
+definitions are in `deposits/`, and are the examples to copy when you publish
+your own.
 
 ## Where to go
 

@@ -8,7 +8,7 @@ predict a mesh; it predicts one quantity on that ladder and Core finds the rung.
 
 | Quantity | What it is | Model |
 | --- | --- | --- |
-| `k_distance` | Largest spacing between adjacent k-points, Å⁻¹ | [QRF](k_distance-qrf.md) |
+| `k_distance` | Largest spacing between adjacent k-points, Å⁻¹ | [QRF95](k_distance-qrf.md), historical |
 | `k_index` | Position in the ordered table of meshes | none |
 | `k_line_density` | k-points per unit reciprocal length | none |
 | `k_pra` | k-points per reciprocal atom | none |
