@@ -65,6 +65,7 @@ nav:
               - Overview: training/models/metallicity/index.md
               - is-metal / CGCNN: training/models/metallicity/is_metal-cgcnn.md
               - Try it (notebook): notebooks/metallicity-cgcnn.ipynb
+              - Representation / CGCNN: training/models/metallicity/representation-cgcnn.md
           - Magnetism: training/models/magnetism/index.md
           - Hubbard U: training/models/hubbard_u/index.md
   - Publish a model: publishing.md
