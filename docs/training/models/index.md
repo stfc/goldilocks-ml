@@ -50,28 +50,32 @@ name that repeats itself.
 
 | Setting | Kind | Quantity | Family | Status |
 | --- | --- | --- | --- | --- |
-| [k-point mesh](k_points/index.md) | input | `k_distance` | QRF | published, **Core default** |
-| [Metallicity](metallicity/index.md) | property | `is_metal` | CGCNN | trained, ready to deposit |
+| [k-point mesh](k_points/index.md) | input | `k_distance` | QRF | published, **historical** |
+| [Metallicity](metallicity/index.md) | property | `is_metal` | CGCNN | trained, not deposited |
+| [Metallicity](metallicity/representation-cgcnn.md) | property | representation | CGCNN | published, **historical** |
 | [Magnetism](magnetism/index.md) | input | — | — | planned |
 | [Hubbard U](hubbard_u/index.md) | input | — | — | planned |
 
-One published artifact is not in this table: the CGCNN whose pooled
-representation the k-distance feature vector embeds. It was trained on
-metallicity like the classifier above, so it sits under the same setting — but
-what it gives you is a vector rather than an answer, and the second level says
-which:
+**Historical** means the record's latest version is its last. Both published
+records were fitted before this repository existed, from workflows that were
+not versioned protocols, so neither carries a training run anyone can repeat.
+They stay loadable and citable; a successor is a new record, not a new version.
+
+Two of those rows share a setting, because the same architecture trained on the
+same labels can give you two different things. The second level of the name
+says which:
 
 ```text
 deposits/metallicity/is_metal/cgcnn/         a decision
 deposits/metallicity/representation/cgcnn/   64 numbers another model consumes
 ```
 
-Its record says `role: feature_extractor`, and `load_model` declines to serve
-it, naming the reason.
+The representation record says `role: feature_extractor`, and `load_model`
+declines to serve it, naming the reason.
 
 **Input** settings are written into a DFT input file. **Property** settings are
 facts about the material that inform several inputs at once.
 
-**Core default** is the model Core reaches for when the caller names none. It is
-a separate decision from whether a model is good — Core's registry, not this
-one, records it.
+Which model Core reaches for when the caller names none is Core's decision, and
+Core's registry records it — not this table. Core does not read these PSDI
+records at all today; it downloads its own copies from Hugging Face.

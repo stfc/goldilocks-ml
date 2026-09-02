@@ -59,15 +59,15 @@ nav:
           - Overview: training/models/index.md
           - k-point mesh:
               - Overview: training/models/k_points/index.md
-              - k-distance / QRF:
-                  - Training: training/models/k_points/k_distance-qrf.md
+              - QRF95 (historical):
+                  - The record: training/models/k_points/k_distance-qrf.md
                   - Notebook: notebooks/k_distance-qrf.ipynb
           - Metallicity:
               - Overview: training/models/metallicity/index.md
               - is-metal / CGCNN:
                   - Training: training/models/metallicity/is_metal-cgcnn.md
                   - Notebook: notebooks/metallicity-cgcnn.ipynb
-              - Representation / CGCNN: training/models/metallicity/representation-cgcnn.md
+              - Representation / CGCNN (historical): training/models/metallicity/representation-cgcnn.md
           - Magnetism: training/models/magnetism/index.md
           - Hubbard U: training/models/hubbard_u/index.md
   - Publish a model: publishing.md
