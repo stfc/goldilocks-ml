@@ -37,6 +37,15 @@ MODEL_RECORD_FILE = "model.json"
 SUPPORTED_RECORD_SCHEMA_VERSIONS = frozenset({1})
 
 
+# What a prediction speaks to. A DFT parameter is written into an input file.
+# A material property is a fact about the structure that informs several inputs
+# -- metallicity changes both mesh density and the smearing choice -- so it is
+# predicted once and consumed in more than one place.
+DFT_PARAMETER = "dft_parameter"
+MATERIAL_PROPERTY = "material_property"
+KINDS = frozenset({DFT_PARAMETER, MATERIAL_PROPERTY})
+
+
 @dataclass(frozen=True, slots=True)
 class ContractSpec:
     """What a published target contract means to a consumer.
@@ -49,8 +58,10 @@ class ContractSpec:
 
     parameter: str
     quantity: str
+    kind: str = "dft_parameter"
     units: str | None = None
     positive: bool = False
+    boolean: bool = False
 
     def check_units(self, units: str | None) -> None:
         """Reject a record whose units are not the ones this contract means."""
@@ -60,9 +71,15 @@ class ContractSpec:
                 f"declares {units!r}"
             )
 
-    def check_value(self, value: float) -> None:
+    def check_value(self, value: Any) -> None:
         """Reject a prediction outside the domain the quantity admits."""
-        if self.positive and not value > 0:
+        if self.boolean:
+            if not isinstance(value, bool):
+                raise ValueError(
+                    f"{self.quantity} must be a boolean; the model predicted {value!r}"
+                )
+            return
+        if self.positive and not float(value) > 0:
             raise ValueError(
                 f"{self.quantity} must be positive; the model predicted {value}"
             )
@@ -75,8 +92,15 @@ CONTRACTS: Mapping[str, ContractSpec] = {
     "goldilocks.k_distance.mesh_lower_bound.2pi.v1": ContractSpec(
         parameter="k_points",
         quantity="k_distance",
+        kind=DFT_PARAMETER,
         units="1/angstrom",
         positive=True,
+    ),
+    "goldilocks.is_metal.dft_band_gap_zero.v1": ContractSpec(
+        parameter="metallicity",
+        quantity="is_metal",
+        kind=MATERIAL_PROPERTY,
+        boolean=True,
     ),
 }
 

@@ -24,6 +24,7 @@ from goldilocks_ml.evaluation import (
 from goldilocks_ml.hashing import sha256_file
 from goldilocks_ml.protocol import TrainingProtocol, load_protocol
 from goldilocks_ml.registry import (
+    DecidingModel,
     FittedModel,
     QuantileFittedModel,
     TrainingContext,
@@ -395,7 +396,6 @@ def execute(
     # Test samples, labels, and features never reach the trainer.
     model = get_trainer(protocol.trainer)(protocol, context)
     _check_runtime(protocol, model)
-    model.save(directory / "model")
 
     quantiles = (
         tuple(model.quantiles) if isinstance(model, QuantileFittedModel) else None
@@ -407,6 +407,23 @@ def execute(
         predictions, summary = _train_classification(protocol, parts, model, features)
         positive = summary["positive_label"]
         quantiles = None
+        # The threshold is chosen here, after the fit, but it is still a fitted
+        # parameter. A served model that does not carry it cannot turn its own
+        # score into a label, so it goes into the record before the record is
+        # written.
+        if isinstance(model, DecidingModel):
+            model = model.with_decision(
+                {
+                    "threshold": summary["decision_threshold"]["value"],
+                    "metric": summary["decision_threshold"]["metric"],
+                    "min_recall": summary["decision_threshold"]["min_recall"],
+                    "selected_on": summary["decision_threshold"]["selected_on"],
+                    "positive_label": positive,
+                    "negative_label": summary["negative_label"],
+                }
+            )
+
+    model.save(directory / "model")
 
     metrics = {
         "task": protocol.task,

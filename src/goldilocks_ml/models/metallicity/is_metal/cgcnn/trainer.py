@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -71,6 +71,9 @@ class CGCNNClassifier:
     hyperparameters: dict[str, Any]
     training: dict[str, Any]
     atom_init: Path = field(compare=False, default=Path())
+    # Filled in after the fit, when the run has chosen a threshold on the
+    # validation split. Empty until then, and an unserved model may stay empty.
+    decision: dict[str, Any] = field(default_factory=dict)
 
     def _model(self) -> CGCNN:
         model = CGCNN(**self.architecture)
@@ -85,7 +88,11 @@ class CGCNNClassifier:
         del features  # a graph model reads structures, not a feature row
         if not samples:
             return []
-        return _scores(self._model(), graphs_for(samples, self.atom_init))
+        return class_scores(self._model(), graphs_for(samples, self.atom_init))
+
+    def with_decision(self, decision: Any) -> CGCNNClassifier:
+        """Return a copy carrying the threshold rule the run selected."""
+        return replace(self, decision=dict(decision))
 
     def describe(self) -> dict[str, Any]:
         """Return the JSON record a predictor reads this model back through."""
@@ -105,6 +112,9 @@ class CGCNNClassifier:
                 "positive": self.positive_label,
                 "negative": self.negative_label,
             },
+            # How this model's score becomes a label. Without it the artifact
+            # predicts a number and nothing can act on it.
+            "decision": dict(self.decision),
             "target": {
                 "name": self.target_name,
                 "contract": self.target_contract,
@@ -133,7 +143,7 @@ class CGCNNClassifier:
         )
 
 
-def _scores(
+def class_scores(
     model: CGCNN,
     graphs: Sequence[Data],
     batch_size: int = 256,

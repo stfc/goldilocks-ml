@@ -111,6 +111,21 @@ class QuantileFittedModel(FittedModel, Protocol):
         ...
 
 
+@runtime_checkable
+class DecidingModel(FittedModel, Protocol):
+    """A classifier whose serving threshold is chosen after the fit.
+
+    Threshold selection reads the validation split and is the same procedure for
+    every classifier, so it lives in the run rather than in a trainer. The
+    chosen threshold is still a fitted parameter, and a served model that does
+    not carry it cannot turn its own score into a label.
+    """
+
+    def with_decision(self, decision: Mapping[str, Any]) -> DecidingModel:
+        """Return a copy whose record carries the decision rule applied to it."""
+        ...
+
+
 # Feature extraction must be stateless across samples. Any fitted preprocessing
 # belongs inside the trainer, where split boundaries are explicit.
 Trainer = Callable[["TrainingProtocol", TrainingContext], FittedModel]
@@ -125,17 +140,18 @@ Predictor = Callable[[Mapping[str, Any], Path, Mapping[str, Path]], "StructureMo
 _TRAINERS: dict[str, Trainer] = {}
 _FEATURES: dict[str, FeatureContract] = {}
 _PREDICTORS: dict[str, Predictor] = {}
+_QRF = "goldilocks_ml.models.k_points.k_distance.qrf"
+_CGCNN = "goldilocks_ml.models.metallicity.is_metal.cgcnn"
 _BUILTIN_TRAINERS = {
-    "quantile_random_forest": "goldilocks_ml.models.k_points.k_distance.qrf.trainer",
-    "cgcnn_classifier": "goldilocks_ml.models.metallicity.is_metal.cgcnn.trainer",
+    "quantile_random_forest": f"{_QRF}.trainer",
+    "cgcnn_classifier": f"{_CGCNN}.trainer",
 }
 # Keyed by serving runtime, not by trainer: one fitting algorithm can produce
 # models that must be read back differently.
 _BUILTIN_PREDICTORS = {
-    "k_points.k_distance.qrf": "goldilocks_ml.models.k_points.k_distance.qrf.predictor",
+    "k_points.k_distance.qrf": f"{_QRF}.predictor",
+    "metallicity.is_metal.cgcnn": f"{_CGCNN}.predictor",
 }
-_QRF = "goldilocks_ml.models.k_points.k_distance.qrf"
-_CGCNN = "goldilocks_ml.models.metallicity.is_metal.cgcnn"
 _BUILTIN_FEATURES = {
     "comp_struct_soap_lattice_metal.v1": f"{_QRF}.features",
     "crystal_graph.v1": f"{_CGCNN}.graphs",

@@ -14,5 +14,9 @@ decision.
 
 !!! note "Core's side"
 
-    Core has nowhere to put a metallicity answer today. The classifier is
-    consumed only as an input to the k-distance model's features.
+    This package can now serve a metallicity decision through the
+    [inference seam](../../../inference.md). Core has nowhere to put the answer
+    yet: it carries no metallicity field, and its own rule is a heuristic —
+    smearing is applied only when *every* element is metallic, so metallic
+    oxides get none. Tracked in
+    [stfc/goldilocks-core#175](https://github.com/stfc/goldilocks-core/issues/175).
