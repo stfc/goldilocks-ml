@@ -17,28 +17,6 @@ Goldilocks answers those questions with models trained on past calculations.
     Read on if you want to train a model yourself — on your own calculations,
     your own chemistry, or your own definition of "converged".
 
-## Try it in one command
-
-```bash
-uv run goldilocks-ml train run protocols/synthetic/regression.toml \
-  --dataset tests/fixtures/kdist --output local_runs/first
-```
-
-That trains a model on a small dataset included with the repository, so it
-works before you have prepared anything of your own.
-
-Look in `local_runs/first`. Every training run leaves a folder like it,
-containing:
-
-- what the model predicted for each sample, next to the true value;
-- which samples went into training, validation, and testing;
-- how it scored, and how a trivial baseline scored on the same data;
-- a checksum for every file it read or wrote.
-
-The last two matter more than they sound. A score means nothing without knowing
-what a naive guess would have got, and six months from now the checksums are
-how you prove which data produced which model.
-
 ## Train on your own data
 
 You describe a training job in a small configuration file — which dataset,
@@ -47,6 +25,13 @@ a notebook and forgotten.
 
 [Prepare your data](training/your-data.md) covers the format your calculations
 need to be in. [Train a model](training/index.md) walks through a real one.
+
+Every run leaves [one self-contained folder](training/run-bundle.md): what the
+model predicted for each sample next to the true value, which samples went into
+training, validation and testing, how it scored against a trivial baseline, and
+a checksum for every file it read or wrote. A score means nothing without
+knowing what a naive guess would have got, and six months from now the
+checksums are how you prove which data produced which model.
 
 ## Share what you trained
 
