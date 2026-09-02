@@ -32,6 +32,14 @@ if TYPE_CHECKING:  # a consumer can read these types without the model stack
 
 MODEL_RECORD_FILE = "model.json"
 
+# What a published artifact is for. Most are models a consumer can call. Some
+# are not: the released metallicity checkpoint is deposited because the
+# k-distance feature contract embeds its pooled representation, and it carries
+# no threshold, so it cannot answer a question on its own.
+SERVABLE_MODEL = "model"
+FEATURE_EXTRACTOR = "feature_extractor"
+ROLES = frozenset({SERVABLE_MODEL, FEATURE_EXTRACTOR})
+
 # The record shapes this build can read. A record from the future is refused
 # rather than read with fields interpreted by an older meaning.
 SUPPORTED_RECORD_SCHEMA_VERSIONS = frozenset({1})
@@ -210,6 +218,23 @@ def load_model(
         raise ValueError(
             f"model record schema version {version!r} is not supported; this "
             f"build reads: {supported}"
+        )
+
+    role = record.get("role", SERVABLE_MODEL)
+    if role not in ROLES:
+        known = ", ".join(sorted(ROLES))
+        raise ValueError(f"unknown record role {role!r}; this build knows: {known}")
+    if role == FEATURE_EXTRACTOR:
+        supplies = record.get("supplies", {})
+        consumer = supplies.get("consumed_by")
+        raise ValueError(
+            "this artifact is published as a feature extractor, not as a model "
+            "that answers a question"
+            + (
+                f"; it supplies input to the {consumer!r} feature contract"
+                if consumer
+                else ""
+            )
         )
 
     contract = contract_for(record["target"]["contract"])

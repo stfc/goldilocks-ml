@@ -9,14 +9,44 @@ This page is what those small files have to contain.
 ## Directory layout
 
 ```text
-deposits/<task>/<model>/
+deposits/<setting>/<quantity>/<family>/
 ├── README.md       # model card and default preview
 ├── manifest.json   # artifact identity and usage requirements
+├── model.json      # what the artifact is, in machine-readable form
 └── metadata.json   # PSDI discovery and attribution metadata
 ```
 
+The first three are uploaded to the record. `metadata.json` stays local: it is
+what PSDI is *told*, not a file it receives.
+
 The corresponding artifact directory contains only the files named in the
 manifest. It can contain one model file or a model plus required support files.
+
+## `model.json`
+
+The manifest says which bytes; the record says what they are. Without it a
+published artifact can only be described in prose, and nothing can load it —
+which is exactly what happened to the two records deposited before this file
+existed, and why both needed a record reconstructed after the fact.
+
+A training run writes this file itself. For an artifact fitted before that was
+true, it can be written afterwards, and should then set
+`"record_origin": "reconstructed"` so a reader knows it is an assertion about
+the artifact rather than a transcript of the run that produced it.
+
+`role` says what the artifact is for:
+
+| Role | Meaning |
+| --- | --- |
+| `model` | answers a question; `load_model` serves it |
+| `feature_extractor` | supplies input to another model's features; `load_model` declines it, and says so |
+
+The second exists because the published metallicity checkpoint is deposited for
+the representation the k-distance feature contract embeds, not to classify
+anything. Marking it stops a consumer from asking it a question it has no
+threshold to answer.
+
+Publishing refuses a deposit with no `model.json`.
 
 ## `manifest.json`
 

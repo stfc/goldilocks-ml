@@ -18,6 +18,17 @@ The model has two distinct uses:
   hyperparameters and weights.
 - `atom_init.json`: atomic-number-to-feature-vector mapping used to construct
   the checkpoint's node features.
+- `model.json`: a machine-readable description of the two files above — their
+  checksums, the graph construction, the architecture, and what this artifact
+  supplies.
+
+`model.json` records this artifact's role as `feature_extractor` rather than
+`model`. It is deposited because the Goldilocks k-distance feature contract
+embeds its pooled representation; it carries no decision threshold, and the run
+that produced it recorded no held-out split on which one could have been
+chosen. Software that loads published Goldilocks models will decline to serve
+it as a classifier and say why. Use `extract_crystal_repr()` as described
+below.
 
 These files form one inference bundle. Replacing `atom_init.json` with a
 different embedding changes the model input and invalidates the checkpoint.

@@ -17,7 +17,12 @@ from data_collections_api.metadata import validate_metadata
 from goldilocks_ml.hashing import is_sha256, sha256_file
 
 PSDI_API = "https://data-collections.psdi.ac.uk/api"
-RESERVED_FILE_NAMES = frozenset({"README.md", "manifest.json", "metadata.json"})
+# Kept as a literal rather than imported from goldilocks_ml.inference so that
+# publishing stays independent of the serving side.
+MODEL_RECORD_FILE = "model.json"
+RESERVED_FILE_NAMES = frozenset(
+    {"README.md", "manifest.json", "metadata.json", MODEL_RECORD_FILE}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -154,6 +159,7 @@ def load_deposition(directory: Path, artifact_directory: Path) -> Deposition:
     manifest_path = directory / "manifest.json"
     metadata_path = directory / "metadata.json"
     readme_path = directory / "README.md"
+    record_path = directory / MODEL_RECORD_FILE
 
     manifest = _load_json(manifest_path)
     metadata = _load_json(metadata_path)
@@ -181,7 +187,19 @@ def load_deposition(directory: Path, artifact_directory: Path) -> Deposition:
 
     if not readme_path.is_file():
         raise FileNotFoundError(readme_path)
-    files = {"README.md": readme_path, "manifest.json": manifest_path}
+    # Without this a deposit is a file nobody can load: the digests, the
+    # feature contract, and the target contract exist only in prose. Both
+    # records published before it existed needed one reconstructed afterwards.
+    if not record_path.is_file():
+        raise FileNotFoundError(
+            f"{record_path} is missing; a deposit needs {MODEL_RECORD_FILE} so "
+            "the artifact can be loaded rather than only described"
+        )
+    files = {
+        "README.md": readme_path,
+        "manifest.json": manifest_path,
+        MODEL_RECORD_FILE: record_path,
+    }
     for artifact in artifacts:
         path = artifact_directory / artifact.name
         if not path.is_file():

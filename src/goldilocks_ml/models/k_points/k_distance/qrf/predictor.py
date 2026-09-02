@@ -68,9 +68,14 @@ class QRF95Predictor:
         # differs for a single row, and rejects unordered or non-finite values.
         raw = prediction_matrix(self.estimator, rows)
 
-        calibration = self.record["calibration"]
-        correction = float(calibration["correction"])
-        coverage = float(calibration["coverage"])
+        # A record may carry no calibration: the published artifact was fitted
+        # before this package recorded one, and the correction it was used with
+        # lives in a consumer rather than beside the weights. The median does
+        # not depend on it, so the point prediction stands; the interval is
+        # returned as the forest produced it, with no coverage claimed.
+        calibration = self.record.get("calibration")
+        correction = float(calibration["correction"]) if calibration else 0.0
+        coverage = float(calibration["coverage"]) if calibration else None
         target_contract = self.record["target"]["contract"]
         contract = contract_for(target_contract)
 
@@ -93,9 +98,19 @@ class QRF95Predictor:
                     details={
                         "interval": [lower, upper],
                         "coverage": coverage,
+                        "calibrated": calibration is not None,
                         "units": self.record["target"]["units"],
                     },
-                    warnings=self._warnings(upper - lower),
+                    warnings=self._warnings(upper - lower)
+                    + (
+                        ()
+                        if calibration
+                        else (
+                            f"{self.model_id} records no conformal calibration, "
+                            "so its interval carries no coverage guarantee. The "
+                            "median is unaffected.",
+                        )
+                    ),
                 )
             )
         for prediction in predictions:
@@ -104,7 +119,7 @@ class QRF95Predictor:
 
     def _warnings(self, width: float) -> tuple[str, ...]:
         """Flag an interval far wider than calibration led us to expect."""
-        expected = self.record["calibration"].get("mean_interval_width")
+        expected = (self.record.get("calibration") or {}).get("mean_interval_width")
         if expected is None or float(expected) <= 0:
             return ()
         if width <= WIDE_INTERVAL_FACTOR * float(expected):
@@ -147,17 +162,20 @@ def load(
             "the artifact was fitted on; upgrade goldilocks-ml to load it"
         )
 
-    calibration = record["calibration"]
-    if calibration.get("method") != CALIBRATION_METHOD:
-        raise ValueError(
-            f"this build applies {CALIBRATION_METHOD!r} calibration; the "
-            f"artifact records {calibration.get('method')!r}"
-        )
-    if calibration.get("endpoint_adjustment") != ENDPOINT_ADJUSTMENT:
-        raise ValueError(
-            f"this build applies the {ENDPOINT_ADJUSTMENT!r} endpoint rule; "
-            f"the artifact records {calibration.get('endpoint_adjustment')!r}"
-        )
+    # A record may omit calibration entirely; what it must not do is declare a
+    # correction fitted under a rule this build does not apply.
+    calibration = record.get("calibration")
+    if calibration is not None:
+        if calibration.get("method") != CALIBRATION_METHOD:
+            raise ValueError(
+                f"this build applies {CALIBRATION_METHOD!r} calibration; the "
+                f"artifact records {calibration.get('method')!r}"
+            )
+        if calibration.get("endpoint_adjustment") != ENDPOINT_ADJUSTMENT:
+            raise ValueError(
+                f"this build applies the {ENDPOINT_ADJUSTMENT!r} endpoint rule; "
+                f"the artifact records {calibration.get('endpoint_adjustment')!r}"
+            )
 
     missing = [
         name
