@@ -34,6 +34,13 @@ if TYPE_CHECKING:
     from goldilocks_ml.snapshot import Sample
 
 TRAINER = "cgcnn_classifier"
+# What an epoch is judged on. Cross entropy is the default. ROC-AUC is what the
+# Matbench CGCNN benchmark stopped on, and it does not move when the decision
+# threshold does, so a protocol that chooses a threshold afterwards can select
+# the epoch on it directly.
+VALIDATION_LOSS = "validation_loss"
+VALIDATION_ROC_AUC = "roc_auc"
+SELECTION_METRICS = frozenset({VALIDATION_LOSS, VALIDATION_ROC_AUC})
 RUNTIME = "metallicity.is_metal.cgcnn"
 RUNTIME_VERSION = 1
 RECORD_SCHEMA_VERSION = 1
@@ -185,12 +192,16 @@ def _parameters(protocol: TrainingProtocol) -> dict[str, Any]:
         "scheduler_factor": 0.5,
         "scheduler_patience": 3,
         "device": "auto",
+        "selection_metric": VALIDATION_LOSS,
         "architecture": {},
     }
     unknown = sorted(set(given) - set(known))
     if unknown:
         raise ValueError(f"unknown {TRAINER} parameter(s): {', '.join(unknown)}")
     settings = {**known, **given}
+    if settings["selection_metric"] not in SELECTION_METRICS:
+        allowed = ", ".join(sorted(SELECTION_METRICS))
+        raise ValueError(f"model.parameters.selection_metric must be one of: {allowed}")
     for name in ("epochs", "batch_size", "patience", "scheduler_patience"):
         value = settings[name]
         if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
@@ -232,17 +243,36 @@ def _epoch_loss(
     criterion: torch.nn.Module,
     batch_size: int,
     device: torch.device,
-) -> float:
-    """Return mean loss over a split without updating anything."""
+) -> tuple[float, list[float]]:
+    """Return mean loss and positive-class scores over a split.
+
+    Both come from one forward pass. Selecting on ROC-AUC would otherwise cost
+    a second pass over the validation split every epoch.
+    """
     model.eval()
     total = 0.0
+    scores: list[float] = []
     with torch.no_grad():
         for start in range(0, len(graphs), batch_size):
             window = list(graphs[start : start + batch_size])
             batch = Batch.from_data_list(window).to(device)
-            loss = criterion(model(batch), targets[start : start + batch_size])
+            logits = model(batch)
+            loss = criterion(logits, targets[start : start + batch_size])
             total += float(loss.detach()) * len(window)
-    return total / len(graphs)
+            scores.extend(
+                float(value) for value in torch.softmax(logits, dim=1)[:, 1].cpu()
+            )
+    return total / len(graphs), scores
+
+
+def _roc_auc(scores: Sequence[float], targets: torch.Tensor) -> float:
+    """Return ROC-AUC of the positive-class scores against binary targets."""
+    from sklearn.metrics import roc_auc_score
+
+    truth = targets.detach().cpu().numpy()
+    if len(set(truth.tolist())) < 2:
+        raise ValueError("validation split carries only one class")
+    return float(roc_auc_score(truth, scores))
 
 
 def fit(protocol: TrainingProtocol, context: TrainingContext) -> FittedModel:
@@ -291,7 +321,12 @@ def fit(protocol: TrainingProtocol, context: TrainingContext) -> FittedModel:
     batch_size = int(settings["batch_size"])
 
     order = torch.randperm(len(train_graphs), generator=_generator(protocol.model.seed))
-    best_loss = float("inf")
+    # What "improving" means. Cross entropy is the default; ROC-AUC is what the
+    # Matbench CGCNN benchmark stopped on, and it is the quantity a threshold is
+    # later chosen from, so a run can select on it directly. Negated, so that
+    # lower is better either way and one comparison serves both.
+    selection = str(settings["selection_metric"])
+    best_objective = float("inf")
     best_state: dict[str, torch.Tensor] = {}
     best_epoch = 0
     history: list[dict[str, float]] = []
@@ -314,20 +349,25 @@ def fit(protocol: TrainingProtocol, context: TrainingContext) -> FittedModel:
             optimiser.step()
             running += float(loss.detach()) * len(indices)
         train_loss = running / len(order)
-        validation_loss = _epoch_loss(
+        validation_loss, validation_scores = _epoch_loss(
             model, validation_graphs, validation_targets, criterion, batch_size, device
         )
-        scheduler.step(validation_loss)
+        validation_roc_auc = _roc_auc(validation_scores, validation_targets)
+        objective = (
+            validation_loss if selection == VALIDATION_LOSS else -validation_roc_auc
+        )
+        scheduler.step(objective)
         history.append(
             {
                 "epoch": epoch,
                 "train_loss": train_loss,
                 "validation_loss": validation_loss,
+                "validation_roc_auc": validation_roc_auc,
                 "learning_rate": optimiser.param_groups[0]["lr"],
             }
         )
-        if validation_loss < best_loss:
-            best_loss = validation_loss
+        if objective < best_objective:
+            best_objective = objective
             best_state = {
                 key: value.detach().cpu().clone()
                 for key, value in model.state_dict().items()
@@ -372,11 +412,14 @@ def fit(protocol: TrainingProtocol, context: TrainingContext) -> FittedModel:
                 "scheduler_factor",
                 "scheduler_patience",
                 "device",
+                "selection_metric",
             )
         },
         training={
             "selected_epoch": best_epoch,
-            "validation_loss": best_loss,
+            "selection_metric": selection,
+            "validation_loss": history[best_epoch - 1]["validation_loss"],
+            "validation_roc_auc": history[best_epoch - 1]["validation_roc_auc"],
             "epochs_run": len(history),
             "criterion": "cross_entropy",
             "optimiser": "adamw",

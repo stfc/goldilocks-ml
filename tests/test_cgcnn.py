@@ -187,6 +187,32 @@ def test_an_unknown_parameter_is_refused(tmp_path: Path) -> None:
         get_trainer(TRAINER)(protocol, empty_context())
 
 
+def test_an_unknown_selection_metric_is_refused(tmp_path: Path) -> None:
+    protocol = unpinned(tmp_path, selection_metric="f1")
+
+    with pytest.raises(ValueError, match="selection_metric must be one of"):
+        get_trainer(TRAINER)(protocol, empty_context())
+
+
+def test_roc_auc_ranks_rather_than_thresholds() -> None:
+    """The selection metric does not move when a decision threshold does."""
+    from goldilocks_ml.models.metallicity.is_metal.cgcnn.trainer import _roc_auc
+
+    targets = torch.tensor([0, 0, 1, 1])
+
+    assert _roc_auc([0.1, 0.2, 0.3, 0.4], targets) == pytest.approx(1.0)
+    # Every score shifted below any plausible threshold; the ranking is the same.
+    assert _roc_auc([0.01, 0.02, 0.03, 0.04], targets) == pytest.approx(1.0)
+    assert _roc_auc([0.4, 0.3, 0.2, 0.1], targets) == pytest.approx(0.0)
+
+
+def test_roc_auc_needs_both_classes() -> None:
+    from goldilocks_ml.models.metallicity.is_metal.cgcnn.trainer import _roc_auc
+
+    with pytest.raises(ValueError, match="only one class"):
+        _roc_auc([0.1, 0.2], torch.tensor([1, 1]))
+
+
 def test_an_unknown_device_is_refused(tmp_path: Path) -> None:
     """Configuration is checked before data, so this fails without a split."""
     protocol = unpinned(tmp_path, device="tpu")
