@@ -1,5 +1,9 @@
 # goldilocks-ml
 
+[![Build Status][ci-badge]][ci-link]
+[![Docs status][docs-badge]][docs-link]
+[![License][license-badge]][license-link]
+
 Offline model development, evaluation, and artifact publication for Goldilocks.
 
 The repository owns model release provenance: model cards, PSDI metadata,
@@ -89,3 +93,10 @@ Two modules under `src/goldilocks_ml/models/` are adapted from
 `stfc/goldilocks_kpoints`, which is CC BY 4.0, and carry attribution in their
 headers. CC BY 4.0 permits adapted material under other terms provided
 attribution is kept, so they are redistributed under the licence above.
+
+[ci-badge]: https://github.com/stfc/goldilocks-ml/actions/workflows/ci.yml/badge.svg?branch=main
+[ci-link]: https://github.com/stfc/goldilocks-ml/actions
+[docs-badge]: https://img.shields.io/github/actions/workflow/status/stfc/goldilocks-ml/docs.yml?branch=main&label=docs
+[docs-link]: https://stfc.github.io/goldilocks-ml/
+[license-badge]: https://img.shields.io/badge/License-BSD_3--Clause-blue.svg
+[license-link]: https://opensource.org/licenses/BSD-3-Clause
