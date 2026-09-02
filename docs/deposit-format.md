@@ -121,7 +121,17 @@ At minimum, check these fields for every release:
 | `metadata.publisher` | Publication service, currently `PSDI` |
 | `metadata.publication_date` | Date associated with this artifact release |
 | `metadata.version` | Human-readable model release version |
-| `custom_fields.dsmd` | Model family, target, feature contract, and runtime facts |
+| `custom_fields.dsmd` | Leave empty — see below |
+
+`custom_fields.dsmd` is a list of domain-specific metadata objects, and PSDI
+only stores keys it has registered. Anything else is dropped when the record is
+saved, with no error and a 200 response. Our keys were never registered, so the
+block has never reached a record — the published QRF95 record shows
+`custom_fields: {}` — which is why deposits now send an empty list instead of a
+block that looks stored and is not.
+
+The schema still requires the key, so write it as `{"dsmd": []}` rather than
+omitting it.
 
 Creators and contributors serve different purposes. PSDI constructs the
 citation from `creators`; do not add every project member there unless that is

@@ -8,20 +8,7 @@
     "default_preview": "README.md"
   },
   "custom_fields": {
-    "dsmd": [
-      {
-        "model_family": "crystal graph convolutional neural network",
-        "target": "is_metal",
-        "feature_contract": "cgcnn_radius10_neighbors12_atom_init",
-        "training_dataset": "Materials Project, October 2025 snapshot",
-        "pytorch_lightning_version": "2.5.2",
-        "label_0": "insulator",
-        "label_1": "metal",
-        "role": "feature extractor",
-        "supplies": "64-dimensional pooled crystal representation",
-        "consumed_by": "comp_struct_soap_lattice_metal.v1"
-      }
-    ]
+    "dsmd": []
   },
   "metadata": {
     "title": "Goldilocks CGCNN crystal representation",

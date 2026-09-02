@@ -8,21 +8,7 @@
     "default_preview": "README.md"
   },
   "custom_fields": {
-    "dsmd": [
-      {
-        "model_family": "crystal graph convolutional neural network",
-        "target": "is_metal",
-        "target_contract": "goldilocks.is_metal.dft_band_gap_zero.v1",
-        "feature_contract": "crystal_graph.v1",
-        "training_dataset": "Matbench mp_is_metal (106113 Materials Project structures)",
-        "decision_threshold": "0.0657, chosen under a 0.97 recall floor",
-        "test_mcc": "0.569",
-        "test_recall": "0.972",
-        "pytorch_version": "2.13.0",
-        "label_0": "insulator",
-        "label_1": "metal"
-      }
-    ]
+    "dsmd": []
   },
   "metadata": {
     "title": "Goldilocks CGCNN metallicity classifier (Matbench mp_is_metal)",
