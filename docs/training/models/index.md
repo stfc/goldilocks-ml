@@ -50,10 +50,16 @@ name that repeats itself.
 
 | Setting | Kind | Quantity | Family | Status |
 | --- | --- | --- | --- | --- |
-| [k-point mesh](k_points/index.md) | input | `k_distance` | QRF | **Core default** |
-| [Metallicity](metallicity/index.md) | property | `is_metal` | CGCNN | trained |
+| [k-point mesh](k_points/index.md) | input | `k_distance` | QRF | published, **Core default** |
+| [Metallicity](metallicity/index.md) | property | `is_metal` | CGCNN | trained, ready to deposit |
 | [Magnetism](magnetism/index.md) | input | — | — | planned |
 | [Hubbard U](hubbard_u/index.md) | input | — | — | planned |
+
+One published artifact is not in this table: the CGCNN whose pooled
+representation the k-distance feature vector embeds. It advises no setting and
+answers no question of its own, so it is filed apart, under
+`deposits/representation/`, and its record says
+`role: feature_extractor`.
 
 **Input** settings are written into a DFT input file. **Property** settings are
 facts about the material that inform several inputs at once.

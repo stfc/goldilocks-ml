@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "community": "data-to-knowledge",
+  "artifacts": [
+    {
+      "name": "is_metal.pt",
+      "size_bytes": 501981,
+      "sha256": "68e03802630f0be991987ddfd79fe1254f8ff70f9d6a3b6c6154ee99d71a8f7d"
+    }
+  ],
+  "inference_requirements": {
+    "artifact_format": "torch state dict with its architecture",
+    "feature_contract": "crystal_graph.v1",
+    "target": "is_metal",
+    "target_contract": "goldilocks.is_metal.dft_band_gap_zero.v1",
+    "decision_threshold": 0.06568002700805664,
+    "requires": [
+      "atom_init.json from PSDI record ptc95-vbq12"
+    ],
+    "torch": "2.13.0",
+    "torch_geometric": "2.8.0.post1"
+  }
+}

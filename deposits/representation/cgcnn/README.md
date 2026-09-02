@@ -1,16 +1,24 @@
-# Goldilocks CGCNN metallicity model
+# Goldilocks CGCNN crystal representation
 
-This checkpoint contains a crystal graph convolutional neural network trained
-as a binary Materials Project `is_metal` classifier. Class 0 denotes an
-insulator and class 1 denotes a metal.
+This checkpoint contains a crystal graph convolutional neural network trained as
+a binary Materials Project `is_metal` classifier. Class 0 denotes an insulator
+and class 1 denotes a metal.
 
-The model has two distinct uses:
+It is published for the representation rather than the class.
+`extract_crystal_repr()` returns the pooled crystal representation from before
+the classification head, and Goldilocks passes that — not the predicted class —
+to the QRF k-distance model as one block of its input features.
 
-1. As a classifier, its final layer produces the two-class metallicity output.
-2. In the Goldilocks k-point workflow, `extract_crystal_repr()` returns the
-   learned crystal representation before the classification head. Goldilocks
-   passes this representation, not the predicted class, to the QRF k-distance
-   model as one block of its input features.
+**It is not published as a usable classifier.** Its final layer does produce a
+two-class output, but this record carries no decision threshold and describes no
+held-out split against which one could have been chosen. Nothing here states at
+what score a structure should be called metallic, or how often that answer would
+be right. `model.json` records the role as `feature_extractor`, and Goldilocks
+software declines to serve it as a model, naming the reason.
+
+For metallicity prediction, use the Goldilocks CGCNN metallicity classifier
+trained on Matbench `mp_is_metal`, which states its threshold, the rule that
+chose it, and its measured accuracy.
 
 ## Files
 

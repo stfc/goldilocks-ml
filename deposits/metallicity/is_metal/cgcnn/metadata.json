@@ -12,20 +12,21 @@
       {
         "model_family": "crystal graph convolutional neural network",
         "target": "is_metal",
-        "feature_contract": "cgcnn_radius10_neighbors12_atom_init",
-        "training_dataset": "Materials Project, October 2025 snapshot",
-        "pytorch_lightning_version": "2.5.2",
+        "target_contract": "goldilocks.is_metal.dft_band_gap_zero.v1",
+        "feature_contract": "crystal_graph.v1",
+        "training_dataset": "Matbench mp_is_metal (106113 Materials Project structures)",
+        "decision_threshold": "0.0657, chosen under a 0.97 recall floor",
+        "test_mcc": "0.569",
+        "test_recall": "0.972",
+        "pytorch_version": "2.13.0",
         "label_0": "insulator",
-        "label_1": "metal",
-        "role": "feature extractor",
-        "supplies": "64-dimensional pooled crystal representation",
-        "consumed_by": "comp_struct_soap_lattice_metal.v1"
+        "label_1": "metal"
       }
     ]
   },
   "metadata": {
-    "title": "Goldilocks CGCNN crystal representation",
-    "description": "<p>A crystal graph convolutional neural network published for the learned representation it produces, not for the class it predicts. Goldilocks embeds its pooled 64-dimensional crystal representation, taken before the classification head, as one block of the k-distance model's input vector.</p><p>The network was trained against Materials Project <code>is_metal</code> labels from an autumn 2025 snapshot after removal of structural duplicates. Class 0 denotes insulator and class 1 denotes metal.</p><p><strong>It is not published as a usable metallicity classifier.</strong> It carries no decision threshold, and the surviving record describes no held-out split against which one could be chosen, so nothing here says at what score a structure should be called metallic or how often the answer would be right. <code>model.json</code> records its role as <code>feature_extractor</code>, and Goldilocks software declines to serve it as a model. For metallicity prediction with a stated threshold and measured accuracy, use the Goldilocks CGCNN metallicity classifier trained on Matbench <code>mp_is_metal</code>.</p><p>The record contains the checkpoint, its atomic embedding table, and <code>model.json</code> describing the graph construction, the architecture, and the digests of both files. That record was written after the fact rather than by the run that fitted the network, and says so.</p>",
+    "title": "Goldilocks CGCNN metallicity classifier (Matbench mp_is_metal)",
+    "description": "<p>A crystal graph convolutional neural network that predicts whether a periodic material has a zero DFT band gap. Goldilocks uses metallicity to decide how densely reciprocal space must be sampled and whether smearing applies.</p><p>Trained on the Matbench <code>mp_is_metal</code> task: 106113 Materials Project structures, split 70/10/10/10 by reduced composition so that polymorphs of one composition cannot straddle the split, and stratified by label. On the 10625-structure test split it reaches 0.748 accuracy, 0.569 Matthews correlation and 0.950 ROC-AUC, against 0.544 accuracy and 0.000 MCC for a majority-class baseline.</p><p>The decision threshold is 0.0657, not 0.5. It is chosen on the validation split subject to a floor of 0.97 recall, because missing a metal understates the mesh a calculation needs and produces a wrong answer that does not look wrong, while an unnecessary dense mesh only costs compute. Test recall is 0.972 and test precision 0.649: roughly a third of what this model calls metallic is not, and that is a deliberate trade.</p><p>The record contains the weights and <code>model.json</code>, which records the architecture, the feature contract, the target contract, the threshold and the rule that chose it, the digests, and the atomic embedding table it requires from record ptc95-vbq12. It was written by the run that fitted the model.</p>",
     "creators": [
       {
         "affiliations": [
@@ -178,10 +179,12 @@
       },
       {
         "subject": "Graph neural networks"
+      },
+      {
+        "subject": "Density functional theory"
       }
     ],
     "publisher": "PSDI",
-    "publication_date": "2026-07-07",
-    "version": "v2.0"
+    "version": "v1.0"
   }
 }

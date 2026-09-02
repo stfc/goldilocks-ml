@@ -473,7 +473,8 @@ def test_every_shipped_deposit_record_agrees_with_its_manifest(deposit: Path) ->
     manifest = json.loads((deposit / "manifest.json").read_text())
 
     assert record["record_schema_version"] == 1
-    assert record["role"] in {"model", "feature_extractor"}
+    # Absent means "model", the same default the loader applies.
+    assert record.get("role", "model") in {"model", "feature_extractor"}
 
     # Every digest the record pins must be one the manifest publishes, or the
     # record describes a file the deposit does not contain.
