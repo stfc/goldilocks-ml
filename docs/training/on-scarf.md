@@ -55,19 +55,51 @@ That pulls torch and torch-geometric. On a login node with no outbound access,
 run it on a compute node instead, or point `UV_CACHE_DIR` at a cache you
 populated beforehand.
 
-## Submitting
+## The job script
 
-[`scripts/scarf-train.sbatch`](https://github.com/stfc/goldilocks-ml/blob/main/scripts/scarf-train.sbatch)
-is the job script. Two lines in it are marked `CHANGE_ME` — the partition, and
-an account code if your project needs one. `sinfo -s` lists the partitions.
+A batch script belongs to the machine it runs on, not to this package — the
+partition names, account codes and queue limits are site-specific and would go
+stale here. Write your own; this one is a starting point.
 
 ```bash
-sbatch scripts/scarf-train.sbatch
-squeue -u "$USER"
+#!/bin/bash
+#SBATCH --job-name=goldilocks-cgcnn
+#SBATCH --output=%x-%j.out
+#SBATCH --error=%x-%j.out
+#SBATCH --time=24:00:00
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=64G
+#SBATCH --gres=gpu:1
+#SBATCH --partition=<your GPU partition>     # sinfo -s lists them
+
+set -euo pipefail
+
+cd "$HOME/goldilocks-ml"
+export PATH="$HOME/.local/bin:$PATH"
+
+PROTOCOL=protocols/metallicity/is_metal/cgcnn/matbench_mp_is_metal.v2.toml
+
+nvidia-smi || echo "no GPU visible -- this falls back to CPU and takes days"
+uv sync --frozen --extra models
+
+# Validate before asking for anything expensive: the protocol pins the
+# snapshot's manifest digest, and a mismatch should cost seconds, not the
+# queue wait plus the run.
+uv run --frozen goldilocks-ml train validate "$PROTOCOL" \
+  --dataset local_data/snapshots/mp-is-metal \
+  --artifact-directory local_data/artifacts
+
+uv run --frozen goldilocks-ml train run "$PROTOCOL" \
+  --dataset local_data/snapshots/mp-is-metal \
+  --artifact-directory local_data/artifacts \
+  --output "local_runs/cgcnn-$SLURM_JOB_ID"
 ```
 
-It validates the protocol against the snapshot before asking for the GPU, so a
-bad pin fails in seconds rather than after the queue wait.
+```bash
+sbatch train.sbatch
+squeue -u "$USER"
+```
 
 ## Getting the result back
 
