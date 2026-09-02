@@ -55,6 +55,7 @@ nav:
       - Prepare your data: training/your-data.md
       - Configuration reference: training/protocol.md
       - What a run produces: training/run-bundle.md
+      - Training on SCARF: training/on-scarf.md
       - Models:
           - Overview: training/models/index.md
           - k-point mesh:
