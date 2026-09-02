@@ -608,3 +608,26 @@ def test_committed_protocols_run_against_the_committed_fixtures(
 
 def test_make_rows_is_the_only_fixture_generator() -> None:
     assert len(make_rows()) == 24
+
+
+def test_a_snapshot_may_declare_that_it_has_no_structures(tmp_path: Path) -> None:
+    directory = tmp_path / "tabular"
+    directory.mkdir()
+    (directory / "id_prop.csv").write_text("s1,0.1,g1\ns2,0.2,g2\n", encoding="utf-8")
+    (directory / "features.csv").write_text(
+        "sample_id,x1\ns1,0.5\ns2,0.7\n", encoding="utf-8"
+    )
+
+    result = seal(
+        directory,
+        record_id="tabular",
+        snapshot_version="v1",
+        structure_suffix=None,
+        target_name="value",
+        target_contract="my-project.value.v1",
+        target_definition="A number.",
+        target_units=None,
+    )
+
+    assert result["manifest"]["structure_suffix"] is None
+    assert result["manifest"]["features_file"] == "features.csv"
