@@ -28,3 +28,7 @@ outputs/
 
 # Training run bundles
 local_runs/
+
+# Files a notebook downloads or writes while it runs, and the docs build cache
+docs/notebooks/goldilocks-*/
+.cache/
