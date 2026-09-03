@@ -54,12 +54,15 @@ submitted for review without you looking at it first.
 | --- | --- | --- |
 | [QRF95](training/models/k_points/k_distance-qrf.md) | how dense a k-point mesh needs to be | [q3bye-wep37](https://data-collections.psdi.ac.uk/records/q3bye-wep37) |
 | [CGCNN representation](training/models/metallicity/representation-cgcnn.md) | 64 numbers describing a crystal | [m742g-g0k14](https://data-collections.psdi.ac.uk/records/m742g-g0k14) |
+| [CGCNN metallicity classifier](training/models/metallicity/is_metal-cgcnn.md) | metal or insulator, with a threshold chosen for the cost of being wrong | [ba06w-n6a68](https://data-collections.psdi.ac.uk/records/ba06w-n6a68) |
 
-Both were reviewed and accepted by the PSDI Data to Knowledge community, and
-both are now **historical**: their latest versions are the last, and neither is
-developed here any more. They are kept loadable and citable. Their deposit
-definitions are in `deposits/`, and are the examples to copy when you publish
-your own.
+QRF95 and the CGCNN representation were reviewed and accepted by the PSDI Data
+to Knowledge community, and are now **historical**: their latest versions are
+the last, and neither is developed here any more. The metallicity classifier is
+not — it is trained in this repository from a versioned protocol
+(`matbench_mp_is_metal.v2`, currently), and expected to be retrained and
+republished as the recipe improves. Every deposit definition is in `deposits/`,
+and is the example to copy when you publish your own.
 
 ## Where to go
 

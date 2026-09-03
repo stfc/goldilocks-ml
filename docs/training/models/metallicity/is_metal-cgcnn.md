@@ -2,13 +2,13 @@
 
 | | |
 | --- | --- |
-| Release | `metallicity.is_metal.cgcnn.matbench_mp_is_metal.v1` |
+| Release | `metallicity.is_metal.cgcnn.matbench_mp_is_metal.v2` |
 | Runtime | `metallicity.is_metal.cgcnn` |
 | Target contract | `goldilocks.is_metal.dft_band_gap_zero.v1` |
 | Dataset | `matbench_mp_is_metal`, 106113 structures |
 | Served by | `load_model`, returning a boolean |
 | Notebook | [run it yourself](../../../notebooks/metallicity-cgcnn.ipynb) |
-| Deposit | `deposits/metallicity/is_metal/cgcnn/`, prepared |
+| Record | [ba06w-n6a68](https://data-collections.psdi.ac.uk/records/ba06w-n6a68) |
 
 This model answers one question: **does DFT give this crystal a zero band gap?**
 If it does, we call the crystal a metal.
@@ -22,9 +22,10 @@ the first things Core works out about a structure.
 1. **It catches 97.2% of metals**, and to do that it calls about a third of its
    metals wrongly. That trade is deliberate — see [where the line is
    drawn](#where-the-line-is-drawn).
-2. **The threshold is 0.066, not 0.5.** A score of 0.2 means metal here.
-3. **Two runs with the same seed give different files** but the same
-   measured numbers, to three decimals.
+2. **The threshold is 0.048, not 0.5.** A score of 0.1 means metal here.
+3. **Two runs with the same seed give different files.** The v1 recipe was run
+   four times and every measured number agreed to three decimals; v2 has run
+   once so far.
 
 ## Why there are two metallicity networks
 
@@ -132,20 +133,21 @@ entropy, no class weighting.
 
 ```toml
 [model.parameters]
-epochs = 100
+epochs = 300
 batch_size = 128
 learning_rate = 0.001
 weight_decay = 0.0001
-patience = 8
+patience = 40
+selection_metric = "roc_auc"
 scheduler_factor = 0.5
-scheduler_patience = 3
+scheduler_patience = 10
 ```
 
-We changed two of its settings.
+We changed three of its settings.
 
 **OneCycle became a plateau schedule.** OneCycle has to know its total number
 of steps before the first batch, which rules out stopping when the validation
-loss flattens. Halving the learning rate on a plateau gets to the same place
+metric flattens. Halving the learning rate on a plateau gets to the same place
 without fixing an epoch count up front.
 
 **Stochastic weight averaging is gone.** The published run set it to start at
@@ -154,9 +156,21 @@ genuine improvement and worth adding later, but it needs a batch-norm update
 pass over the training set, and that belongs in a change we can measure on its
 own.
 
-Training stops when the validation loss has not improved for eight epochs, and
-restores the weights from the best epoch. It never looks at the calibration or
-test splits.
+**Early stopping now watches validation ROC-AUC, not validation loss, and waits
+far longer before giving up (v2).** The first release (v1) stopped on loss with
+a patience of eight epochs, reached epoch 32, and scored 0.890 balanced
+accuracy at its best threshold — well short of the 0.952 the Matbench CGCNN
+entry reports on the same task. ROC-AUC is the ranking metric this model is
+actually judged on, and it can keep improving for a while after cross-entropy
+loss stops falling, so v2 selects on it directly and gives training up to 40
+epochs to prove there is no more of that improvement left. Training stops when
+the selection metric has not improved for that many epochs, and restores the
+weights from the best epoch. It never looks at the calibration or test splits.
+
+That change bought less than it cost: v2 restored its best epoch at 30, only six
+past where v1 would have already stopped, and the epochs after that were
+overfitting — training loss kept falling while validation loss rose. See
+[Results](#results) for what actually moved.
 
 `device` takes `cpu`, `mps`, or `cuda`, and defaults to `auto`, which uses an
 accelerator if there is one. The record states which device actually did the
@@ -205,7 +219,7 @@ That reads: *of all the thresholds that miss no more than 3% of metals, take
 the one with the best MCC.*
 
 The floor is the part that belongs on the model card — retrain the model and it
-still applies. The threshold it produces, 0.066, belongs to these weights only.
+still applies. The threshold it produces, 0.048, belongs to these weights only.
 [Choosing a decision threshold](../../protocol.md#choosing-a-decision-threshold)
 covers the mechanism.
 
@@ -221,55 +235,56 @@ steeply. Measured on validation:
 
 | Recall floor | Threshold | Precision | MCC | Metals missed | False alarms |
 | ---: | ---: | ---: | ---: | ---: | ---: |
-| unconstrained (MCC) | 0.477 | 0.904 | 0.794 | 649 | 420 |
-| 0.95 | 0.133 | 0.745 | 0.699 | 229 | 1492 |
-| **0.97** | **0.066** | **0.666** | **0.616** | **137** | **2227** |
-| 0.99 | 0.023 | 0.554 | 0.453 | 45 | 3655 |
+| unconstrained (MCC) | 0.486 | 0.901 | 0.796 | 674 | 431 |
+| 0.95 | 0.111 | 0.755 | 0.706 | 228 | 1414 |
+| **0.97** | **0.048** | **0.669** | **0.619** | **137** | **2204** |
+| 0.99 | 0.015 | 0.555 | 0.454 | 45 | 3639 |
 
 That is over 10603 validation samples, 4585 of them metals. Going from the
-unconstrained threshold to 0.95 rescues 420 metals and costs 1072 extra false
-alarms. Going from 0.97 to 0.99 rescues only 92 more and costs 1428. The useful
+unconstrained threshold to 0.95 rescues 446 metals and costs 983 extra false
+alarms. Going from 0.97 to 0.99 rescues only 92 more and costs 1435. The useful
 range runs out before 0.99, where 77% of all structures would get a dense mesh
 anyway — against the 100% you would get by not classifying at all.
 
 **Why 0.97 and not 0.95?** Margin. A floor is honoured on validation, and
-validation is only a sample. The 0.95 threshold delivers 0.9455 recall on test,
-which is below its own floor. The 0.97 threshold delivers 0.9721, which keeps
+validation is only a sample. The 0.95 threshold delivers 0.9498 recall on test,
+which is below its own floor. The 0.97 threshold delivers 0.9717, which keeps
 0.95 as well.
 
 ## Running it
 
 ```bash
-uv run goldilocks-ml train validate protocols/metallicity/is_metal/cgcnn/matbench_mp_is_metal.v1.toml \
+uv run goldilocks-ml train validate protocols/metallicity/is_metal/cgcnn/matbench_mp_is_metal.v2.toml \
   --dataset local_data/snapshots/mp-is-metal \
   --artifact-directory local_data/artifacts
 
-uv run goldilocks-ml train run protocols/metallicity/is_metal/cgcnn/matbench_mp_is_metal.v1.toml \
+uv run goldilocks-ml train run protocols/metallicity/is_metal/cgcnn/matbench_mp_is_metal.v2.toml \
   --dataset local_data/snapshots/mp-is-metal \
   --artifact-directory local_data/artifacts \
-  --output local_runs/cgcnn-v1
+  --output local_runs/cgcnn-v2
 ```
 
 ## Results
 
-A full run over the sealed snapshot takes about 54 minutes on an Apple M-series
-GPU. It stops at epoch 32 and restores the weights from epoch 24. These are the
-numbers from the release run,
-`metallicity.is_metal.cgcnn.matbench_mp_is_metal.v1`.
+A full run over the sealed snapshot needs a GPU to finish inside a working
+session — the release run took about two hours on SCARF. It ran 70 epochs and
+restored the weights from epoch 30, where validation ROC-AUC peaked at 0.9548.
+These are the numbers from the release run,
+`metallicity.is_metal.cgcnn.matbench_mp_is_metal.v2`.
 
 | Split | Accuracy | Balanced | Precision | Recall | F1 | MCC | ROC-AUC | PR-AUC |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| Validation | 0.777 | 0.800 | 0.666 | 0.970 | 0.790 | 0.616 | 0.955 | 0.946 |
-| Calibration | 0.778 | 0.803 | 0.665 | 0.975 | 0.790 | 0.621 | 0.957 | 0.947 |
-| **Test** | **0.748** | **0.766** | 0.649 | **0.972** | 0.778 | **0.569** | **0.950** | **0.947** |
+| Validation | 0.779 | 0.802 | 0.669 | 0.970 | 0.792 | 0.619 | 0.955 | 0.947 |
+| Calibration | 0.786 | 0.810 | 0.672 | 0.976 | 0.796 | 0.632 | 0.959 | 0.950 |
+| **Test** | **0.748** | **0.766** | 0.649 | **0.972** | 0.778 | **0.569** | **0.951** | **0.949** |
 | Test baseline | 0.544 | 0.500 | 0 | 0 | 0 | 0.000 | 0.500 | 0.274 |
 
 The baseline always predicts the majority class, so it never finds a metal at
 all.
 
 **Read ROC-AUC and PR-AUC first.** Neither depends on the threshold, so they
-measure how well the model *ranks* structures by metallicity. At 0.950 and
-0.947 on test, that ranking is strong.
+measure how well the model *ranks* structures by metallicity. At 0.951 and
+0.949 on test, that ranking is strong.
 
 Accuracy and MCC look lower than they could be, and that is expected: the
 threshold is deliberately not where they peak. The recall floor moved it, and
@@ -278,6 +293,16 @@ the table above records exactly what that cost.
 Recall on test is 0.972, against a floor of 0.97 that was chosen on validation.
 The promise holds on a split it was not chosen on.
 
+**What the longer patience actually bought.** Against the v1 release — same
+data, same split, same architecture, stopped on loss with patience 8 — every
+number above moved by at most 0.002, an amount three other v1 runs also show
+between themselves as ordinary training noise. The one figure this change was
+aimed at, ROC-AUC, went from 0.9498 to 0.9508. Reaching 0.952 needs a different
+lever than early stopping; the leading candidate is the composition-grouped
+split, kept deliberately harder than Matbench's random one, and untangling that
+from the rest of the recipe is an open, unpublished diagnostic rather than a
+settled result.
+
 ## Will I get the same file twice?
 
 **No.** This trainer is not deterministic, and `model.json` says so. The seed is
@@ -285,13 +310,15 @@ fixed; what varies is the order a GPU adds numbers in. That changes the last few
 digits, and the difference compounds over training. [What a run
 produces](../../run-bundle.md#do-i-get-the-same-file) explains the general case.
 
-Measured here: two runs with the same seed and the same splits produced weight
-files with different checksums. Out of 106113 scores, 4% were bit-identical, the
-average difference was 4e-6, the largest was 8e-4, and exactly one structure
-crossed the threshold. **Every metric in the table above was unchanged to three
-decimal places.**
+Measured on the v1 recipe: two runs with the same seed and the same splits
+produced weight files with different checksums. Out of 106113 scores, 4% were
+bit-identical, the average difference was 4e-6, the largest was 8e-4, and
+exactly one structure crossed the threshold. **Every metric agreed to three
+decimal places, across four separate v1 runs.**
 
-So the model reproduces; the file does not.
+So the model reproduces; the file does not. v2 has been run once, so this has
+not yet been checked for it directly — nothing about the change makes it
+likely to behave differently, but that is an expectation, not a measurement.
 
 **The split does reproduce exactly.** The second run worked out its own
 assignment from the seed rather than copying the first run's `splits.csv`, and

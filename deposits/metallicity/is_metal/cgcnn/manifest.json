@@ -5,7 +5,7 @@
     {
       "name": "is_metal.pt",
       "size_bytes": 501981,
-      "sha256": "68e03802630f0be991987ddfd79fe1254f8ff70f9d6a3b6c6154ee99d71a8f7d"
+      "sha256": "12881ca00cbd3444cadd7757e0f0ffe362447fa37f32ff84c5f4661f3fcf8284"
     },
     {
       "name": "atom_init.json",
@@ -18,9 +18,9 @@
     "feature_contract": "crystal_graph.v1",
     "target": "is_metal",
     "target_contract": "goldilocks.is_metal.dft_band_gap_zero.v1",
-    "decision_threshold": 0.06568002700805664,
+    "decision_threshold": 0.04782969690859318,
     "requires": [
-      "atom_init.json, included in this record (the same file as PSDI record ptc95-vbq12)"
+      "atom_init.json, included in this record (the same file as PSDI record m742g-g0k14)"
     ],
     "torch": "2.13.0",
     "torch_geometric": "2.8.0.post1"

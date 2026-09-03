@@ -17,6 +17,7 @@ logic do not belong in Git.
 | --- | --- |
 | QRF95 k-mesh recommendation model | [q3bye-wep37](https://data-collections.psdi.ac.uk/records/q3bye-wep37) |
 | CGCNN crystal representation | [m742g-g0k14](https://data-collections.psdi.ac.uk/records/m742g-g0k14) |
+| CGCNN metallicity classifier | [ba06w-n6a68](https://data-collections.psdi.ac.uk/records/ba06w-n6a68) |
 
 ## Training protocol CLI
 
@@ -34,9 +35,9 @@ uv run goldilocks-ml train run protocols/synthetic/regression.toml \
 `run` writes a bundle recording the resolved protocol, dataset identity, split
 manifest, environment, metrics, predictions, model, and a SHA-256 for every
 file. The shipped linear and logistic trainers are deliberately lightweight
-reference implementations. The QRF95-compatible trainer and 483-column feature
-contract are available through the optional `models` dependency set; CGCNN
-training is not implemented yet.
+reference implementations. The QRF95-compatible trainer, the 483-column feature
+contract, and a CGCNN classifier trainer are available through the optional
+`models` dependency set.
 
 The data layout, split rules, and reproducibility limits are in the
 [training guide](https://stfc.github.io/goldilocks-ml/training/).
