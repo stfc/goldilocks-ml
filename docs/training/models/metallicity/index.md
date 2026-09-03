@@ -23,7 +23,12 @@ There are two published CGCNNs here, and only one of them answers anything.
 
 The second supplies one block of the k-distance model's feature vector and
 answers no question of its own. [Its page](representation-cgcnn.md) explains
-what that means and why it cannot be served as a classifier.
+what that means, why it cannot be served as a classifier, and which
+[paper](representation-cgcnn.md#where-it-comes-from) trained it.
+
+The two are not two attempts at one task, and their numbers do not belong side
+by side: they were fitted on different datasets, under different splits, for
+different purposes.
 
 !!! note "Core's side"
 
