@@ -28,7 +28,7 @@ the first things Core works out about a structure.
 
 ## Why there are two metallicity networks
 
-PSDI record `ptc95-vbq12` already holds a metallicity CGCNN, and this repository
+PSDI record `m742g-g0k14` already holds a metallicity CGCNN, and this repository
 uses it — but only for the representation it learned, not for its predictions.
 That code lives in `models/k_points/k_distance/qrf/embedding.py`, next to the
 QRF95 feature contract that consumes it, and stays there. It is pinned there by

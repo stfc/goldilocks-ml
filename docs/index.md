@@ -52,8 +52,8 @@ submitted for review without you looking at it first.
 
 | Model | What it gives you | Record |
 | --- | --- | --- |
-| [QRF95](training/models/k_points/k_distance-qrf.md) | how dense a k-point mesh needs to be | [fex36-67b11](https://data-collections.psdi.ac.uk/records/fex36-67b11) |
-| [CGCNN representation](training/models/metallicity/representation-cgcnn.md) | 64 numbers describing a crystal | [ptc95-vbq12](https://data-collections.psdi.ac.uk/records/ptc95-vbq12) |
+| [QRF95](training/models/k_points/k_distance-qrf.md) | how dense a k-point mesh needs to be | [q3bye-wep37](https://data-collections.psdi.ac.uk/records/q3bye-wep37) |
+| [CGCNN representation](training/models/metallicity/representation-cgcnn.md) | 64 numbers describing a crystal | [m742g-g0k14](https://data-collections.psdi.ac.uk/records/m742g-g0k14) |
 
 Both were reviewed and accepted by the PSDI Data to Knowledge community, and
 both are now **historical**: their latest versions are the last, and neither is
