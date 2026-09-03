@@ -13,6 +13,10 @@ predict a mesh; it predicts one quantity on that ladder and Core finds the rung.
 | `k_line_density` | k-points per unit reciprocal length | none |
 | `k_pra` | k-points per reciprocal atom | none |
 
+QRF95 was fitted for a published study rather than in this repository, so it
+carries a [citation](k_distance-qrf.md#where-it-comes-from) — dataset,
+reference calculations and training code — in place of results measured here.
+
 !!! note "Core's side"
 
     Core owns the ladder and the conversion onto it, and nothing else. Feature
