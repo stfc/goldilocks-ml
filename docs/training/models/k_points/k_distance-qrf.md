@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| Record | [fex36-67b11](https://data-collections.psdi.ac.uk/records/fex36-67b11), v2.0 |
+| Record | [q3bye-wep37](https://data-collections.psdi.ac.uk/records/q3bye-wep37), v2.0 |
 | Status | **historical — no longer developed here** |
 | Predicts | `k_distance`, in Å⁻¹ |
 | Target contract | `goldilocks.k_distance.mesh_lower_bound.2pi.v1` |
@@ -69,7 +69,7 @@ cited as the paper's result and appear in no results table on this site.
 ## What the record holds
 
 ```text
-fex36-67b11  v2.0
+q3bye-wep37  v2.0
 ├── QRF95.pkl        the fitted forest
 ├── is_metal.ckpt    the metallicity network whose learned representation
 ├── atom_init.json     makes up 64 of the 483 input columns
@@ -80,7 +80,7 @@ fex36-67b11  v2.0
 
 v2.0 added `model.json`, which is what makes the record loadable rather than
 only described, and pulled in the two files it used to borrow from
-[ptc95-vbq12](../metallicity/representation-cgcnn.md). Download the record and
+[m742g-g0k14](../metallicity/representation-cgcnn.md). Download the record and
 nothing else:
 
 ```python

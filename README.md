@@ -15,8 +15,8 @@ logic do not belong in Git.
 
 | Model | PSDI record |
 | --- | --- |
-| QRF95 k-mesh recommendation model | [fex36-67b11](https://data-collections.psdi.ac.uk/records/fex36-67b11) |
-| CGCNN metallicity classifier | [ptc95-vbq12](https://data-collections.psdi.ac.uk/records/ptc95-vbq12) |
+| QRF95 k-mesh recommendation model | [q3bye-wep37](https://data-collections.psdi.ac.uk/records/q3bye-wep37) |
+| CGCNN crystal representation | [m742g-g0k14](https://data-collections.psdi.ac.uk/records/m742g-g0k14) |
 
 ## Training protocol CLI
 

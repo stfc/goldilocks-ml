@@ -2,7 +2,7 @@
 
 | | |
 | --- | --- |
-| Record | [ptc95-vbq12](https://data-collections.psdi.ac.uk/records/ptc95-vbq12), v2.0 |
+| Record | [m742g-g0k14](https://data-collections.psdi.ac.uk/records/m742g-g0k14), v2.0 |
 | Status | **historical — no longer developed here** |
 | Role | `feature_extractor` — not a model `load_model` will serve |
 | Supplies | a 64-dimensional pooled crystal representation |
@@ -90,7 +90,7 @@ feature contract
 ## What the record holds
 
 ```text
-ptc95-vbq12  v2.0
+m742g-g0k14  v2.0
 ├── is_metal.ckpt    PyTorch Lightning checkpoint: architecture and weights
 ├── atom_init.json   the element-to-feature-vector table its graphs are built from
 ├── model.json       architecture, graph construction, digests, and the role
