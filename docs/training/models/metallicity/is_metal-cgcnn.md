@@ -8,7 +8,7 @@
 | Dataset | `matbench_mp_is_metal`, 106113 structures |
 | Served by | `load_model`, returning a boolean |
 | Notebook | [run it yourself](../../../notebooks/metallicity-cgcnn.ipynb) |
-| Deposit | `deposits/metallicity/is_metal/cgcnn/`, prepared for PSDI |
+| Record | [ba06w-n6a68](https://data-collections.psdi.ac.uk/records/ba06w-n6a68) |
 
 This model answers one question: **does DFT give this crystal a zero band gap?**
 If it does, we call the crystal a metal.
