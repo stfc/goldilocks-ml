@@ -4,12 +4,29 @@ from __future__ import annotations
 
 import math
 import statistics
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
 from goldilocks_ml.snapshot import Sample
 
+# Metrics that score the rounded prediction rather than the continuous one.
+# They only mean anything where the target lives on an integer grid, such as a
+# rung on a k-mesh ladder, so they check that before scoring.
+INTEGER_TARGET_METRICS = frozenset(
+    {"rounded_accuracy", "within_one", "underprediction_rate", "mean_excess"}
+)
+# Metrics a regression protocol may optimise when it chooses which quantile of
+# a model's distribution becomes the single value it publishes, and whether a
+# larger or smaller value is the better one.
+DECISION_METRICS: dict[str, str] = {
+    "mean_excess": "min",
+    "mae": "min",
+    "rounded_accuracy": "max",
+}
+# r2 compares a band's residuals to that band's own variance, which binning
+# deliberately shrinks, so it says nothing once the range is cut up.
+UNBANDED_METRICS = frozenset({"r2"})
 THRESHOLD_METRICS = frozenset(
     {"accuracy", "balanced_accuracy", "precision", "recall", "f1", "mcc"}
 )
@@ -60,7 +77,147 @@ def train_majority(samples: Sequence[Sample]) -> tuple[str, float]:
     return label, counts[label] / sum(counts.values())
 
 
+def _integer_metric(name: str, truth: list[float], predicted: list[float]) -> float:
+    """Score an integer-valued target on the grid it is actually consumed on.
+
+    A ladder rung is only ever acted on whole, so the decision a consumer makes
+    is the rounded prediction, not the continuous estimate behind it. Mean
+    absolute error scores the estimate; these score the decision, and they
+    separate the two directions of being wrong, which for a mesh cost very
+    different things.
+
+    Halves round up, towards the denser mesh. That is a policy, not a law: a
+    consumer is free to apply another one, and then these numbers describe a
+    decision it is not making.
+    """
+    if any(value != math.floor(value) for value in truth):
+        raise ValueError(f"{name} requires an integer-valued target")
+    pairs = [
+        (math.floor(estimate + 0.5), int(actual))
+        for estimate, actual in zip(predicted, truth, strict=True)
+    ]
+    if name == "rounded_accuracy":
+        return sum(guess == actual for guess, actual in pairs) / len(pairs)
+    if name == "within_one":
+        return sum(abs(guess - actual) <= 1 for guess, actual in pairs) / len(pairs)
+    if name == "underprediction_rate":
+        return sum(guess < actual for guess, actual in pairs) / len(pairs)
+    if name == "mean_excess":
+        # Signed on purpose: a negative mean says the model is systematically
+        # recommending something coarser than the truth.
+        return sum(guess - actual for guess, actual in pairs) / len(pairs)
+    raise ValueError(f"unsupported integer-target metric: {name}")
+
+
+def _metrics_by_bin(
+    truth: list[float],
+    predicted: list[float],
+    intervals: list[tuple[float, float]] | None,
+    metrics: Sequence[str],
+    edges: Sequence[float],
+) -> list[dict[str, Any]]:
+    """Score each band of the target's range separately.
+
+    One number over a skewed target hides where a model fails: it can be right
+    on average and systematically too coarse on the samples whose answers are
+    the most expensive to get wrong. Bands cut on the *true* value, which makes
+    this a diagnostic and not a guarantee a consumer could condition on -- at
+    prediction time the true value is exactly what is missing.
+    """
+    ordered = list(edges)
+    if not ordered or any(
+        later <= earlier for earlier, later in zip(ordered, ordered[1:], strict=False)
+    ):
+        raise ValueError("coverage bins must be a non-empty increasing sequence")
+    banded = [name for name in metrics if name not in UNBANDED_METRICS]
+    bounds = [-math.inf, *ordered, math.inf]
+    bands: list[dict[str, Any]] = []
+    for low, high in zip(bounds, bounds[1:], strict=False):
+        if low == -math.inf:
+            label = f"<{high:g}"
+        elif high == math.inf:
+            label = f">={low:g}"
+        else:
+            label = f"[{low:g},{high:g})"
+        rows = [index for index, actual in enumerate(truth) if low <= actual < high]
+        band: dict[str, Any] = {"band": label, "count": len(rows)}
+        if rows:
+            band_truth = [truth[index] for index in rows]
+            band_predicted = [predicted[index] for index in rows]
+            for name in banded:
+                band[name] = _regression_metric(name, band_truth, band_predicted)
+            if intervals is not None:
+                pairs = [intervals[index] for index in rows]
+                band["interval_coverage"] = sum(
+                    lower <= actual <= upper
+                    for actual, (lower, upper) in zip(band_truth, pairs, strict=True)
+                ) / len(rows)
+                band["mean_interval_width"] = sum(
+                    upper - lower for lower, upper in pairs
+                ) / len(rows)
+        bands.append(band)
+    return bands
+
+
+def select_decision_level(
+    truth: Sequence[float],
+    values_by_level: Mapping[float, Sequence[float]],
+    *,
+    metric: str,
+    max_underprediction: float | None = None,
+) -> dict[str, Any]:
+    """Choose which quantile of a model's distribution becomes its one value.
+
+    A regression model publishes a number, not a distribution, and which number
+    is a modelling decision with a cost attached. Every symmetric metric --
+    mae, rmse, the rounded hit rate -- rewards the level that sits in the
+    middle of the distribution, because they price both directions of being
+    wrong the same. Where a protocol does not, ``max_underprediction`` states
+    the error it refuses to make and the metric then chooses among the levels
+    that honour it. This is the regression counterpart of a recall floor.
+    """
+    if metric not in DECISION_METRICS:
+        supported = ", ".join(sorted(DECISION_METRICS))
+        raise ValueError(f"{metric} cannot choose a decision level; try {supported}")
+    if not values_by_level:
+        raise ValueError("decision selection needs at least one candidate level")
+    if max_underprediction is not None and not 0.0 <= max_underprediction < 1.0:
+        raise ValueError("max_underprediction must lie in [0, 1)")
+    direction = DECISION_METRICS[metric]
+    trials: list[dict[str, Any]] = []
+    best: tuple[float, float] | None = None
+    lowest_rate = math.inf
+    for level in sorted(values_by_level):
+        values = list(values_by_level[level])
+        rate = _regression_metric("underprediction_rate", list(truth), values)
+        score = _regression_metric(metric, list(truth), values)
+        trials.append({"level": level, "underprediction_rate": rate, metric: score})
+        lowest_rate = min(lowest_rate, rate)
+        if max_underprediction is not None and rate > max_underprediction:
+            continue
+        better = best is None or (
+            score < best[1] if direction == "min" else score > best[1]
+        )
+        if better:
+            best = (level, score)
+    if best is None:
+        raise ValueError(
+            f"no decision level keeps underprediction at or below "
+            f"{max_underprediction}; the lowest available is {lowest_rate:.4f}"
+        )
+    return {
+        "rule": "quantile",
+        "level": best[0],
+        "metric": metric,
+        "max_underprediction": max_underprediction,
+        metric: best[1],
+        "trials": trials,
+    }
+
+
 def _regression_metric(name: str, truth: list[float], predicted: list[float]) -> float:
+    if name in INTEGER_TARGET_METRICS:
+        return _integer_metric(name, truth, predicted)
     errors = [t - p for t, p in zip(truth, predicted, strict=True)]
     if name == "mae":
         return sum(abs(error) for error in errors) / len(errors)
@@ -221,6 +378,61 @@ def pinball_loss(
     )
 
 
+def _band_rate(rows: Sequence[tuple[float, int]], offset: int) -> float:
+    return sum(guess + offset < actual for actual, guess in rows) / len(rows)
+
+
+def select_band_offsets(
+    truth: Sequence[float],
+    values: Sequence[float],
+    edges: Sequence[float],
+    *,
+    max_underprediction: float,
+    max_offset: int = 8,
+) -> list[dict[str, Any]]:
+    """Return the whole-step lift each band needs to honour the floor.
+
+    A single quantile honours a floor on average and still misses it inside the
+    part of the range where the model is weakest. Bands cut on the model's own
+    rounded value, not on the truth, because that is the only thing a consumer
+    has at prediction time.
+
+    Offsets only ever add. A band rule that *lowered* a value where the floor
+    looked slack would be buying machine time with safety estimated on a finite
+    sample, and the estimate is worst exactly where the samples are fewest.
+    """
+    if not 0.0 <= max_underprediction < 1.0:
+        raise ValueError("max_underprediction must lie in [0, 1)")
+    ordered = list(edges)
+    if not ordered or any(
+        later <= earlier for earlier, later in zip(ordered, ordered[1:], strict=False)
+    ):
+        raise ValueError("decision bands must be a non-empty increasing sequence")
+    rounded = [math.floor(value + 0.5) for value in values]
+    bounds = [-math.inf, *ordered, math.inf]
+    bands: list[dict[str, Any]] = []
+    for low, high in zip(bounds, bounds[1:], strict=False):
+        rows = [
+            (actual, guess)
+            for actual, guess in zip(truth, rounded, strict=True)
+            if low <= guess < high
+        ]
+        band: dict[str, Any] = {
+            "upper": None if high == math.inf else high,
+            "count": len(rows),
+        }
+        offset = 0
+        if rows:
+            rate = _band_rate(rows, offset)
+            while rate > max_underprediction and offset < max_offset:
+                offset += 1
+                rate = _band_rate(rows, offset)
+            band["underprediction_rate"] = rate
+        band["offset"] = offset
+        bands.append(band)
+    return bands
+
+
 def evaluate(
     task: str,
     predictions: Sequence[Prediction],
@@ -228,6 +440,7 @@ def evaluate(
     *,
     positive_label: str | None = None,
     quantiles: Sequence[float] | None = None,
+    coverage_bins: Sequence[float] | None = None,
 ) -> dict[str, Any]:
     """Score one split, reporting every metric a protocol requested."""
     if not predictions:
@@ -238,6 +451,7 @@ def evaluate(
         predicted = [float(item.prediction) for item in predictions]
         for name in metrics:
             result[name] = _regression_metric(name, truth, predicted)
+        banded_intervals: list[tuple[float, float]] | None = None
         bounded = [item for item in predictions if item.lower is not None]
         if bounded:
             if len(bounded) != len(predictions) or any(
@@ -251,6 +465,7 @@ def evaluate(
             ]
             if any(lower > upper for lower, upper in intervals):
                 raise ValueError("regression interval lower bound exceeds upper bound")
+            banded_intervals = intervals
             result["interval_coverage"] = sum(
                 lower <= actual <= upper
                 for actual, (lower, upper) in zip(truth, intervals, strict=True)
@@ -273,6 +488,10 @@ def evaluate(
                 for level, loss in zip(quantiles, losses, strict=True):
                     result[f"pinball_loss_q{level:g}"] = loss
                 result["pinball_loss"] = sum(losses) / len(losses)
+        if coverage_bins is not None:
+            result["metrics_by_bin"] = _metrics_by_bin(
+                truth, predicted, banded_intervals, metrics, coverage_bins
+            )
         return result
 
     truth_labels = [str(item.truth) for item in predictions]

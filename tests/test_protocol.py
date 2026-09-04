@@ -334,3 +334,134 @@ def test_every_committed_protocol_loads(path: Path) -> None:
 
     assert protocol.schema_version == 1
     assert protocol.features.schema
+
+
+def test_regression_accepts_the_rounded_decision_metrics(tmp_path: Path) -> None:
+    protocol = load_protocol(
+        _regression(
+            tmp_path,
+            evaluation={
+                "primary_metric": "mae",
+                "metrics": ["mae", "rounded_accuracy", "underprediction_rate"],
+                "coverage_bins": [6, 11],
+            },
+        )
+    )
+
+    assert protocol.evaluation.coverage_bins == (6.0, 11.0)
+    assert "underprediction_rate" in protocol.evaluation.metrics
+
+
+def test_classification_rejects_the_rounded_decision_metrics(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="unsupported classification metric"):
+        load_protocol(
+            _classification(
+                tmp_path,
+                evaluation={"primary_metric": "mcc", "metrics": ["mcc", "within_one"]},
+            )
+        )
+
+
+def test_coverage_bins_are_rejected_for_classification(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="only valid for regression"):
+        load_protocol(_classification(tmp_path, evaluation={"coverage_bins": [0.5]}))
+
+
+@pytest.mark.parametrize(
+    ("bins", "message"),
+    [
+        ([], "non-empty array"),
+        ([11, 6], "must increase"),
+        ([6, 6], "must increase"),
+        (["6"], "must contain numbers"),
+        ([True], "must contain numbers"),
+    ],
+)
+def test_coverage_bins_are_validated(tmp_path: Path, bins: Any, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        load_protocol(_regression(tmp_path, evaluation={"coverage_bins": bins}))
+
+
+def _decision(**evaluation: Any) -> dict[str, Any]:
+    base = {
+        "primary_metric": "mean_excess",
+        "metrics": ["mean_excess", "underprediction_rate", "mae"],
+        "decision_metric": "mean_excess",
+        "max_underprediction": 0.05,
+    }
+    base.update(evaluation)
+    return base
+
+
+def test_a_regression_protocol_can_state_the_error_it_refuses(tmp_path: Path) -> None:
+    protocol = load_protocol(_regression(tmp_path, evaluation=_decision()))
+
+    assert protocol.evaluation.decision_metric == "mean_excess"
+    assert protocol.evaluation.max_underprediction == pytest.approx(0.05)
+
+
+def test_a_decision_metric_is_rejected_for_classification(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="only valid for regression"):
+        load_protocol(
+            _classification(tmp_path, evaluation={"decision_metric": "mean_excess"})
+        )
+
+
+@pytest.mark.parametrize(
+    ("evaluation", "message"),
+    [
+        (_decision(decision_metric="rmse"), "must be listed in metrics"),
+        (
+            _decision(
+                metrics=["rmse", "underprediction_rate", "mean_excess"],
+                decision_metric="rmse",
+            ),
+            "must be one of",
+        ),
+        (
+            {
+                "primary_metric": "mae",
+                "metrics": ["mae"],
+                "max_underprediction": 0.05,
+            },
+            "requires evaluation.decision_metric",
+        ),
+        (_decision(max_underprediction=1.0), "must lie in"),
+        (_decision(max_underprediction="0.05"), "must be a number"),
+        (
+            _decision(metrics=["mean_excess", "mae"]),
+            "requires underprediction_rate",
+        ),
+    ],
+)
+def test_a_decision_rule_is_validated(
+    tmp_path: Path, evaluation: dict[str, Any], message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        load_protocol(_regression(tmp_path, evaluation=evaluation))
+
+
+def test_decision_bands_need_a_floor_to_honour(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="requires evaluation.max_underprediction"):
+        load_protocol(
+            _regression(
+                tmp_path,
+                evaluation={
+                    "primary_metric": "mean_excess",
+                    "metrics": ["mean_excess"],
+                    "decision_bands": [6],
+                },
+            )
+        )
+
+
+def test_decision_bands_are_validated(tmp_path: Path) -> None:
+    protocol = load_protocol(
+        _regression(tmp_path, evaluation=_decision(decision_bands=[6, 11]))
+    )
+    assert protocol.evaluation.decision_bands == (6.0, 11.0)
+
+    with pytest.raises(ValueError, match="must increase"):
+        load_protocol(
+            _regression(tmp_path, evaluation=_decision(decision_bands=[11, 6]))
+        )
