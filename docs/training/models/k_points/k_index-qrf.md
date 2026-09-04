@@ -276,16 +276,68 @@ settled on other splits.
 the test split, which chose nothing, comes in at 4.4%. The promise holds on
 data it was not fitted to, which is the only reason to make it.
 
-**MAE and R² are not measuring accuracy here.** They price a deliberate bias as
-if it were error. The same forest read at its median scores MAE 1.118, R²
-0.729, and 76.5% of structures within one rung on the same test split — that is
-how good the estimator is. Publishing q0.90 with offsets trades exactly that
-apparent accuracy for the 29.7% → 4.4% drop in under-convergence. Both numbers
-are true; only one of them is about the answer a consumer receives.
-
 The baseline is a constant rung 3. Its MAE, 2.707, is barely worse than the
 model's 2.634 — and it is too coarse for half of all structures. That
 comparison is the clearest statement of why this page does not lead with MAE.
+
+### Why R² is 0.04
+
+Because the model is not trying to be close to the truth. It is trying not to
+fall below it, and R² only measures the first.
+
+The same forest, read at the median it does not publish, scores this on the
+same test split:
+
+| Read as | MAE | R² | Correlation | Exact rung | Too coarse |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| its median — the estimator | 1.118 | 0.729 | 0.858 | 0.438 | 0.297 |
+| **what it publishes** | 2.634 | 0.042 | 0.828 | 0.163 | **0.044** |
+
+**The correlation barely moves.** The model's ability to rank structures by how
+dense a mesh they need is intact; what changed is where the number sits
+relative to the truth, and R² prices that shift as if it were error.
+
+Squared error splits cleanly into the two things going on. The truth has a
+variance of 15.17 on this split:
+
+| | Mean squared error | = bias² | + scatter |
+| --- | ---: | ---: | ---: |
+| median | 4.11 | 0.09 | 4.02 |
+| published | 14.54 | 5.88 | 8.66 |
+
+Nearly 40% of the published error is the deliberate lift, and it is not
+recoverable by any model: a *perfect* rule that sat exactly 2.42 rungs above
+every true rung, with no scatter at all, would still score R² 0.612. The rest
+is the scatter doubling, because q0.90 is a wider statistic than the median —
+structures whose leaf distributions are broad get pushed much further up. That
+is the rule working as intended, and it registers as squared error all the
+same.
+
+So R² 0.042 reads: *taken as an estimate of the truth, this number is barely
+better than the mean.* True, and beside the point. The two numbers to judge
+this model on are the ones the protocol declares — 4.4% against a 6% floor, at
+2.42 rungs.
+
+!!! note "Where these numbers come from"
+
+    The published row is the run bundle's own `metrics.json`. The median row is
+    not: the model does not publish a median, so no run scores one, and it
+    appears in no results table for that reason. It is a diagnostic about the
+    estimator, computed from the released artifact by reading the q0.50 column
+    the forest also fits:
+
+    ```python
+    from goldilocks_ml.inference import load_model
+    from goldilocks_ml.models.k_points.k_index.qrf import features
+
+    model = load_model("local_runs/kindex-cslr-v3/model")
+    levels = model.record["levels"]
+    rows = features.feature_rows(structures)
+    median = model.estimator.predict(rows)[levels.index(0.5)]
+    ```
+
+    Retrain the model and this row goes stale until someone recomputes it.
+    Nothing in the artifact carries it.
 
 ### Where the rule holds
 
