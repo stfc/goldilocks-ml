@@ -7,14 +7,18 @@ import math
 import pytest
 
 from goldilocks_ml.evaluation import (
+    DECISION_METRICS,
     Prediction,
     default_positive_label,
     evaluate,
     label_at,
+    select_band_offsets,
+    select_decision_level,
     select_threshold,
     train_majority,
     train_median,
 )
+from goldilocks_ml.protocol import DECISION_METRICS as PROTOCOL_DECISION_METRICS
 from goldilocks_ml.snapshot import Sample
 
 
@@ -267,3 +271,169 @@ def test_select_threshold_needs_scores() -> None:
 
     with pytest.raises(ValueError, match="needs prediction scores"):
         select_threshold(predictions, "mcc", "metal", "insulator")
+
+
+def test_integer_target_metrics_score_the_rounded_decision() -> None:
+    predictions = _regression([(2, 2.4), (2, 2.5), (5, 3.0), (1, 0.6), (4, 6.2)])
+
+    result = evaluate(
+        "regression",
+        predictions,
+        ["rounded_accuracy", "within_one", "underprediction_rate"],
+    )
+
+    # Rounded: 2, 3, 3, 1, 6 against truths 2, 2, 5, 1, 4. The second row pins
+    # the halves-round-up policy: 2.5 is scored as the denser mesh, not as a hit.
+    assert result["rounded_accuracy"] == pytest.approx(2 / 5)
+    assert result["within_one"] == pytest.approx(3 / 5)
+    assert result["underprediction_rate"] == pytest.approx(1 / 5)
+
+
+def test_integer_target_metrics_refuse_a_continuous_target() -> None:
+    predictions = _regression([(0.35, 0.4), (0.21, 0.2)])
+
+    with pytest.raises(ValueError, match="integer-valued target"):
+        evaluate("regression", predictions, ["rounded_accuracy"])
+
+
+def test_metrics_by_bin_shows_where_the_model_is_systematically_wrong() -> None:
+    predictions = [
+        Prediction("a", 1.0, 1.0, lower=0.0, upper=2.0),
+        Prediction("b", 2.0, 2.0, lower=1.5, upper=2.5),
+        Prediction("c", 4.0, 4.0, lower=3.0, upper=5.0),
+        Prediction("d", 5.0, 5.0, lower=4.5, upper=5.5),
+        Prediction("e", 8.0, 6.0, lower=5.0, upper=7.0),
+        Prediction("f", 9.0, 6.0, lower=5.0, upper=7.0),
+    ]
+
+    result = evaluate(
+        "regression",
+        predictions,
+        ["mae", "r2", "mean_excess", "underprediction_rate"],
+        coverage_bins=[3, 6],
+    )
+
+    bands = result["metrics_by_bin"]
+    assert [band["band"] for band in bands] == ["<3", "[3,6)", ">=6"]
+    assert [band["count"] for band in bands] == [2, 2, 2]
+    # Overall the model looks two thirds covered and mildly wrong. The bands
+    # say it is exactly right below 6 and always too coarse above it.
+    assert result["interval_coverage"] == pytest.approx(4 / 6)
+    assert [band["mae"] for band in bands] == pytest.approx([0.0, 0.0, 2.5])
+    assert bands[2]["mean_excess"] == pytest.approx(-2.5)
+    assert bands[2]["underprediction_rate"] == pytest.approx(1.0)
+    assert bands[2]["interval_coverage"] == pytest.approx(0.0)
+    assert "r2" not in bands[0]
+
+
+def test_metrics_by_bin_leaves_an_empty_band_unscored() -> None:
+    predictions = [Prediction("a", 1.0, 1.0, lower=0.0, upper=2.0)]
+
+    result = evaluate("regression", predictions, ["mae"], coverage_bins=[3])
+
+    bands = result["metrics_by_bin"]
+    assert [band["count"] for band in bands] == [1, 0]
+    assert "mae" not in bands[1]
+
+
+def test_mean_excess_signs_the_direction_of_the_error() -> None:
+    predictions = _regression([(5, 3.0), (5, 8.0), (5, 5.0)])
+
+    result = evaluate("regression", predictions, ["mean_excess", "mae"])
+
+    # Errors of -2 and +3 cancel to +1/3 here, while mae reports 5/3. One says
+    # which way the model leans; the other says how far off it is.
+    assert result["mean_excess"] == pytest.approx(1 / 3)
+    assert result["mae"] == pytest.approx(5 / 3)
+
+
+def _levels() -> dict[float, list[float]]:
+    return {0.5: [2, 2, 3, 3], 0.9: [3, 3, 5, 5], 0.95: [4, 4, 6, 6]}
+
+
+def test_a_decision_level_without_a_floor_picks_the_coarsest() -> None:
+    """Left unconstrained, mean_excess is smallest where the model under-calls."""
+    chosen = select_decision_level([2, 2, 5, 5], _levels(), metric="mean_excess")
+
+    assert chosen["level"] == 0.5
+    assert chosen["mean_excess"] == pytest.approx(-1.0)
+
+
+def test_the_underprediction_floor_moves_the_decision_level() -> None:
+    chosen = select_decision_level(
+        [2, 2, 5, 5], _levels(), metric="mean_excess", max_underprediction=0.1
+    )
+
+    # 0.5 misses the floor at a rate of 0.5; of the two that honour it, 0.9 is
+    # the cheaper, at half a rung of deliberate excess.
+    assert chosen["level"] == 0.9
+    assert chosen["mean_excess"] == pytest.approx(0.5)
+    assert chosen["max_underprediction"] == 0.1
+    assert [trial["level"] for trial in chosen["trials"]] == [0.5, 0.9, 0.95]
+
+
+def test_an_unreachable_floor_reports_the_best_available() -> None:
+    with pytest.raises(ValueError, match="the lowest available is 0.5000"):
+        select_decision_level(
+            [2, 2, 5, 5],
+            {0.5: [2, 2, 3, 3]},
+            metric="mean_excess",
+            max_underprediction=0.1,
+        )
+
+
+def test_a_metric_that_cannot_choose_a_level_is_refused() -> None:
+    with pytest.raises(ValueError, match="cannot choose a decision level"):
+        select_decision_level([2, 2], {0.5: [2, 2]}, metric="rmse")
+
+
+def test_the_two_decision_metric_registries_agree() -> None:
+    """protocol.py cannot import evaluation.py, so a test keeps them in step."""
+    assert set(DECISION_METRICS) == PROTOCOL_DECISION_METRICS
+
+
+def test_coverage_bins_must_increase() -> None:
+    predictions = [Prediction("a", 1.0, 1.0, lower=0.0, upper=2.0)]
+
+    with pytest.raises(ValueError, match="increasing"):
+        evaluate("regression", predictions, ["mae"], coverage_bins=[6, 3])
+
+
+def test_band_offsets_lift_only_the_band_that_misses_the_floor() -> None:
+    """Bands cut on the model's own rung, and a band that is fine is left alone."""
+    truth = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 12, 13, 14, 15, 16, 12, 12, 12, 12, 12]
+    values = [1.0] * 10 + [11.0] * 10
+
+    bands = select_band_offsets(truth, values, [6], max_underprediction=0.1)
+
+    # The low band never comes in under the truth, so it is not touched. The
+    # high band sits at rung 11 against truths of 12 to 16, and has to climb
+    # four whole steps before at most one in ten is still short.
+    assert [band["upper"] for band in bands] == [6.0, None]
+    assert bands[0]["offset"] == 0
+    assert bands[1]["offset"] == 4
+    assert bands[1]["underprediction_rate"] <= 0.1
+    assert [band["count"] for band in bands] == [10, 10]
+
+
+def test_a_band_offset_never_lowers_a_value() -> None:
+    """Slack in a band is not spent, because the estimate of it is finite."""
+    truth = [1] * 20
+    values = [8.0] * 20
+
+    bands = select_band_offsets(truth, values, [6], max_underprediction=0.05)
+
+    assert [band["offset"] for band in bands] == [0, 0]
+
+
+def test_band_offsets_stop_at_the_ceiling() -> None:
+    """An unreachable floor gives the largest allowed lift, not a hang."""
+    truth = [40] * 10
+    values = [1.0] * 10
+
+    bands = select_band_offsets(
+        truth, values, [6], max_underprediction=0.0, max_offset=3
+    )
+
+    assert bands[0]["offset"] == 3
+    assert bands[0]["underprediction_rate"] == pytest.approx(1.0)

@@ -32,7 +32,7 @@ on, and it stays `metallicity` whether the answer arrives as a boolean or as a
 band gap in eV. The quantity is what Core has to interpret, and a `false` is
 not a `0.03`. A band-gap regressor for the same setting would be
 `metallicity.band_gap`, sitting beside this one and reaching the same decision
-by a different route — exactly as `k_index` will sit beside `k_distance`.
+by a different route — exactly as `k_index` now sits beside `k_distance`.
 
 Magnetism shows this more plainly than metallicity does, because it needs three
 quantities rather than two: `is_magnetic` decides whether to switch spin
@@ -51,6 +51,7 @@ name that repeats itself.
 | Setting | Kind | Quantity | Family | Status |
 | --- | --- | --- | --- | --- |
 | [k-point mesh](k_points/index.md) | input | `k_distance` | QRF | published, **historical** |
+| [k-point mesh](k_points/k_index-qrf.md) | input | `k_index` | QRF | trained, not deposited |
 | [Metallicity](metallicity/index.md) | property | `is_metal` | CGCNN | trained, not deposited |
 | [Metallicity](metallicity/representation-cgcnn.md) | property | representation | CGCNN | published, **historical** |
 | [Magnetism](magnetism/index.md) | input | — | — | planned |

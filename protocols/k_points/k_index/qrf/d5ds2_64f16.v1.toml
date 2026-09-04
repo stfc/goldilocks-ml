@@ -1,0 +1,70 @@
+# CSLR quantile regression for the zero-based k-index ladder.
+schema_version = 1
+id = "k_points.k_index.qrf.d5ds2_64f16.v1"
+task = "regression"
+trainer = "quantile_random_forest"
+
+[dataset]
+target = "k_index"
+target_contract = "goldilocks.k_index.ladder_0based.max50.v1"
+requires = ["structures", "groups"]
+record_id = "d5ds2-64f16"
+snapshot_version = "v1"
+manifest_sha256 = "66eb62879cb65aef18b3e74d73349831eaa2ebd1ec10de88ab58a77d368e82bd"
+
+[split]
+method = "group"
+train = 0.7
+validation = 0.1
+calibration = 0.1
+test = 0.1
+seed = 42
+stratify = false
+
+[features]
+schema = "cslr.v1"
+
+[features.parameters]
+batch_size = 128
+
+[model]
+seed = 42
+
+[model.parameters]
+n_estimators = 100
+quantiles = [0.05, 0.5, 0.95]
+n_jobs = -1
+# Candidate values the model may publish. They are fitted alongside the
+# interval quantiles, so choosing between them costs no extra fit.
+decision_levels = [0.5, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.975, 0.99]
+
+# Select interval smoothness on validation mean pinball loss. Calibration and
+# test remain outside both fitting and selection.
+[model.parameters.search]
+min_samples_leaf = [1, 5, 20]
+
+# A rung is acted on whole and the two directions of being wrong cost very
+# different things: too low is an under-converged calculation, too high is
+# machine time. The model publishes the cheapest quantile that keeps
+# under-prediction at or below six percent, chosen on validation.
+[evaluation]
+primary_metric = "mean_excess"
+metrics = [
+    "mean_excess",
+    "underprediction_rate",
+    "rounded_accuracy",
+    "within_one",
+    "mae",
+    "rmse",
+    "r2",
+]
+baseline = "train_median"
+decision_metric = "mean_excess"
+max_underprediction = 0.06
+# Cut on the rung the model itself publishes, which is what a consumer has.
+# Each band is lifted by whole rungs until it honours the floor on its own, so
+# the promise holds where the model is weakest and not only on average.
+decision_bands = [6, 11]
+# Cut on the true rung. A diagnostic, not a rule: the truth is the one thing
+# missing when a prediction is served.
+coverage_bins = [6, 11]

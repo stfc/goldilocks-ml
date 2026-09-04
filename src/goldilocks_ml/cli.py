@@ -216,6 +216,7 @@ def _score_all(
             protocol.evaluation.metrics,
             positive_label=positive,
             quantiles=quantiles,
+            coverage_bins=protocol.evaluation.coverage_bins,
         )
         for name, items in sorted(_by_split(predictions).items())
     }

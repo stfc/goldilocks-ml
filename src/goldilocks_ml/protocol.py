@@ -18,7 +18,24 @@ SPLIT_METHODS: frozenset[str] = frozenset({"random", "group"})
 SPLIT_NAMES: tuple[str, ...] = ("train", "validation", "calibration", "test")
 CAPABILITIES: frozenset[str] = frozenset({"structures", "features", "groups"})
 
-REGRESSION_METRICS: frozenset[str] = frozenset({"mae", "rmse", "r2"})
+# The last three score the rounded prediction and require an integer target.
+REGRESSION_METRICS: frozenset[str] = frozenset(
+    {
+        "mae",
+        "rmse",
+        "r2",
+        "rounded_accuracy",
+        "within_one",
+        "underprediction_rate",
+        "mean_excess",
+    }
+)
+# Metrics that can choose which quantile a regression model publishes as its
+# one value. Kept here rather than imported because snapshot loading already
+# imports this module; goldilocks_ml.evaluation.DECISION_METRICS holds the same
+# names alongside the direction each one is optimised in, and a test pins the
+# two together.
+DECISION_METRICS: frozenset[str] = frozenset({"mean_excess", "mae", "rounded_accuracy"})
 # Reported alongside the requested metrics when a trainer predicts intervals.
 INTERVAL_METRICS: frozenset[str] = frozenset(
     {"interval_coverage", "mean_interval_width", "pinball_loss"}
@@ -190,6 +207,10 @@ class EvaluationSpec:
     threshold_metric: str | None = None
     positive_label: str | None = None
     min_recall: float | None = None
+    coverage_bins: tuple[float, ...] | None = None
+    decision_metric: str | None = None
+    max_underprediction: float | None = None
+    decision_bands: tuple[float, ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -249,6 +270,10 @@ _EVALUATION_KEYS = {
     "threshold_metric",
     "positive_label",
     "min_recall",
+    "coverage_bins",
+    "decision_metric",
+    "max_underprediction",
+    "decision_bands",
 }
 
 
@@ -475,6 +500,81 @@ def _load_evaluation(root: dict[str, Any], task: str) -> EvaluationSpec:
             raise ValueError("evaluation.min_recall must lie in (0, 1]")
         if "recall" not in metrics:
             raise ValueError("evaluation.min_recall requires recall in metrics")
+    coverage_bins = table.get("coverage_bins")
+    if coverage_bins is not None:
+        # Coverage averaged over a skewed target hides the region where an
+        # interval fails. Naming the bands makes the protocol state where it
+        # expects the claim to hold, rather than reporting one number for all.
+        if task != "regression":
+            raise ValueError("evaluation.coverage_bins is only valid for regression")
+        if not isinstance(coverage_bins, list) or not coverage_bins:
+            raise ValueError("evaluation.coverage_bins must be a non-empty array")
+        if any(
+            isinstance(edge, bool) or not isinstance(edge, int | float)
+            for edge in coverage_bins
+        ):
+            raise ValueError("evaluation.coverage_bins must contain numbers")
+        coverage_bins = tuple(float(edge) for edge in coverage_bins)
+        if any(
+            later <= earlier
+            for earlier, later in zip(coverage_bins, coverage_bins[1:], strict=False)
+        ):
+            raise ValueError("evaluation.coverage_bins must increase")
+    decision_metric = table.get("decision_metric")
+    if decision_metric is not None:
+        # A regression model publishes one number, and which quantile of its
+        # distribution that is cannot be left implicit: the middle of the
+        # distribution is a choice, not a default.
+        if task != "regression":
+            raise ValueError("evaluation.decision_metric is only valid for regression")
+        if not isinstance(decision_metric, str) or decision_metric not in metrics:
+            raise ValueError("evaluation.decision_metric must be listed in metrics")
+        if decision_metric not in DECISION_METRICS:
+            supported = ", ".join(sorted(DECISION_METRICS))
+            raise ValueError(f"evaluation.decision_metric must be one of {supported}")
+    max_underprediction = table.get("max_underprediction")
+    if max_underprediction is not None:
+        # The floor states the error this protocol refuses to make. Without it
+        # a decision metric picks the middle again, because every symmetric
+        # metric prices the two directions of being wrong the same.
+        if decision_metric is None:
+            raise ValueError(
+                "evaluation.max_underprediction requires evaluation.decision_metric"
+            )
+        if isinstance(max_underprediction, bool) or not isinstance(
+            max_underprediction, int | float
+        ):
+            raise ValueError("evaluation.max_underprediction must be a number")
+        max_underprediction = float(max_underprediction)
+        if not 0.0 <= max_underprediction < 1.0:
+            raise ValueError("evaluation.max_underprediction must lie in [0, 1)")
+        if "underprediction_rate" not in metrics:
+            raise ValueError(
+                "evaluation.max_underprediction requires underprediction_rate "
+                "in metrics"
+            )
+    decision_bands = table.get("decision_bands")
+    if decision_bands is not None:
+        # Cut on the model's own value, unlike coverage_bins, which cut on the
+        # truth. Only the first is available when a prediction is served, so
+        # only the first can carry a rule rather than a diagnostic.
+        if max_underprediction is None:
+            raise ValueError(
+                "evaluation.decision_bands requires evaluation.max_underprediction"
+            )
+        if not isinstance(decision_bands, list) or not decision_bands:
+            raise ValueError("evaluation.decision_bands must be a non-empty array")
+        if any(
+            isinstance(edge, bool) or not isinstance(edge, int | float)
+            for edge in decision_bands
+        ):
+            raise ValueError("evaluation.decision_bands must contain numbers")
+        decision_bands = tuple(float(edge) for edge in decision_bands)
+        if any(
+            later <= earlier
+            for earlier, later in zip(decision_bands, decision_bands[1:], strict=False)
+        ):
+            raise ValueError("evaluation.decision_bands must increase")
     return EvaluationSpec(
         primary_metric=primary_metric,
         metrics=metrics,
@@ -482,6 +582,10 @@ def _load_evaluation(root: dict[str, Any], task: str) -> EvaluationSpec:
         threshold_metric=threshold_metric,
         positive_label=positive_label,
         min_recall=min_recall,
+        coverage_bins=coverage_bins,
+        decision_metric=decision_metric,
+        max_underprediction=max_underprediction,
+        decision_bands=decision_bands,
     )
 
 

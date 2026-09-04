@@ -63,7 +63,10 @@ nav:
                   - QRF95 (historical):
                       - The record: training/models/k_points/k_distance-qrf.md
                       - Notebook: notebooks/k_distance-qrf.ipynb
-              - k-index: training/models/k_points/k_index.md
+              - k-index:
+                  - Overview: training/models/k_points/k_index.md
+                  - CSLR forest:
+                      - Training: training/models/k_points/k_index-qrf.md
           - Metallicity:
               - Overview: training/models/metallicity/index.md
               - is-metal:

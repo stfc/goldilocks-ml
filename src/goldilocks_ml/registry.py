@@ -141,6 +141,7 @@ _TRAINERS: dict[str, Trainer] = {}
 _FEATURES: dict[str, FeatureContract] = {}
 _PREDICTORS: dict[str, Predictor] = {}
 _QRF = "goldilocks_ml.models.k_points.k_distance.qrf"
+_KINDEX_QRF = "goldilocks_ml.models.k_points.k_index.qrf"
 _CGCNN = "goldilocks_ml.models.metallicity.is_metal.cgcnn"
 _BUILTIN_TRAINERS = {
     "quantile_random_forest": f"{_QRF}.trainer",
@@ -150,10 +151,12 @@ _BUILTIN_TRAINERS = {
 # models that must be read back differently.
 _BUILTIN_PREDICTORS = {
     "k_points.k_distance.qrf": f"{_QRF}.predictor",
+    "k_points.k_index.qrf": f"{_KINDEX_QRF}.predictor",
     "metallicity.is_metal.cgcnn": f"{_CGCNN}.predictor",
 }
 _BUILTIN_FEATURES = {
     "comp_struct_soap_lattice_metal.v1": f"{_QRF}.features",
+    "cslr.v1": f"{_KINDEX_QRF}.features",
     "crystal_graph.v1": f"{_CGCNN}.graphs",
 }
 _MODEL_DEPENDENCIES = {

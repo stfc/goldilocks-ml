@@ -115,14 +115,117 @@ different checkpoint — silently, and without failing. See
 | `threshold_metric` | one of `metrics` | optional — classification only |
 | `positive_label` | string | optional — classification only |
 | `min_recall` | above 0, up to 1 | optional — classification only |
+| `coverage_bins` | increasing numbers | optional — regression only |
+| `decision_metric` | one of `metrics` | optional — regression only |
+| `max_underprediction` | 0 up to but not 1 | optional — regression only |
+| `decision_bands` | increasing numbers | optional — needs `max_underprediction` |
 
 | Task | Metrics you can ask for |
 | --- | --- |
-| regression | `mae`, `rmse`, `r2` |
+| regression | `mae`, `rmse`, `r2`, `rounded_accuracy`, `within_one`, `underprediction_rate`, `mean_excess` |
 | classification | `accuracy`, `balanced_accuracy`, `precision`, `recall`, `f1`, `mcc`, `roc_auc`, `pr_auc` |
 
 A trainer that predicts intervals also reports `interval_coverage`,
 `mean_interval_width`, and `pinball_loss` without being asked.
+
+### Scoring the decision, not just the estimate
+
+The last three regression metrics score the **rounded** prediction, and they
+refuse a target that is not integer-valued. They exist for a target that is
+consumed whole — a rung on a ladder is acted on as 4 or as 5, never as 4.4 —
+where mean absolute error scores an estimate nobody uses directly.
+
+| Metric | What it counts |
+| --- | --- |
+| `rounded_accuracy` | the rounded prediction is exactly right |
+| `within_one` | it is out by at most one step |
+| `underprediction_rate` | it is *below* the truth |
+| `mean_excess` | how far above the truth it sits, signed |
+
+The last two are there because the two directions of being wrong rarely cost
+the same. Halves round up. That is this metric's policy, not a law — a
+consumer applying another one is being described by numbers it does not
+produce.
+
+### Which number the model publishes
+
+A model returns one value, not a distribution. Where the estimator behind it
+produces a spread — a quantile forest, an ordinal ladder — **which point of
+that spread gets published is a modelling decision with a cost attached**, and
+these two fields make the protocol state it instead of defaulting to the
+middle.
+
+```toml
+metrics = ["mean_excess", "underprediction_rate", "mae"]
+primary_metric = "mean_excess"
+decision_metric = "mean_excess"
+max_underprediction = 0.05
+```
+
+That reads: *of the levels that come in below the truth no more than 5% of the
+time, publish the one with the least deliberate excess.* It is the regression
+counterpart of [`min_recall`](#choosing-a-decision-threshold) for a classifier,
+and it exists for the same reason: **every symmetric metric rewards the middle
+of the distribution**, because mae, rmse and the rounded hit rate all price the
+two directions of being wrong the same. Where a protocol does not, it has to
+say so, or its own primary metric will select against it.
+
+The chosen level is fitted on validation and written into `model.json` under
+`decision`, exactly as a classifier's threshold is. Selecting it on test would
+be reading the answer first.
+
+#### Honouring the floor where the model is weakest
+
+One level honours a floor **on average** and can still miss it badly in the
+part of the range the model finds hardest. `decision_bands` cuts the range on
+**the rung the model itself publishes** — the one thing a consumer has at
+prediction time — and lifts each band by whole steps until it honours the floor
+on its own:
+
+```toml
+decision_bands = [6, 11]
+```
+
+```json
+"bands": [{"upper": 6, "offset": 0},
+          {"upper": 11, "offset": 0},
+          {"upper": null, "offset": 2}]
+```
+
+**Offsets only ever add.** A band rule that lowered a value where the floor
+looked slack would be buying machine time with safety estimated on a finite
+sample, and that estimate is worst exactly where the samples are fewest.
+Measured on this dataset, a variant that was allowed to relax a slack band
+honoured its floor on validation and broke it on test; the add-only rule did
+not.
+
+Because whole-step offsets only mean anything on an integer grid, declaring
+bands is also what makes the published value a whole step. `decision.rounding`
+records the rule, and the trainer and every serving runtime apply it through
+the same function, so the number a run scores is the number a consumer gets.
+
+### Diagnostics where it matters
+
+`coverage_bins` gives cut points on the target, and each run then reports
+`metrics_by_bin`: every requested metric, scored inside each band, plus
+interval coverage and width where the trainer produces intervals.
+
+```toml
+coverage_bins = [6, 11]   # bands: <6, [6,11), >=11
+```
+
+One number over a skewed target hides where a model fails. It can be right on
+average and systematically too coarse on the samples whose answers are the most
+expensive to get wrong, and only the bands will say so.
+
+`r2` is left out of the bands: it compares residuals to the variance within a
+band, which binning deliberately shrinks.
+
+`coverage_bins` cuts on the **true** value, which is what separates it from
+[`decision_bands`](#honouring-the-floor-where-the-model-is-weakest). The truth
+is not available when a prediction is served, so this one is a diagnostic and
+can never become a rule — but it is the diagnostic that says how much of a
+model's promise rests on the samples it finds easy.
 
 `positive_label` names the class that counts as a "hit" for precision, recall,
 F1, MCC, and the ranking metrics. Left out, it defaults to the last class name

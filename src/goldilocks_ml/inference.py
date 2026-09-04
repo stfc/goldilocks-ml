@@ -69,6 +69,7 @@ class ContractSpec:
     kind: str = "dft_parameter"
     units: str | None = None
     positive: bool = False
+    non_negative: bool = False
     boolean: bool = False
 
     def check_units(self, units: str | None) -> None:
@@ -91,6 +92,10 @@ class ContractSpec:
             raise ValueError(
                 f"{self.quantity} must be positive; the model predicted {value}"
             )
+        if self.non_negative and float(value) < 0:
+            raise ValueError(
+                f"{self.quantity} must be non-negative; the model predicted {value}"
+            )
 
 
 # The target contracts this build understands. The contract string, not the
@@ -103,6 +108,13 @@ CONTRACTS: Mapping[str, ContractSpec] = {
         kind=DFT_PARAMETER,
         units="1/angstrom",
         positive=True,
+    ),
+    "goldilocks.k_index.ladder_0based.max50.v1": ContractSpec(
+        parameter="k_points",
+        quantity="k_index",
+        kind=DFT_PARAMETER,
+        units=None,
+        non_negative=True,
     ),
     "goldilocks.is_metal.dft_band_gap_zero.v1": ContractSpec(
         parameter="metallicity",

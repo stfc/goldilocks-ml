@@ -141,7 +141,7 @@ retrained model is a data change and nothing more:
 | `requires_artifacts` | supporting artifacts, pinned by record id and digest |
 | `feature_columns` | the width the estimator must accept |
 | `calibration` | the correction, its coverage, and its mean interval width |
-| `decision` | for a classifier, the threshold and the rule that chose it |
+| `decision` | how one value is produced: a classifier's threshold, or the quantile a regression model publishes, with the rule that chose it |
 
 `requires_artifacts` is why a consumer never learns that the k-distance model
 embeds a metallicity checkpoint. The record pins it, `load_model` fetches it
