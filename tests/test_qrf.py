@@ -31,6 +31,7 @@ from goldilocks_ml.models.k_points.k_distance.qrf.trainer import (
     RUNTIME_VERSION,
     calibrate_interval,
     conformal_correction,
+    publish,
 )
 from goldilocks_ml.protocol import load_protocol
 from goldilocks_ml.registry import get_trainer
@@ -314,3 +315,61 @@ def test_qrf_rejects_invalid_parameters(
 
     with pytest.raises(ValueError, match=message):
         get_trainer(protocol.trainer)(protocol, context)
+
+
+def test_declared_coverage_bins_reach_the_run_metrics(
+    tmp_path: Path, snapshot_dir: Path
+) -> None:
+    """A protocol that names coverage bands gets them scored on every split."""
+    build_snapshot(snapshot_dir)
+    document = _qrf_document()
+    document["evaluation"] = {
+        "primary_metric": "mae",
+        "metrics": ["mae", "rmse", "r2"],
+        "baseline": "train_median",
+        "coverage_bins": [0.25],
+    }
+    protocol = load_protocol(write_protocol(tmp_path / "qrf.toml", document))
+    snapshot = load_snapshot(snapshot_dir, protocol)
+
+    result = execute(
+        protocol,
+        snapshot,
+        tmp_path / "run",
+        artifact_dir=tmp_path / "artifacts",
+        splits_source=None,
+        overwrite=False,
+    )
+
+    for split, metrics in result["metrics"]["splits"]["model"].items():
+        bands = metrics["metrics_by_bin"]
+        assert [band["band"] for band in bands] == ["<0.25", ">=0.25"]
+        assert sum(band["count"] for band in bands) == metrics["count"], split
+    # The baseline predicts a constant with no interval, so its bands carry the
+    # requested metrics and no coverage.
+    assert "metrics_by_bin" in result["metrics"]["splits"]["baseline"]["test"]
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [(2.4, 2.0), (2.5, 3.0), (5.4, 5.0), (5.6, 8.0), (6.4, 8.0), (11.0, 13.0)],
+)
+def test_a_band_rule_rounds_then_lifts(value: float, expected: float) -> None:
+    """Rounding happens first, so the band is chosen by the rung it lands on.
+
+    5.6 is the case worth reading: it rounds up to rung 6, which puts it in the
+    upper band and lifts it by two. The estimate sat below the edge; the rung
+    the model actually publishes did not.
+    """
+    decision = {
+        "rounding": "half_up",
+        "bands": [{"upper": 6, "offset": 0}, {"upper": None, "offset": 2}],
+    }
+
+    assert publish(value, decision) == pytest.approx(expected)
+
+
+def test_without_a_decision_rule_the_raw_quantile_is_published() -> None:
+    """A k-distance model predicts a spacing, not a step; nothing is rounded."""
+    assert publish(0.3712, None) == pytest.approx(0.3712)
+    assert publish(0.3712, {"rule": "quantile", "level": 0.5}) == pytest.approx(0.3712)
