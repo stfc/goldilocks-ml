@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.1.0 — unreleased
+## [0.1.0](https://github.com/stfc/goldilocks-ml/releases/tag/v0.1.0) — 2026-09-05
 
-First release.
+First release. `pip install goldilocks-ml`.
 
 ### Train a model
 
