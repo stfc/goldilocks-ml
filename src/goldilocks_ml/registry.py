@@ -142,10 +142,12 @@ _FEATURES: dict[str, FeatureContract] = {}
 _PREDICTORS: dict[str, Predictor] = {}
 _QRF = "goldilocks_ml.models.k_points.k_distance.qrf"
 _KINDEX_QRF = "goldilocks_ml.models.k_points.k_index.qrf"
+_KINDEX_SCREEN = "goldilocks_ml.models.k_points.k_index.screen"
 _CGCNN = "goldilocks_ml.models.metallicity.is_metal.cgcnn"
 _BUILTIN_TRAINERS = {
     "quantile_random_forest": f"{_QRF}.trainer",
     "cgcnn_classifier": f"{_CGCNN}.trainer",
+    "dense_mesh_screen": f"{_KINDEX_SCREEN}.trainer",
 }
 # Keyed by serving runtime, not by trainer: one fitting algorithm can produce
 # models that must be read back differently.
@@ -153,6 +155,7 @@ _BUILTIN_PREDICTORS = {
     "k_points.k_distance.qrf": f"{_QRF}.predictor",
     "k_points.k_index.qrf": f"{_KINDEX_QRF}.predictor",
     "metallicity.is_metal.cgcnn": f"{_CGCNN}.predictor",
+    "k_points.k_index.screen": f"{_KINDEX_SCREEN}.predictor",
 }
 _BUILTIN_FEATURES = {
     "comp_struct_soap_lattice_metal.v1": f"{_QRF}.features",

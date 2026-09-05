@@ -1,0 +1,62 @@
+# Screening MC3D candidates for the dense-mesh tail, to target machine time
+# when growing the k-index dataset.
+schema_version = 1
+id = "k_points.k_index.screen.d5ds2_64f16.v1"
+task = "classification"
+trainer = "dense_mesh_screen"
+
+[dataset]
+target = "k_index"
+target_contract = "goldilocks.k_index.ladder_0based.max50.v1"
+requires = ["structures", "groups"]
+record_id = "d5ds2-64f16"
+snapshot_version = "v1"
+manifest_sha256 = "66eb62879cb65aef18b3e74d73349831eaa2ebd1ec10de88ab58a77d368e82bd"
+
+# The snapshot records the rung that was measured; this model is asked the
+# coarser question. Rung 11 is where the dataset thins out: 9.5% of it sits at
+# or above, and only 0.6% above rung 20. The cut is a statement about the data,
+# deliberately not about where the published forest starts to fail -- anchoring
+# it there would rewrite the definition every time that model improves.
+[dataset.derive]
+kind = "at_or_above"
+threshold = 11
+positive = "dense"
+negative = "sparse"
+contract = "goldilocks.k_index_dense.ladder_0based.ge11.v1"
+
+# Grouped by reduced composition, as the regression protocol is, so polymorphs
+# of one composition cannot straddle a split. Stratified so each split carries
+# the same dense fraction; the positive class is scarce and an unstratified
+# split leaves too few of it to measure a ranking on.
+[split]
+method = "group"
+stratify = true
+train = 0.7
+validation = 0.1
+calibration = 0.1
+test = 0.1
+seed = 42
+
+[features]
+schema = "cslr.v1"
+
+[features.parameters]
+batch_size = 128
+
+[model]
+seed = 42
+
+[model.parameters]
+n_estimators = 500
+n_jobs = -1
+
+# A screen is read as a ranking, so the metrics that matter are the ones that
+# survive not fixing an operating point. The threshold-dependent ones are
+# reported at the default cut and are not what the model is judged on.
+[evaluation]
+primary_metric = "pr_auc"
+metrics = ["pr_auc", "roc_auc", "precision", "recall", "f1", "mcc", "balanced_accuracy"]
+baseline = "train_majority"
+threshold_metric = "mcc"
+positive_label = "dense"

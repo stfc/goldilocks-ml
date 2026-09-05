@@ -49,9 +49,14 @@ SUPPORTED_RECORD_SCHEMA_VERSIONS = frozenset({1})
 # A material property is a fact about the structure that informs several inputs
 # -- metallicity changes both mesh density and the smearing choice -- so it is
 # predicted once and consumed in more than one place.
+# A dataset judgement is neither. It does not advise a calculation: it says
+# whether a structure is worth measuring, and its consumer is the campaign that
+# builds the next dataset rather than an input file. Kept distinct so that a
+# consumer looking for advice about a calculation cannot pick it up by mistake.
 DFT_PARAMETER = "dft_parameter"
 MATERIAL_PROPERTY = "material_property"
-KINDS = frozenset({DFT_PARAMETER, MATERIAL_PROPERTY})
+DATASET_SELECTION = "dataset_selection"
+KINDS = frozenset({DFT_PARAMETER, MATERIAL_PROPERTY, DATASET_SELECTION})
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,6 +125,16 @@ CONTRACTS: Mapping[str, ContractSpec] = {
         parameter="metallicity",
         quantity="is_metal",
         kind=MATERIAL_PROPERTY,
+        boolean=True,
+    ),
+    # Whether a structure needs a mesh at rung 11 or above on the same ladder
+    # the k_index contract counts. The rung is part of the contract string
+    # because it is part of what the answer means: a model screening at a
+    # different rung answers a different question and must not be swapped in.
+    "goldilocks.k_index_dense.ladder_0based.ge11.v1": ContractSpec(
+        parameter="dataset_candidate",
+        quantity="needs_dense_mesh",
+        kind=DATASET_SELECTION,
         boolean=True,
     ),
 }

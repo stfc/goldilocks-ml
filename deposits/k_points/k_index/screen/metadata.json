@@ -1,0 +1,163 @@
+{
+  "access": {
+    "files": "public",
+    "record": "public"
+  },
+  "files": {
+    "enabled": true,
+    "default_preview": "README.md"
+  },
+  "custom_fields": {
+    "dsmd": []
+  },
+  "metadata": {
+    "title": "Goldilocks dense-mesh screen for k-index dataset growth",
+    "description": "<p>A random forest that ranks crystal structures by how likely they are to need a dense k-point mesh, so that machine time spent extending a k-mesh dataset goes where the labels are scarce. It does not advise a calculation: it answers a question about a dataset, and its output is an ordering.</p><p>The model predicts whether a structure's converged mesh sits at rung 11 or above on Goldilocks Core's ordered ladder of k-point meshes, where rung 0 is the Gamma-only (1, 1, 1) mesh; 9.5% of the training record sits at or above it. The rung appears in the target contract, since a screen cutting at a different rung answers a different question.</p><p>Trained on PSDI record d5ds2-64f16: the same 17757 MC3D structures with converged Quantum ESPRESSO k-mesh studies that the Goldilocks k-index forest learned from, split 70/10/10/10, grouped by reduced composition so polymorphs cannot straddle a split, and stratified on the derived class. The snapshot records the rung that was measured and the classes are derived from it, so the two models cannot drift apart. Inputs are the same 174 composition, structure, direct-lattice and reciprocal-lattice descriptors, with no learned representation and no dependency on another model's output.</p><p>On the 1775-structure test split it reaches 0.960 ROC-AUC, 0.752 PR-AUC and 0.683 Matthews correlation, against 0.050 PR-AUC and 0.000 MCC for a majority-class baseline that finds no dense structure at all. Because a screen is read as a ranking rather than a cut, the record carries precision and recall at fractions of a ranked pool rather than at one operating point: taking the top 5% of a pool yields 0.787 precision at 8.2 times the base rate, and the top 15% recovers 84.2% of the dense structures in it. Fractions rather than counts, because a campaign ranks a pool of its own size.</p><p>The record contains the fitted forest, its ranking record, and model.json, which was written by the run that fitted the model and records the feature contract, all 174 column names, the target contract, the rung the classes were derived at, the measured ranking quality, the hyperparameters and the artifact digest. The serving runtime refuses an artifact that does not record the rung it screens at or carries no measured ranking quality, because a screen that cannot say what a budget buys is not usable as one.</p>",
+    "creators": [
+      {
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ],
+        "person_or_org": {
+          "family_name": "Yin",
+          "given_name": "Junwen",
+          "identifiers": [
+            {
+              "identifier": "0000-0001-7374-9352",
+              "scheme": "orcid"
+            }
+          ],
+          "name": "Yin, Junwen",
+          "type": "personal"
+        }
+      }
+    ],
+    "contributors": [
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Elena, Alin-Marin",
+          "given_name": "Alin-Marin",
+          "family_name": "Elena"
+        },
+        "role": {
+          "id": "projectmanager"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Yin, Junwen",
+          "given_name": "Junwen",
+          "family_name": "Yin"
+        },
+        "role": {
+          "id": "projectmember"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Basak, Susmita",
+          "given_name": "Susmita",
+          "family_name": "Basak"
+        },
+        "role": {
+          "id": "projectmember"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Cha, Jaehoon",
+          "given_name": "Jaehoon",
+          "family_name": "Cha"
+        },
+        "role": {
+          "id": "projectmember"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Teobaldi, Gilberto",
+          "given_name": "Gilberto",
+          "family_name": "Teobaldi"
+        },
+        "role": {
+          "id": "projectmember"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Sparks, Willow",
+          "given_name": "Willow",
+          "family_name": "Sparks"
+        },
+        "role": {
+          "id": "projectmember"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
+      }
+    ],
+    "rights": [
+      {
+        "id": "cc-by-4.0"
+      }
+    ],
+    "resource_type": {
+      "id": "model"
+    },
+    "subjects": [
+      {
+        "subject": "Materials science"
+      },
+      {
+        "subject": "Density functional theory"
+      },
+      {
+        "subject": "K-point sampling"
+      },
+      {
+        "subject": "Active learning"
+      },
+      {
+        "subject": "Dataset construction"
+      }
+    ],
+    "publisher": "PSDI",
+    "version": "v1.0"
+  }
+}
