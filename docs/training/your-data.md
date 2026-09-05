@@ -16,31 +16,19 @@ mp-149,0.2143,Si-diamond
 mp-2534,0.1872,GaAs-zincblende
 ```
 
-## Give each sample a real name
+## The three columns
 
-The first column identifies the sample, and it has to mean the same thing every
-time. Use whatever your data already calls it: a Materials Project id, an
-internal calculation id, a hash of the structure.
+**`sample_id`** — whatever your data already calls it: a Materials Project id,
+an internal calculation id, a hash of the structure. Row numbers are rejected,
+because re-sorting or filtering your file would silently rename every sample
+after that point.
 
-What will not work is a row number. Sort your file differently, drop a
-duplicate, or filter out a failed calculation, and every sample after that
-point silently becomes a different sample — so the split changes, and two runs
-of the same script no longer mean the same thing. Plain `0, 1, 2, ...` is
-rejected for that reason.
+**`target`** — the number being predicted.
 
-## The third column keeps near-duplicates together
-
-Materials data is full of samples that are almost the same: polymorphs of one
-composition, the same structure at several volumes, a family of calculations
-that differ in one setting. If some land in training and their near-twins land
-in testing, the test score flatters the model — it has effectively seen the
-answers.
-
-The third column is a name you choose for that grouping — a composition, a
-structure prototype, a project code. Everything sharing a name goes into the
-same split, together.
-
-You can leave it out, and then only random splitting is available.
+**`group`** *(optional)* — a name you choose so near-duplicates stay together:
+a composition, a structure prototype, a project code. Polymorphs split at random
+across training and testing flatter the score. Leave it out and only random
+splitting is available.
 
 ## Seal the directory
 
@@ -54,7 +42,7 @@ uv run goldilocks-ml train seal snapshots/mine --record-id my-data --version v1 
 
 This writes `manifest.json` with the size and SHA-256 of every file, and prints
 the manifest's own digest. A protocol may pin that digest to reproduce exactly
-this snapshot; see [Configuration reference](protocol.md#pinning-a-snapshot).
+this snapshot; see [Configuration reference](protocol.md#dataset).
 
 Every structure file must be present or none may be: a snapshot with structures
 for some samples and not others is rejected rather than silently trained on a

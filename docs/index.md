@@ -2,70 +2,45 @@
 
 Setting up a DFT calculation means choosing things that are hard to choose
 well. How dense does the k-point mesh need to be? Is this material a metal, so
-that it needs smearing? Too coarse and the answer is wrong; too fine and you
-burn compute for nothing.
+it needs smearing? Too coarse and the answer is wrong; too fine and you burn
+compute for nothing.
 
 Goldilocks answers those questions with models trained on past calculations.
-**This site is where those models are made.**
 
-!!! tip "Just want the answers, not the models?"
+!!! tip "Just want the answers?"
 
-    Then you want [Goldilocks Core](https://github.com/stfc/goldilocks-core).
-    Give it a structure and it downloads the right model, runs it, and writes
-    your input files. You never touch this repository.
+    [Goldilocks Core](https://github.com/stfc/goldilocks-core) takes a structure,
+    fetches the right model, and writes your input files. You never touch this
+    repository.
 
-    Read on if you want to train a model yourself — on your own calculations,
-    your own chemistry, or your own definition of "converged".
+    **This site is for training and publishing the models themselves.**
 
-## Train on your own data
+## What you can do here
 
-You describe a training job in a small configuration file — which dataset,
-how to split it, which model, which metrics — and run it. Nothing is decided in
-a notebook and forgotten.
+**[Use a model](inference.md)** — load a published model and get a prediction,
+in five lines.
 
-[Prepare your data](training/your-data.md) covers the format your calculations
-need to be in. [Train a model](training/index.md) walks through a real one.
+**[Train a model](training/index.md)** — describe a training job in one small
+configuration file and run it. Every run leaves [one
+folder](training/run-bundle.md) holding the predictions, the split, the scores
+against a baseline, and a checksum for every file it touched.
 
-Every run leaves [one self-contained folder](training/run-bundle.md): what the
-model predicted for each sample next to the true value, which samples went into
-training, validation and testing, how it scored against a trivial baseline, and
-a checksum for every file it read or wrote. A score means nothing without
-knowing what a naive guess would have got, and six months from now the
-checksums are how you prove which data produced which model.
-
-## Share what you trained
-
-```bash
-uv run goldilocks-ml publish validate deposits/k_points/k_distance/qrf \
-  --artifact-directory local_data/models/k_points/k_distance/qrf
-```
-
-Publishing puts a model in [PSDI Data
-Collections](https://data-collections.psdi.ac.uk) with a permanent identifier,
-so other people can cite it and check they have the same file you did.
-Everything is checked locally before anything is uploaded, and nothing is ever
-submitted for review without you looking at it first.
-
-[Publishing a model](publishing.md) is the full walkthrough.
+**[Publish a model](publishing.md)** — put it in PSDI Data Collections with a
+permanent identifier, so others can cite it and check they have the same file.
 
 ## Models published this way
 
 | Model | What it gives you | Record |
 | --- | --- | --- |
 | [QRF95](training/models/k_points/k_distance-qrf.md) | how dense a k-point mesh needs to be | [q3bye-wep37](https://data-collections.psdi.ac.uk/records/q3bye-wep37) |
+| [Metallicity classifier](training/models/metallicity/is_metal-cgcnn.md) | metal or insulator | [ba06w-n6a68](https://data-collections.psdi.ac.uk/records/ba06w-n6a68) |
 | [CGCNN representation](training/models/metallicity/representation-cgcnn.md) | 64 numbers describing a crystal | [m742g-g0k14](https://data-collections.psdi.ac.uk/records/m742g-g0k14) |
-| [CGCNN metallicity classifier](training/models/metallicity/is_metal-cgcnn.md) | metal or insulator, with a threshold chosen for the cost of being wrong | [ba06w-n6a68](https://data-collections.psdi.ac.uk/records/ba06w-n6a68) |
 
-QRF95 and the CGCNN representation were reviewed and accepted by the PSDI Data
-to Knowledge community, and are now **historical**: their latest versions are
-the last, and neither is developed here any more. The metallicity classifier is
-not — it is trained in this repository from a versioned protocol
-(`matbench_mp_is_metal.v2`, currently), and expected to be retrained and
-republished as the recipe improves. Every deposit definition is in `deposits/`,
-and is the example to copy when you publish your own.
+[All models](training/models/index.md), including the ones trained here and not
+yet published.
 
-## Where to go
+## Start here
 
 [Install](installation.md){ .md-button .md-button--primary }
+[Use a model](inference.md){ .md-button }
 [Train a model](training/index.md){ .md-button }
-[Publish a model](publishing.md){ .md-button }
