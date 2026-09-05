@@ -4,62 +4,69 @@
 [![Docs status][docs-badge]][docs-link]
 [![License][license-badge]][license-link]
 
-Offline model development, evaluation, and artifact publication for Goldilocks.
+**Train and publish the models that choose DFT settings for you.**
 
-The repository owns model release provenance: model cards, PSDI metadata,
-artifact manifests, compatibility information, and the tooling used to validate
-and upload them. Large model files, datasets, API tokens, and runtime download
-logic do not belong in Git.
+Setting up a DFT calculation means guessing things that are hard to guess: how
+dense the k-point mesh needs to be, whether the material is a metal and needs
+smearing. Goldilocks answers those from models trained on past calculations.
+This package is where those models are trained, evaluated and published.
 
-## Published models
+Want the answers rather than the models? [Goldilocks
+Core](https://github.com/stfc/goldilocks-core) takes a structure and writes your
+input files.
 
-| Model | PSDI record |
-| --- | --- |
-| QRF95 k-mesh recommendation model | [q3bye-wep37](https://data-collections.psdi.ac.uk/records/q3bye-wep37) |
-| CGCNN crystal representation | [m742g-g0k14](https://data-collections.psdi.ac.uk/records/m742g-g0k14) |
-| CGCNN metallicity classifier | [ba06w-n6a68](https://data-collections.psdi.ac.uk/records/ba06w-n6a68) |
+📖 **[Documentation](https://stfc.github.io/goldilocks-ml/)**
 
-## Training protocol CLI
+## Use a published model
 
-A training protocol is a versioned TOML file, not a notebook. A clean checkout
-can run both reference workflows entirely offline:
+```python
+from goldilocks_ml.inference import load_model
+
+model = load_model("path/to/a/psdi/record")
+prediction = model.predict(structure)
+
+prediction.value  # e.g. 0.2134
+prediction.quantity  # 'k_distance'
+```
+
+| Model | What it gives you | PSDI record |
+| --- | --- | --- |
+| QRF95 | how dense a k-point mesh needs to be | [q3bye-wep37](https://data-collections.psdi.ac.uk/records/q3bye-wep37) |
+| CGCNN metallicity classifier | metal or insulator | [ba06w-n6a68](https://data-collections.psdi.ac.uk/records/ba06w-n6a68) |
+| CGCNN representation | 64 numbers describing a crystal | [m742g-g0k14](https://data-collections.psdi.ac.uk/records/m742g-g0k14) |
+
+## Train one
+
+A training job is one TOML file, not a notebook. This runs offline in a clean
+checkout:
 
 ```bash
 uv sync
-uv run goldilocks-ml train validate protocols/synthetic/regression.toml \
-  --dataset tests/fixtures/kdist
 uv run goldilocks-ml train run protocols/synthetic/regression.toml \
-  --dataset tests/fixtures/kdist --output local_runs/synthetic-regression
+  --dataset tests/fixtures/kdist --output local_runs/first
 ```
 
-`run` writes a bundle recording the resolved protocol, dataset identity, split
-manifest, environment, metrics, predictions, model, and a SHA-256 for every
-file. The shipped linear and logistic trainers are deliberately lightweight
-reference implementations. The QRF95-compatible trainer, the 483-column feature
-contract, and a CGCNN classifier trainer are available through the optional
-`models` dependency set.
+You get one folder holding the predictions, the split, the scores against a
+baseline, the environment, and a SHA-256 for every file involved.
 
-The data layout, split rules, and reproducibility limits are in the
-[training guide](https://stfc.github.io/goldilocks-ml/training/).
-
-## PSDI deposit CLI
-
-Install the repository environment and inspect the CLI:
+The real scientific models need the optional dependency set:
 
 ```bash
-uv sync --group dev --group docs
-uv run goldilocks-ml publish --help
+uv sync --extra models
 ```
 
-Validate a deposit without making a network request:
+See [Train a model](https://stfc.github.io/goldilocks-ml/training/).
+
+## Publish one
 
 ```bash
 uv run goldilocks-ml publish validate deposits/k_points/k_distance/qrf \
   --artifact-directory local_data/models/k_points/k_distance/qrf
 ```
 
-The complete token, draft, inspection, and review workflow
-is in the [PSDI publication guide](https://stfc.github.io/goldilocks-ml/publishing/).
+Everything is checked locally first, and nothing is ever submitted for review
+without you doing it yourself. See [Publish a
+model](https://stfc.github.io/goldilocks-ml/publishing/).
 
 ## Development
 

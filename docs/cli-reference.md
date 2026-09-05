@@ -1,24 +1,18 @@
 # CLI reference
 
-One command, grouped by responsibility: a group names what you are working
-with, a command names what to do to it.
-
-```
+```text
 goldilocks-ml train    seal | validate | run
 goldilocks-ml publish  validate | checksum | upload
 ```
 
-Run them from a clone with `uv run`.
+Run them from a clone with `uv run`. Every command exits non-zero and shows the
+real error when something fails.
 
-Grouping disambiguates a word that means two things. `train validate` checks a
-protocol against a snapshot; `publish validate` checks a deposit against its
-artifacts.
+**There is no inference command.** Predicting from a published model is
+[Goldilocks Core](https://github.com/stfc/goldilocks-core)'s job; this package
+gives it a [library](inference.md).
 
-**There is no inference command.** Predicting from a published model is what
-Goldilocks Core does, and this package gives it a library rather than a second
-command line. See [Use a model](inference.md).
-
-## `goldilocks-ml train seal`
+## `train seal`
 
 ```bash
 uv run goldilocks-ml train seal DATASET \
@@ -27,74 +21,57 @@ uv run goldilocks-ml train seal DATASET \
   --target-definition DEFINITION [--target-units UNITS]
 ```
 
-Writes `manifest.json` with the snapshot identity, target definition, and the
-size and SHA-256 of every file. This command makes no network request.
+Writes `manifest.json` with the snapshot's identity, target definition, and the
+size and SHA-256 of every file. Offline.
 
-## `goldilocks-ml train validate`
+## `train validate`
 
 ```bash
 uv run goldilocks-ml train validate PROTOCOL --dataset DATASET
 ```
 
-Loads the protocol, verifies the dataset snapshot's identity, checksums, and
-required columns, derives the split, and reports the per-split sample counts.
-It trains nothing and makes no network request.
+Checks the protocol against the snapshot, derives the split, and reports the
+per-split counts. Trains nothing. Offline.
 
-## `goldilocks-ml train run`
+## `train run`
 
 ```bash
 uv run goldilocks-ml train run PROTOCOL --dataset DATASET --output OUTPUT \
-  [--splits SPLITS] [--overwrite]
+  [--splits SPLITS] [--artifact-directory DIR] [--overwrite]
 ```
 
-Repeats every `validate` check, then trains, evaluates, and writes a run
-bundle to `OUTPUT`. `--splits` replays an existing `splits.csv` instead of
-deriving one. `--overwrite` replaces only a directory created by an earlier
-Goldilocks run and carrying its safety marker. It refuses ordinary directories,
-even when the flag is present.
+Runs every `validate` check, then trains and writes a [run
+bundle](training/run-bundle.md).
 
-See [Train a model](training/index.md) for the protocol schema, the
-snapshot contract, and the bundle layout.
+`--splits` replays an existing `splits.csv`. `--overwrite` only replaces a
+directory an earlier run created; it refuses ordinary directories.
 
-## `goldilocks-ml publish checksum`
+## `publish checksum`
 
 ```bash
 uv run goldilocks-ml publish checksum PATH
 ```
 
-Prints the artifact basename, byte size, and SHA-256 as a JSON manifest entry.
-It reads the local file and makes no network request.
+Prints one manifest entry — name, size, digest — ready to paste. Offline.
 
-## `goldilocks-ml publish validate`
-
-```bash
-uv run goldilocks-ml publish validate DEPOSITION \
-  --artifact-directory ARTIFACT_DIRECTORY
-```
-
-Validates metadata and every upload file offline. `DEPOSITION` contains the
-three sidecars; `ARTIFACT_DIRECTORY` contains the files listed in the manifest.
-
-## `goldilocks-ml publish upload`
+## `publish validate`
 
 ```bash
-uv run goldilocks-ml publish upload DEPOSITION \
-  --artifact-directory ARTIFACT_DIRECTORY \
-  --token-file TOKEN_FILE \
-  --confirm-upload
+uv run goldilocks-ml publish validate DEPOSITION --artifact-directory DIR
 ```
 
-The command validates, creates, populates, and binds a PSDI draft, then stops
-without submitting it for review. It prints the draft identifier. Open that
-draft in the PSDI web interface, inspect the preview, and use the web interface
-to submit it for review. The CLI has no review-submission command.
+Checks the metadata, the model card, and every artifact's size and digest.
+Offline.
 
-If metadata update, file upload, or community binding fails, the partial draft
-is deleted. If both the upload and deletion fail, the error reports both causes
-and the draft identifier so the partial draft can be removed in PSDI.
+## `publish upload`
 
-## Exit behavior
+```bash
+uv run goldilocks-ml publish upload DEPOSITION --artifact-directory DIR \
+  --token-file TOKEN_FILE --confirm-upload
+```
 
-The CLI exits non-zero and leaves the underlying error visible when validation
-or a PSDI operation fails. It does not catch errors and continue with a partial
-success message.
+Validates again, creates a PSDI draft, uploads the files, and prints the draft
+id. **It never submits for review** — do that on the website.
+
+If a step fails partway, the partial draft is deleted. If that cleanup also
+fails, the error names the draft id so you can remove it yourself.

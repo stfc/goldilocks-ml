@@ -50,36 +50,27 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Install: installation.md
+  - Use a model: inference.md
   - Train a model:
       - Overview: training/index.md
       - Prepare your data: training/your-data.md
       - Configuration reference: training/protocol.md
       - What a run produces: training/run-bundle.md
-      - Models:
-          - Overview: training/models/index.md
-          - k-point mesh:
-              - Overview: training/models/k_points/index.md
-              - k-distance:
-                  - QRF95 (historical):
-                      - The record: training/models/k_points/k_distance-qrf.md
-                      - Notebook: notebooks/k_distance-qrf.ipynb
-              - k-index:
-                  - Overview: training/models/k_points/k_index.md
-                  - CSLR forest:
-                      - Training: training/models/k_points/k_index-qrf.md
-          - Metallicity:
-              - Overview: training/models/metallicity/index.md
-              - is-metal:
-                  - CGCNN:
-                      - Training: training/models/metallicity/is_metal-cgcnn.md
-                      - Notebook: notebooks/metallicity-cgcnn.ipynb
-              - representation:
-                  - CGCNN (historical): training/models/metallicity/representation-cgcnn.md
-          - Magnetism: training/models/magnetism/index.md
-          - Hubbard U: training/models/hubbard_u/index.md
+  - Models:
+      - Overview: training/models/index.md
+      - k-point mesh: training/models/k_points/index.md
+      - "· QRF95 (k-distance)": training/models/k_points/k_distance-qrf.md
+      - "· k-index forest": training/models/k_points/k_index-qrf.md
+      - Metallicity: training/models/metallicity/index.md
+      - "· Classifier": training/models/metallicity/is_metal-cgcnn.md
+      - "· Representation": training/models/metallicity/representation-cgcnn.md
+      - Magnetism: training/models/magnetism/index.md
+      - Hubbard U: training/models/hubbard_u/index.md
+      - Notebooks:
+          - k-distance: notebooks/k_distance-qrf.ipynb
+          - Metallicity: notebooks/metallicity-cgcnn.ipynb
   - Publish a model: publishing.md
   - Reference:
-      - Inference API: inference.md
       - CLI: cli-reference.md
       - Deposit format: deposit-format.md
       - Troubleshooting: troubleshooting.md
