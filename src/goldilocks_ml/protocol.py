@@ -121,6 +121,27 @@ class PinnedSnapshot:
 
 
 @dataclass(frozen=True, slots=True)
+class DerivedTarget:
+    """A classification target computed from a snapshot's numeric one.
+
+    A snapshot records the quantity that was measured. A model may be asked a
+    coarser question about it -- here, whether a structure needs a mesh at or
+    above a given rung. Deriving it in the protocol keeps one snapshot serving
+    both models, so the classes cannot drift from the numbers they came from.
+    """
+
+    kind: str
+    threshold: float
+    positive: str
+    negative: str
+    contract: str
+
+    def label(self, value: float) -> str:
+        """Return the class one recorded target value belongs to."""
+        return self.positive if value >= self.threshold else self.negative
+
+
+@dataclass(frozen=True, slots=True)
 class DatasetSpec:
     """What a protocol needs from a snapshot, and optionally which snapshot.
 
@@ -133,6 +154,7 @@ class DatasetSpec:
     requires: tuple[str, ...]
     target_units: str | None = None
     pinned: PinnedSnapshot | None = None
+    derive: DerivedTarget | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -249,7 +271,13 @@ _DATASET_KEYS = {
     "record_id",
     "snapshot_version",
     "manifest_sha256",
+    "derive",
 }
+_DERIVE_KEYS = {"kind", "threshold", "positive", "negative", "contract"}
+# The derivations a protocol may apply to a snapshot's recorded target. Only
+# one exists because only one is needed: a screening model asks whether a
+# numeric target clears a line, and the line is part of the model's identity.
+DERIVATIONS = frozenset({"at_or_above"})
 _PIN_KEYS = ("record_id", "snapshot_version", "manifest_sha256")
 _SPLIT_KEYS = {
     "method",
@@ -358,12 +386,40 @@ def _load_dataset(root: dict[str, Any]) -> DatasetSpec:
             manifest_sha256=manifest_sha256,
         )
 
+    derive = None
+    if "derive" in table:
+        derive_table = _table(table.get("derive"), "dataset.derive")
+        _reject_unknown(derive_table, _DERIVE_KEYS, "dataset.derive")
+        kind = _string(derive_table, "kind", "dataset.derive")
+        if kind not in DERIVATIONS:
+            raise ValueError(
+                f"unknown dataset.derive.kind {kind!r}; "
+                f"known: {', '.join(sorted(DERIVATIONS))}"
+            )
+        threshold = derive_table.get("threshold")
+        if isinstance(threshold, bool) or not isinstance(threshold, (int, float)):
+            raise ValueError("dataset.derive.threshold must be a number")
+        positive = _string(derive_table, "positive", "dataset.derive")
+        negative = _string(derive_table, "negative", "dataset.derive")
+        if positive == negative:
+            raise ValueError(
+                "dataset.derive.positive and negative must be different labels"
+            )
+        derive = DerivedTarget(
+            kind=kind,
+            threshold=float(threshold),
+            positive=positive,
+            negative=negative,
+            contract=_string(derive_table, "contract", "dataset.derive"),
+        )
+
     return DatasetSpec(
         target=_string(table, "target", "dataset"),
         target_contract=_string(table, "target_contract", "dataset"),
         requires=requires,
         target_units=target_units,
         pinned=pinned,
+        derive=derive,
     )
 
 
