@@ -10,7 +10,13 @@ readme = "README.md"
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
 requires-python = ">=3.12"
-authors = [{ name = "Junwen Yin" }]
+authors = [
+    { name = "Alin-Marin Elena" },
+    { name = "Junwen Yin" },
+    { name = "Susmita Basak" },
+    { name = "Jaehoon Cha" },
+    { name = "Gilberto Teobaldi" },
+]
 maintainers = [{ name = "Junwen Yin" }]
 keywords = [
     "density-functional-theory",
