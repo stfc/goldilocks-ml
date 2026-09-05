@@ -61,6 +61,7 @@ nav:
       - k-point mesh: training/models/k_points/index.md
       - "· QRF95 (k-distance)": training/models/k_points/k_distance-qrf.md
       - "· k-index forest": training/models/k_points/k_index-qrf.md
+      - "· Dense-mesh screen": training/models/k_points/k_index_dense-screen.md
       - Metallicity: training/models/metallicity/index.md
       - "· Classifier": training/models/metallicity/is_metal-cgcnn.md
       - "· Representation": training/models/metallicity/representation-cgcnn.md
