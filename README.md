@@ -89,7 +89,7 @@ deploys it after changes reach `main`. A repository administrator must select
 
 ## Licence
 
-This package is released under the [BSD 3-Clause Licence](LICENSE), matching
+This package is released under the [BSD 3-Clause Licence](https://github.com/stfc/goldilocks-ml/blob/main/LICENSE), matching
 Goldilocks Core.
 
 Published models are a separate matter. Trained weights and the datasets behind

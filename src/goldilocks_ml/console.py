@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import sys
 
+from goldilocks_ml import __version__
 from goldilocks_ml import cli as training
 from goldilocks_ml import psdi as publication
 
@@ -34,6 +35,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="goldilocks-ml",
         description="Train, evaluate, and publish Goldilocks models.",
+    )
+    parser.add_argument(
+        "--version", action="version", version=f"goldilocks-ml {__version__}"
     )
     groups = parser.add_subparsers(dest="group", required=True)
     training.add_parser(groups)

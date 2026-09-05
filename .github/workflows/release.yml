@@ -1,0 +1,64 @@
+name: Publish on PyPI
+
+# Driven by a tag, so what reaches PyPI is always a commit in the history.
+# Shaped after stfc/janus-core's release workflow, so both packages are
+# released the same way.
+on:
+  push:
+    tags:
+      # After vMajor.Minor.Patch anything is allowed, except "/".
+      - v[0-9]+.[0-9]+.[0-9]+*
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # A fork that pushes a tag must not try to publish.
+    if: github.repository == 'stfc/goldilocks-ml'
+    environment:
+      # Registered as the trusted publisher's environment on PyPI. Renaming it
+      # here means editing the publisher there too, or the upload is refused.
+      name: pypi
+      url: https://pypi.org/p/goldilocks-ml
+    permissions:
+      # For PyPI's trusted publishing.
+      id-token: write
+      # For creating the GitHub release.
+      contents: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          python-version: "3.12"
+
+      # A tag that disagrees with the packaged version publishes a release
+      # nobody can find from the history.
+      - name: Check the tag matches the packaged version
+        run: |
+          packaged=$(uvx --from=toml-cli toml get --toml-path=pyproject.toml project.version)
+          tagged="${GITHUB_REF_NAME#v}"
+          if [ "$packaged" != "$tagged" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match version $packaged"
+            exit 1
+          fi
+
+      - name: Build
+        run: uv build
+
+      - name: Check the artifacts are well formed
+        run: uvx twine check --strict dist/*
+
+      - name: Create the GitHub release
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1.21.0
+        with:
+          artifacts: "dist/*"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          draft: false
+          skipIfReleaseExists: true
+          generateReleaseNotes: true
+
+      - name: Publish to PyPI
+        run: uv publish
