@@ -1,18 +1,30 @@
-name: Release
+name: Publish on PyPI
 
-# Publishing is driven by a tag, so what reaches PyPI is always a commit that
-# exists in the history rather than whatever a workstation happened to hold.
+# Driven by a tag, so what reaches PyPI is always a commit in the history.
+# Shaped after stfc/janus-core's release workflow, so both packages are
+# released the same way.
 on:
   push:
-    tags: ["v*"]
-  workflow_dispatch:
-
-permissions:
-  contents: read
+    tags:
+      # After vMajor.Minor.Patch anything is allowed, except "/".
+      - v[0-9]+.[0-9]+.[0-9]+*
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
+    # A fork that pushes a tag must not try to publish.
+    if: github.repository == 'stfc/goldilocks-ml'
+    environment:
+      # Registered as the trusted publisher's environment on PyPI. Renaming it
+      # here means editing the publisher there too, or the upload is refused.
+      name: pypi
+      url: https://pypi.org/p/goldilocks-ml
+    permissions:
+      # For PyPI's trusted publishing.
+      id-token: write
+      # For creating the GitHub release.
+      contents: write
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -22,13 +34,11 @@ jobs:
         with:
           python-version: "3.12"
 
-      # A tag that disagrees with the version in pyproject.toml would publish a
-      # release nobody can find from the history.
+      # A tag that disagrees with the packaged version publishes a release
+      # nobody can find from the history.
       - name: Check the tag matches the packaged version
-        if: startsWith(github.ref, 'refs/tags/')
         run: |
-          packaged=$(uv run --frozen --no-project python -c \
-            "import tomllib,pathlib;print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
+          packaged=$(uvx --from=toml-cli toml get --toml-path=pyproject.toml project.version)
           tagged="${GITHUB_REF_NAME#v}"
           if [ "$packaged" != "$tagged" ]; then
             echo "::error::tag $GITHUB_REF_NAME does not match version $packaged"
@@ -41,29 +51,14 @@ jobs:
       - name: Check the artifacts are well formed
         run: uvx twine check --strict dist/*
 
-      - name: Upload the artifacts
-        uses: actions/upload-artifact@v4
+      - name: Create the GitHub release
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1.21.0
         with:
-          name: dist
-          path: dist/
-
-  publish:
-    needs: build
-    runs-on: ubuntu-latest
-    # Trusted Publishing: PyPI verifies this workflow's identity, so there is
-    # no API token to store or rotate. Configure the publisher once on PyPI
-    # under the project's Publishing settings.
-    environment:
-      name: pypi
-      url: https://pypi.org/p/goldilocks-ml
-    permissions:
-      id-token: write
-    steps:
-      - name: Download the artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
+          artifacts: "dist/*"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          draft: false
+          skipIfReleaseExists: true
+          generateReleaseNotes: true
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        run: uv publish
