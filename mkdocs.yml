@@ -70,8 +70,6 @@ nav:
       - Notebooks:
           - k-distance: notebooks/k_distance-qrf.ipynb
           - Metallicity: notebooks/metallicity-cgcnn.ipynb
-  - Grow the dataset:
-      - Dense-mesh screen: dataset/dense-mesh-screen.md
   - Publish a model: publishing.md
   - Reference:
       - CLI: cli-reference.md
