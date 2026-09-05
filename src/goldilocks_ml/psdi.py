@@ -152,6 +152,31 @@ def _validate_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
     return validated
 
 
+def find_markdown_tables(text: str) -> list[int]:
+    """Return the line numbers of any GitHub-flavoured table delimiter rows.
+
+    PSDI renders the model card with a plain Markdown previewer, which has no
+    table extension: a table arrives as a wall of pipes and dashes. Every
+    deposit so far has laid its numbers out as aligned columns inside a fenced
+    block instead, which renders anywhere, and this keeps the next one from
+    finding out the hard way after upload.
+
+    Fenced blocks are skipped, so a card is free to draw a table inside one.
+    """
+    lines: list[int] = []
+    fenced = False
+    for number, line in enumerate(text.splitlines(), start=1):
+        stripped = line.strip()
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            fenced = not fenced
+            continue
+        if fenced or "|" not in stripped or "-" not in stripped:
+            continue
+        if all(character in "|-: \t" for character in stripped):
+            lines.append(number)
+    return lines
+
+
 def load_deposition(directory: Path, artifact_directory: Path) -> Deposition:
     """Load metadata and verify every upload file before any network mutation."""
     directory = directory.resolve()
@@ -187,6 +212,14 @@ def load_deposition(directory: Path, artifact_directory: Path) -> Deposition:
 
     if not readme_path.is_file():
         raise FileNotFoundError(readme_path)
+    table_lines = find_markdown_tables(readme_path.read_text(encoding="utf-8"))
+    if table_lines:
+        numbers = ", ".join(str(number) for number in table_lines)
+        raise ValueError(
+            f"{readme_path.name} uses Markdown tables (line(s) {numbers}), which "
+            "the record page cannot render; lay the values out as aligned "
+            "columns inside a fenced block instead"
+        )
     # Without this a deposit is a file nobody can load: the digests, the
     # feature contract, and the target contract exist only in prose. Both
     # records published before it existed needed one reconstructed afterwards.

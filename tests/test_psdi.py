@@ -15,6 +15,7 @@ from goldilocks_ml.psdi import (
     DraftCleanupError,
     create_deposition,
     describe_artifact,
+    find_markdown_tables,
     load_deposition,
     read_token,
     require_upload_confirmation,
@@ -485,3 +486,57 @@ def test_every_shipped_deposit_record_agrees_with_its_manifest(deposit: Path) ->
             continue
         file_name = artifacts[name.removesuffix("_sha256")]
         assert published[file_name] == digest, file_name
+
+
+@pytest.mark.parametrize(
+    "card",
+    [
+        "| split | mae |\n| --- | --- |\n| test | 2.63 |",
+        "|split|mae|\n|---|---|\n|test|2.63|",
+        "| split | mae |\n| :--- | ---: |\n| test | 2.63 |",
+    ],
+)
+def test_a_model_card_with_markdown_tables_is_refused(
+    tmp_path: Path, card: str
+) -> None:
+    """PSDI renders the card with no table extension, so it comes out as pipes."""
+    deposition, artifacts = _write_deposition(tmp_path)
+    (deposition / "README.md").write_text(card, encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Markdown tables"):
+        load_deposition(deposition, artifacts)
+
+
+def test_aligned_columns_in_a_fenced_block_are_the_way_to_do_it(tmp_path: Path) -> None:
+    deposition, artifacts = _write_deposition(tmp_path)
+    (deposition / "README.md").write_text(
+        "## Measured performance\n\n"
+        "```text\n"
+        "split          mae      r2\n"
+        "test         2.634   0.042\n"
+        "```\n\n"
+        "A horizontal rule is not a table either:\n\n---\n",
+        encoding="utf-8",
+    )
+
+    assert load_deposition(deposition, artifacts).files["README.md"].is_file()
+
+
+def test_a_table_inside_a_fenced_block_is_left_alone(tmp_path: Path) -> None:
+    """A card may quote a table as an example; only rendered ones are refused."""
+    deposition, artifacts = _write_deposition(tmp_path)
+    (deposition / "README.md").write_text(
+        "This is what not to write:\n\n```markdown\n| a | b |\n| --- | --- |\n```\n",
+        encoding="utf-8",
+    )
+
+    assert load_deposition(deposition, artifacts).files["README.md"].is_file()
+
+
+def test_the_published_model_cards_pass_the_check() -> None:
+    """The convention this enforces was already followed by every deposit."""
+    cards = sorted(Path(__file__).parents[1].glob("deposits/*/*/*/README.md"))
+
+    assert cards
+    for card in cards:
+        assert find_markdown_tables(card.read_text(encoding="utf-8")) == [], card
