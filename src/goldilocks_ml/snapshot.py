@@ -361,7 +361,18 @@ def load_snapshot(directory: Path, protocol: TrainingProtocol) -> Snapshot:
             "snapshot manifest structure_suffix must start with '.' and contain no path"
         )
 
-    rows = _read_id_prop(directory / ID_PROP_NAME, protocol.task)
+    # A derived target is recorded as the number that was measured and read as
+    # the class the protocol derives from it, so one snapshot serves both the
+    # model that predicts the quantity and the model that screens on it.
+    derive = protocol.dataset.derive
+    rows = _read_id_prop(
+        directory / ID_PROP_NAME, "regression" if derive else protocol.task
+    )
+    if derive is not None:
+        rows = [
+            (sample_id, derive.label(float(target)), group)
+            for sample_id, target, group in rows
+        ]
     samples: list[Sample] = []
     for sample_id, target, group in rows:
         structure_path = None

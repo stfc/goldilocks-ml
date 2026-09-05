@@ -7,6 +7,7 @@ that produced them.
 | --- | --- | --- | --- |
 | [k-point mesh](k_points/index.md) | `k_distance` | [QRF95](k_points/k_distance-qrf.md) | published, historical |
 | [k-point mesh](k_points/index.md) | `k_index` | [k-index forest](k_points/k_index-qrf.md) | trained here |
+| [k-point mesh](k_points/index.md) | `k_index_dense` | [Dense-mesh screen](k_points/k_index_dense-screen.md) | trained here |
 | [Metallicity](metallicity/index.md) | `is_metal` | [CGCNN](metallicity/is_metal-cgcnn.md) | published |
 | [Metallicity](metallicity/index.md) | a representation | [CGCNN](metallicity/representation-cgcnn.md) | published, historical |
 | [Magnetism](magnetism/index.md) | — | — | planned |

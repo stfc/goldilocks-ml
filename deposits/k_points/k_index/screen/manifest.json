@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "community": "data-to-knowledge",
+  "artifacts": [
+    {
+      "name": "k_index_screen.pkl",
+      "size_bytes": 51621263,
+      "sha256": "edcbc09e8954acf5cb8f0e86076d42135ccc1fd11de1e8cbf05bda040dad5a84"
+    },
+    {
+      "name": "ranking.json",
+      "size_bytes": 1245,
+      "sha256": "ca5f3b1c4bdbc0b66de64175658853a97e2d4846ec9b65482b483089ec1ab9c5"
+    }
+  ],
+  "inference_requirements": {
+    "artifact_format": "pickle, protocol 5",
+    "python": "3.13",
+    "scikit_learn": "1.7.2",
+    "matminer": "0.10.1",
+    "pymatgen": "2026.5.4",
+    "numpy": "2.5.2",
+    "feature_contract": "cslr.v1",
+    "feature_columns": 174,
+    "target": "k_index_dense",
+    "target_contract": "goldilocks.k_index_dense.ladder_0based.ge11.v1",
+    "derived_from": {
+      "target": "k_index",
+      "rule": "at_or_above",
+      "threshold": 11
+    },
+    "published_value": {
+      "rule": "ranking",
+      "nominal_cut": 0.5,
+      "selected_on": "validation"
+    },
+    "requires": []
+  }
+}

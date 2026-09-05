@@ -9,8 +9,13 @@ rung.
 | --- | --- | --- |
 | `k_distance` | Largest spacing between adjacent k-points, Å⁻¹ | [QRF95](k_distance-qrf.md) |
 | `k_index` | Position in the ordered table of meshes | [k-index forest](k_index-qrf.md) |
+| `k_index_dense` | Whether a structure needs rung 11 or above | [Dense-mesh screen](k_index_dense-screen.md) |
 | `k_line_density` | k-points per unit reciprocal length | none |
 | `k_pra` | k-points per reciprocal atom | none |
+
+The dense-mesh screen advises no setting. It ranks structures nobody has
+calculated yet, so machine time spent extending this dataset goes where its
+labels are thin, and Core never reads it.
 
 Two datasets can both call a column "k-distance" and differ by a factor of 2π,
 and nothing in the number says which. That is why a model declares a target
