@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "community": "data-to-knowledge",
+  "artifacts": [
+    {
+      "name": "k_index_qrf.pkl",
+      "size_bytes": 75599120,
+      "sha256": "bbabd7ed9be6a229251f145984b055232af68cfc9cf37e83b0f6c2c4ca5bc5e4"
+    },
+    {
+      "name": "calibration.json",
+      "size_bytes": 609,
+      "sha256": "e404e71e5b376b4c1f93a0c3cb52c6bd7123823c0f21aa7b747478625bb9a6f9"
+    }
+  ],
+  "inference_requirements": {
+    "artifact_format": "pickle, protocol 5",
+    "python": "3.13",
+    "scikit_learn": "1.7.2",
+    "sklearn_quantile": "0.1.1",
+    "matminer": "0.10.1",
+    "pymatgen": "2026.5.4",
+    "numpy": "2.5.2",
+    "feature_contract": "cslr.v1",
+    "feature_columns": 174,
+    "target": "k_index",
+    "target_contract": "goldilocks.k_index.ladder_0based.max50.v1",
+    "quantiles": [0.05, 0.5, 0.95],
+    "published_value": {
+      "rule": "quantile",
+      "level": 0.9,
+      "rounding": "half_up",
+      "bands": [
+        {"upper": 6, "offset": 0},
+        {"upper": 11, "offset": 0},
+        {"upper": null, "offset": 2}
+      ],
+      "max_underprediction": 0.06,
+      "selected_on": "validation"
+    },
+    "requires": []
+  }
+}

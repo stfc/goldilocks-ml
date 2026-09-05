@@ -1,0 +1,164 @@
+{
+  "access": {
+    "files": "public",
+    "record": "public"
+  },
+  "files": {
+    "enabled": true,
+    "default_preview": "README.md"
+  },
+  "custom_fields": {
+    "dsmd": []
+  },
+  "metadata": {
+    "title": "Goldilocks CSLR quantile forest for k-point mesh index (PSDI d5ds2-64f16)",
+    "description": "<p>A quantile random forest that predicts which mesh a periodic material needs from Goldilocks Core's ordered ladder of k-point meshes. It returns a rung on that ladder, not a k-point spacing: rung 0 is the Gamma-only (1, 1, 1) mesh, indices are 0-based, and the ladder was enumerated to 50 k-points per reciprocal-lattice axis.</p><p>Trained on PSDI record d5ds2-64f16: 17757 MC3D structures with converged Quantum ESPRESSO k-mesh studies, split 70/10/10/10 and grouped by reduced composition so that polymorphs of one composition cannot straddle the split. Inputs are 174 composition, structure, direct-lattice and reciprocal-lattice descriptors, matching the extractor Goldilocks Core already uses. No SOAP and no learned metallicity representation.</p><p>The model publishes a whole rung under a stated floor rather than its best estimate. The two directions of being wrong do not cost the same: a rung too low is an under-converged calculation that does not look wrong, while a rung too high only costs machine time. Read at its median the forest is right to the rung 44% of the time and too low 29.7% of the time. What it publishes instead is the cheapest quantile that keeps under-prediction at or below 6%, chosen on the validation split, lifted by two rungs above rung 11 so the floor holds where the model is weakest rather than only on average. On the held-out test split it comes in below the true rung 4.4% of the time, at a mean of 2.42 rungs more mesh than was needed.</p><p>Because the published value is deliberately conservative, symmetric error metrics describe the price of that safety rather than the accuracy of the estimator: test MAE is 2.63 and R-squared 0.04, while the same forest read at its median scores 1.12 and 0.73. Structures that truly need rung 11 or above are still under-converged 14.6% of the time, because 0.6% of the training labels sit above rung 20 and the model cannot place them. That limit is stated in the model card rather than smoothed over.</p><p>The record contains the fitted forest, its separately recorded calibration, and <code>model.json</code>, which was written by the run that fitted the model and records the feature contract, all 174 column names, the target contract, the decision rule and the rule that chose it, the hyperparameter search, and the digests.</p>",
+    "creators": [
+      {
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ],
+        "person_or_org": {
+          "family_name": "Yin",
+          "given_name": "Junwen",
+          "identifiers": [
+            {
+              "identifier": "0000-0001-7374-9352",
+              "scheme": "orcid"
+            }
+          ],
+          "name": "Yin, Junwen",
+          "type": "personal"
+        }
+      }
+    ],
+    "contributors": [
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Elena, Alin-Marin",
+          "given_name": "Alin-Marin",
+          "family_name": "Elena"
+        },
+        "role": {
+          "id": "projectmanager"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Yin, Junwen",
+          "given_name": "Junwen",
+          "family_name": "Yin"
+        },
+        "role": {
+          "id": "projectmember"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Basak, Susmita",
+          "given_name": "Susmita",
+          "family_name": "Basak"
+        },
+        "role": {
+          "id": "projectmember"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Cha, Jaehoon",
+          "given_name": "Jaehoon",
+          "family_name": "Cha"
+        },
+        "role": {
+          "id": "projectmember"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Teobaldi, Gilberto",
+          "given_name": "Gilberto",
+          "family_name": "Teobaldi"
+        },
+        "role": {
+          "id": "projectmember"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Sparks, Willow",
+          "given_name": "Willow",
+          "family_name": "Sparks"
+        },
+        "role": {
+          "id": "projectmember"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
+      }
+    ],
+    "rights": [
+      {
+        "id": "cc-by-4.0"
+      }
+    ],
+    "resource_type": {
+      "id": "model"
+    },
+    "subjects": [
+      {
+        "subject": "Materials science"
+      },
+      {
+        "subject": "Density functional theory"
+      },
+      {
+        "subject": "k-point sampling"
+      },
+      {
+        "subject": "Quantile regression"
+      },
+      {
+        "subject": "Random forests"
+      }
+    ],
+    "publisher": "PSDI",
+    "publication_date": "2026-09-04",
+    "version": "v1.0"
+  }
+}
