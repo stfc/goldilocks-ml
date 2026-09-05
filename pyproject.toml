@@ -5,11 +5,30 @@ build-backend = "hatchling.build"
 [project]
 name = "goldilocks-ml"
 version = "0.1.0"
-description = "Training, evaluation, and model publication workflows for Goldilocks"
+description = "Train and publish the models that choose DFT settings for you"
 readme = "README.md"
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
 requires-python = ">=3.12"
+authors = [{ name = "Junwen Yin" }]
+maintainers = [{ name = "Junwen Yin" }]
+keywords = [
+    "density-functional-theory",
+    "dft",
+    "k-points",
+    "machine-learning",
+    "materials-science",
+    "quantum-espresso",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Physics",
+]
 dependencies = [
     "data-collections-api==0.1.0",
 ]
@@ -25,6 +44,13 @@ models = [
     "torch==2.13.0",
     "torch-geometric==2.8.0.post1",
 ]
+
+[project.urls]
+Homepage = "https://stfc.github.io/goldilocks-ml/"
+Documentation = "https://stfc.github.io/goldilocks-ml/"
+Repository = "https://github.com/stfc/goldilocks-ml"
+Issues = "https://github.com/stfc/goldilocks-ml/issues"
+Changelog = "https://github.com/stfc/goldilocks-ml/blob/main/CHANGELOG.md"
 
 [project.scripts]
 goldilocks-ml = "goldilocks_ml.console:main"
