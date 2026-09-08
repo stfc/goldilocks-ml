@@ -14,9 +14,7 @@ that produced them.
 | [Hubbard U](hubbard_u/index.md) | — | — | planned |
 | [Pseudopotentials](pseudopotentials/index.md) | — | — | planned |
 | [Exchange-correlation](exchange_correlation/index.md) | — | — | planned |
-| [Plane-wave cutoffs](plane_wave_cutoffs/index.md) | — | — | planned |
 | [Smearing](smearing/index.md) | — | — | planned |
-| [Spin-orbit coupling](spin_orbit/index.md) | — | — | planned |
 
 **Historical** means the record's latest version is its last. Both were fitted
 before this repository existed, so neither carries a training run anyone can
