@@ -9,7 +9,7 @@ the next meaningfully denser one.
 | Predicts | `k_index` — a whole rung, counting from 0 |
 | Trained on | [PSDI d5ds2-64f16](https://data-collections.psdi.ac.uk/records/d5ds2-64f16), 17757 structures |
 | Needs | a structure, nothing else |
-| Record | PSDI, submitted for review |
+| Record | [4050a-aas85](https://data-collections.psdi.ac.uk/records/4050a-aas85), v1.0 |
 
 ## Use it
 

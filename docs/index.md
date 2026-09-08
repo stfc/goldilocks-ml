@@ -33,6 +33,7 @@ permanent identifier, so others can cite it and check they have the same file.
 | Model | What it gives you | Record |
 | --- | --- | --- |
 | [QRF95](training/models/k_points/k_distance-qrf.md) | how dense a k-point mesh needs to be | [q3bye-wep37](https://data-collections.psdi.ac.uk/records/q3bye-wep37) |
+| [k-index forest](training/models/k_points/k_index-qrf.md) | which mesh on the ladder a crystal needs | [4050a-aas85](https://data-collections.psdi.ac.uk/records/4050a-aas85) |
 | [Metallicity classifier](training/models/metallicity/is_metal-cgcnn.md) | metal or insulator | [ba06w-n6a68](https://data-collections.psdi.ac.uk/records/ba06w-n6a68) |
 | [CGCNN representation](training/models/metallicity/representation-cgcnn.md) | 64 numbers describing a crystal | [m742g-g0k14](https://data-collections.psdi.ac.uk/records/m742g-g0k14) |
 
