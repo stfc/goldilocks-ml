@@ -69,6 +69,7 @@ nav:
       - Hubbard U: training/models/hubbard_u/index.md
       - Notebooks:
           - k-distance: notebooks/k_distance-qrf.ipynb
+          - k-index: notebooks/k_index-qrf.ipynb
           - Metallicity: notebooks/metallicity-cgcnn.ipynb
   - Publish a model: publishing.md
   - Reference:
