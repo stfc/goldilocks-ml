@@ -63,9 +63,14 @@ BASELINES: dict[str, str] = {
 # first three are the serving runtime; a consumer that can read one release of
 # a runtime can read every release of it.
 _SEGMENT = r"[a-z][a-z0-9_]*"
+# The dataset segment spells an external record id, which we do not choose and
+# which may begin with a digit -- PSDI issues both 'd5ds2-64f16' and
+# '52713-55d86'. The first three segments are ours, so they keep the stricter
+# shape.
+_DATASET_SEGMENT = r"[a-z0-9][a-z0-9_]*"
 _RELEASE_PATTERN = re.compile(
     rf"^(?P<parameter>{_SEGMENT})\.(?P<quantity>{_SEGMENT})\."
-    rf"(?P<family>{_SEGMENT})\.(?P<dataset>{_SEGMENT})\.v(?P<version>[1-9][0-9]*)$"
+    rf"(?P<family>{_SEGMENT})\.(?P<dataset>{_DATASET_SEGMENT})\.v(?P<version>[1-9][0-9]*)$"
 )
 
 

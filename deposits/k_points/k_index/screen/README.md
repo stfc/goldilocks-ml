@@ -10,13 +10,15 @@ running. Its output is an ordering.
 
 ## What it predicts
 
-Whether a structure's converged mesh sits at **rung 11 or above** on Goldilocks
-Core's ordered ladder of k-point meshes, where rung 0 is the Gamma-only
+Whether a structure's converged mesh sits at **rung 12 or above** on Goldilocks
+Core's ordered ladder of k-point meshes, where rung 1 is the Gamma-only
 `(1, 1, 1)` mesh. In the training record 9.5% of structures sit at or above it.
 
 The rung is part of what the answer means, so it appears in the target
-contract, `goldilocks.k_index_dense.ladder_0based.ge11.v1`. A screen cutting at
+contract, `goldilocks.k_index_dense.ladder_1based.ge12.v1`. A screen cutting at
 a different rung answers a different question and is not a drop-in replacement.
+Rung 12 here is the same physical cut that rung 11 was on the earlier 0-based
+ladder; the ladder was re-based, not redefined.
 
 ## How to read it
 
@@ -29,12 +31,12 @@ Measured on the validation split, taking the top fraction of a ranked pool:
 
 ```text
   take        n     of them dense    precision    recall    vs random
-  top  1%     18         17            0.944       0.099       9.8x
-  top  2%     36         31            0.861       0.181       8.9x
-  top  5%     89         70            0.787       0.409       8.2x
-  top 10%    178        116            0.652       0.678       6.8x
-  top 15%    266        144            0.541       0.842       5.6x
-  top 25%    444        158            0.356       0.924       3.7x
+  top  1%     18         17            0.944       0.101       9.9x
+  top  2%     36         32            0.889       0.189       9.3x
+  top  5%     89         67            0.753       0.396       7.9x
+  top 10%    178        116            0.652       0.686       6.8x
+  top 15%    266        136            0.511       0.805       5.4x
+  top 25%    444        158            0.356       0.935       3.7x
 ```
 
 Fractions, not counts, because a campaign ranks a pool of its own size: taking
@@ -46,12 +48,12 @@ On 1775 structures held out of training and of every choice made while
 building it:
 
 ```text
-  ROC-AUC                   0.960
-  PR-AUC                    0.752      baseline 0.050
-  Matthews correlation      0.683      baseline 0.000
-  balanced accuracy         0.888
-  recall                    0.831
-  precision                 0.619
+  ROC-AUC                   0.951
+  PR-AUC                    0.717      baseline 0.050
+  Matthews correlation      0.656      baseline 0.000
+  balanced accuracy         0.815
+  recall                    0.657
+  precision                 0.720
 ```
 
 The baseline is the majority class, which is right 90.3% of the time and finds
@@ -59,8 +61,8 @@ no dense structure at all. PR-AUC against a 0.050 base rate is the number that
 speaks to screening: precision-recall, not accuracy, is what a ranking is
 judged on when the positive class is one structure in ten.
 
-At the nominal 0.5 cut the model calls 231 of 1775 test structures dense and is
-right about 143 of them, missing 29 of the 172 that are. Read as a ranking
+At the nominal 0.5 cut the model calls 157 of 1775 test structures dense and is
+right about 113 of them, missing 59 of the 172 that are. Read as a ranking
 rather than a cut, those errors matter less than the table above suggests: a
 missed structure that still scores highly is still acquired.
 
@@ -74,12 +76,13 @@ missed structure that still scores highly is still acquired.
 - **Outside MC3D it is untested.** It learned from MC3D bulk crystals with
   Quantum ESPRESSO SCF settings. Surfaces, molecules and other codes are not
   covered.
-- **The rung is 0-based and indexes this particular ladder.** The same integer
-  means something else on a ladder built differently.
+- **The rung is 1-based and indexes this particular ladder.** The same integer
+  means something else on a ladder built differently, and one less on the
+  0-based ladder this dataset previously used.
 
 ## Training data
 
-PSDI record `d5ds2-64f16`, CC BY 4.0 — the same 17757 MC3D structures with
+PSDI record `52713-55d86`, CC BY 4.0 — the same 17757 MC3D structures with
 converged Quantum ESPRESSO k-mesh studies that the k-index forest learned from.
 The snapshot records the rung that was measured; this model is trained on the
 coarser question derived from it, so the two models cannot drift apart.
@@ -90,9 +93,9 @@ same dense fraction:
 
 ```text
   split          structures    dense     share
-  train              12429      1166      9.4%
-  validation          1776       171      9.6%
-  calibration         1777       174      9.8%
+  train              12431      1171      9.4%
+  validation          1776       169      9.5%
+  calibration         1775       169      9.5%
   test                1775       172      9.7%
 ```
 

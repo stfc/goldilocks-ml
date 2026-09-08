@@ -121,6 +121,17 @@ CONTRACTS: Mapping[str, ContractSpec] = {
         units=None,
         non_negative=True,
     ),
+    # The same ladder, counted from one, so that rung 1 is the Gamma-only mesh
+    # rather than rung 0. A consumer must not treat the two as interchangeable:
+    # the integers differ by one over most of the ladder, and by more wherever
+    # the 1-based enumeration also dropped a repeated mesh.
+    "goldilocks.k_index.ladder_1based.max50.v1": ContractSpec(
+        parameter="k_points",
+        quantity="k_index",
+        kind=DFT_PARAMETER,
+        units=None,
+        positive=True,
+    ),
     "goldilocks.is_metal.dft_band_gap_zero.v1": ContractSpec(
         parameter="metallicity",
         quantity="is_metal",
@@ -132,6 +143,14 @@ CONTRACTS: Mapping[str, ContractSpec] = {
     # because it is part of what the answer means: a model screening at a
     # different rung answers a different question and must not be swapped in.
     "goldilocks.k_index_dense.ladder_0based.ge11.v1": ContractSpec(
+        parameter="dataset_candidate",
+        quantity="needs_dense_mesh",
+        kind=DATASET_SELECTION,
+        boolean=True,
+    ),
+    # The same question asked on the 1-based ladder, where the rung that was
+    # 11 is now 12.
+    "goldilocks.k_index_dense.ladder_1based.ge12.v1": ContractSpec(
         parameter="dataset_candidate",
         quantity="needs_dense_mesh",
         kind=DATASET_SELECTION,
