@@ -67,6 +67,11 @@ nav:
       - "· Representation": training/models/metallicity/representation-cgcnn.md
       - Magnetism: training/models/magnetism/index.md
       - Hubbard U: training/models/hubbard_u/index.md
+      - Pseudopotentials: training/models/pseudopotentials/index.md
+      - Exchange-correlation: training/models/exchange_correlation/index.md
+      - Plane-wave cutoffs: training/models/plane_wave_cutoffs/index.md
+      - Smearing: training/models/smearing/index.md
+      - Spin-orbit coupling: training/models/spin_orbit/index.md
       - Notebooks:
           - k-distance: notebooks/k_distance-qrf.ipynb
           - k-index: notebooks/k_index-qrf.ipynb
