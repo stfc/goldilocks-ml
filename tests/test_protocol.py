@@ -228,6 +228,22 @@ def test_a_release_name_may_not_contradict_the_pinned_dataset(
         load_protocol(write_protocol(tmp_path / "protocol.toml", document))
 
 
+def test_a_record_id_may_begin_with_a_digit(tmp_path: Path) -> None:
+    """PSDI issues record ids like '52713-55d86'; the dataset segment is theirs."""
+    document = regression_document(
+        id="synthetic.value.linear.52713_55d86.v1",
+        dataset={
+            "record_id": "52713-55d86",
+            "snapshot_version": "v1",
+            "manifest_sha256": DIGEST,
+        },
+    )
+
+    protocol = load_protocol(write_protocol(tmp_path / "protocol.toml", document))
+
+    assert protocol.release.dataset == "52713_55d86"
+
+
 def test_a_hyphenated_record_id_is_spelled_with_underscores(tmp_path: Path) -> None:
     document = regression_document(
         id="synthetic.value.linear.two_words.v1",

@@ -4,13 +4,13 @@
   "artifacts": [
     {
       "name": "k_index_screen.pkl",
-      "size_bytes": 51621263,
-      "sha256": "edcbc09e8954acf5cb8f0e86076d42135ccc1fd11de1e8cbf05bda040dad5a84"
+      "size_bytes": 49401103,
+      "sha256": "25c71382c13063d2aa369fcc49c798dbdefe535bc2e8f1ba8d6b12229163abc8"
     },
     {
       "name": "ranking.json",
-      "size_bytes": 1245,
-      "sha256": "ca5f3b1c4bdbc0b66de64175658853a97e2d4846ec9b65482b483089ec1ab9c5"
+      "size_bytes": 1247,
+      "sha256": "f2f838878216fb794f8aaa2280ae4b05bfcf609b11879a4ef82455986d20c434"
     }
   ],
   "inference_requirements": {
@@ -23,11 +23,11 @@
     "feature_contract": "cslr.v1",
     "feature_columns": 174,
     "target": "k_index_dense",
-    "target_contract": "goldilocks.k_index_dense.ladder_0based.ge11.v1",
+    "target_contract": "goldilocks.k_index_dense.ladder_1based.ge12.v1",
     "derived_from": {
       "target": "k_index",
       "rule": "at_or_above",
-      "threshold": 11
+      "threshold": 12
     },
     "published_value": {
       "rule": "ranking",

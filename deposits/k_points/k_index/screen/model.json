@@ -1,7 +1,7 @@
 {
   "artifacts": {
     "estimator": "k_index_screen.pkl",
-    "estimator_sha256": "edcbc09e8954acf5cb8f0e86076d42135ccc1fd11de1e8cbf05bda040dad5a84"
+    "estimator_sha256": "25c71382c13063d2aa369fcc49c798dbdefe535bc2e8f1ba8d6b12229163abc8"
   },
   "classes": {
     "negative": "sparse",
@@ -10,62 +10,62 @@
   "decision": {
     "fractions": [
       {
-        "enrichment": 9.80896686159844,
+        "enrichment": 9.925049309664693,
         "fraction": 0.01,
         "hits": 17,
         "precision": 0.9444444444444444,
-        "recall": 0.09941520467836257,
+        "recall": 0.10059171597633136,
         "taken": 18
       },
       {
-        "enrichment": 8.943469785575049,
+        "enrichment": 9.341222879684418,
         "fraction": 0.02,
-        "hits": 31,
-        "precision": 0.8611111111111112,
-        "recall": 0.18128654970760233,
+        "hits": 32,
+        "precision": 0.8888888888888888,
+        "recall": 0.1893491124260355,
         "taken": 36
       },
       {
-        "enrichment": 8.168736447861226,
+        "enrichment": 7.911176118609134,
         "fraction": 0.05,
-        "hits": 70,
-        "precision": 0.7865168539325843,
-        "recall": 0.4093567251461988,
+        "hits": 67,
+        "precision": 0.7528089887640449,
+        "recall": 0.39644970414201186,
         "taken": 89
       },
       {
-        "enrichment": 6.768381628227873,
+        "enrichment": 6.848480819094475,
         "fraction": 0.1,
         "hits": 116,
         "precision": 0.651685393258427,
-        "recall": 0.6783625730994152,
+        "recall": 0.6863905325443787,
         "taken": 178
       },
       {
-        "enrichment": 5.6224772457459435,
+        "enrichment": 5.3729590247808865,
         "fraction": 0.15,
-        "hits": 144,
-        "precision": 0.5413533834586466,
-        "recall": 0.8421052631578947,
+        "hits": 136,
+        "precision": 0.5112781954887218,
+        "recall": 0.8047337278106509,
         "taken": 266
       },
       {
-        "enrichment": 3.695906432748538,
+        "enrichment": 3.7396449704142007,
         "fraction": 0.25,
         "hits": 158,
         "precision": 0.35585585585585583,
-        "recall": 0.9239766081871345,
+        "recall": 0.9349112426035503,
         "taken": 444
       }
     ],
-    "positive_rate": 0.09628378378378379,
+    "positive_rate": 0.09515765765765766,
     "rule": "ranking",
     "selected_on": "validation"
   },
   "derived_from": {
     "rule": "at_or_above",
     "target": "k_index",
-    "threshold": 11.0
+    "threshold": 12.0
   },
   "deterministic": true,
   "feature_columns": [
@@ -261,7 +261,7 @@
   },
   "seed": 42,
   "target": {
-    "contract": "goldilocks.k_index_dense.ladder_0based.ge11.v1",
+    "contract": "goldilocks.k_index_dense.ladder_1based.ge12.v1",
     "name": "k_index_dense",
     "units": null
   },
