@@ -1,11 +1,21 @@
 # Dense-mesh screen
 
+!!! warning "Draft — not yet on PSDI"
+
+    This page describes a model that is trained and testable but has no
+    published record, so it has no citable identifier and nothing downloads it
+    yet. The numbers below are from the training run in this repository.
+
 Ranks structures you have not computed yet by how likely they are to need a
 dense k-point mesh, so a compute campaign spends its time where the labels are
 scarce.
 
-This is not a model you call to set up a calculation. It exists to grow the
-k-index dataset, where dense-mesh structures are under a tenth of the data.
+**This model serves `goldilocks-data`, not Core.** It advises no calculation
+setting. Its consumer is the campaign that decides which structures to compute
+next, and the answer it gives — "this one is worth measuring" — is not a
+statement about how to run anything. Core never reads it: the target contract
+declares the kind `dataset_selection` rather than `dft_parameter`, so a
+consumer looking for advice about a calculation cannot pick it up by mistake.
 
 | | |
 | --- | --- |
