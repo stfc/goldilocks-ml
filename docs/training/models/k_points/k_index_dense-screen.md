@@ -1,10 +1,10 @@
 # Dense-mesh screen
 
-!!! warning "Draft — not yet on PSDI"
+!!! warning "Submitted to PSDI, awaiting review"
 
-    This page describes a model that is trained and testable but has no
-    published record, so it has no citable identifier and nothing downloads it
-    yet. The numbers below are from the training run in this repository.
+    Draft `aerf8-wa448` holds the artifact and its model card and is under
+    review. A draft has no public identifier, so nothing downloads it yet.
+    The numbers below are from the training run that produced it.
 
 Ranks structures you have not computed yet by how likely they are to need a
 dense k-point mesh, so a compute campaign spends its time where the labels are
@@ -22,7 +22,7 @@ consumer looking for advice about a calculation cannot pick it up by mistake.
 | Predicts | whether a structure needs rung 12 or above |
 | Trained on | [PSDI 52713-55d86](https://data-collections.psdi.ac.uk/records/52713-55d86), 17757 structures |
 | Needs | a structure, nothing else |
-| Record | not yet deposited |
+| Record | PSDI, submitted for review |
 
 ## Use it
 
