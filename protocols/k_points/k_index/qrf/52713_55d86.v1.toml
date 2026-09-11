@@ -1,0 +1,80 @@
+# CSLR quantile regression for the one-based k-index ladder.
+schema_version = 1
+id = "k_points.k_index.qrf.52713_55d86.v1"
+task = "regression"
+trainer = "quantile_random_forest"
+
+[dataset]
+target = "k_index"
+target_contract = "goldilocks.k_index.ladder_1based.v2"
+requires = ["structures", "groups"]
+record_id = "52713-55d86"
+snapshot_version = "v1"
+manifest_sha256 = "5a6cffc002123f9d6f2f1f34be8622f32a6446b64f84c7e4d5601043392b4bea"
+
+[split]
+method = "group"
+train = 0.7
+validation = 0.1
+calibration = 0.1
+test = 0.1
+seed = 42
+stratify = false
+
+[features]
+schema = "cslr.v1"
+
+[features.parameters]
+batch_size = 128
+
+[model]
+seed = 42
+
+[model.parameters]
+n_estimators = 100
+quantiles = [0.05, 0.5, 0.95]
+n_jobs = -1
+# Candidate values the model may publish. They are fitted alongside the
+# interval quantiles, so choosing between them costs no extra fit.
+decision_levels = [0.5, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.975, 0.99]
+
+# Select interval smoothness on validation mean pinball loss. Calibration and
+# test remain outside both fitting and selection.
+[model.parameters.search]
+min_samples_leaf = [1, 5, 20]
+
+# A rung is acted on whole and the two directions of being wrong cost very
+# different things: too low is an under-converged calculation, too high is
+# machine time. The model publishes the cheapest quantile that keeps
+# under-prediction at or below six percent, chosen on validation.
+#
+# Ported forward unchanged from the 0-based protocol: this release moves the
+# ladder base and the contract, not the publishing policy. See issue #71 for
+# the policy change, made as its own protocol revision.
+[evaluation]
+primary_metric = "mean_excess"
+metrics = [
+    "mean_excess",
+    "underprediction_rate",
+    "rounded_accuracy",
+    "within_one",
+    "mae",
+    "rmse",
+    "r2",
+]
+baseline = "train_median"
+decision_metric = "mean_excess"
+max_underprediction = 0.06
+# Cut on the rung the model itself publishes, which is what a consumer has.
+# Each band is lifted by whole rungs until it honours the floor on its own, so
+# the promise holds where the model is weakest and not only on average.
+#
+# [7, 12], not [6, 11]: rung 12 on this 1-based ladder is the same physical
+# cut that rung 11 was on the 0-based one (see the screen protocol's
+# 52713_55d86.v1.toml, which anchors the same cut for the same reason).
+# Porting [6, 11] forward unchanged would silently band on a coarser
+# population than the superseded protocol did.
+decision_bands = [7, 12]
+# Cut on the true rung. A diagnostic, not a rule: the truth is the one thing
+# missing when a prediction is served.
+coverage_bins = [7, 12]
