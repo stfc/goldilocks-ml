@@ -10,6 +10,17 @@ PSDI Data Collections is the sole publication target for released model
 artifacts. Runtime consumers resolve PSDI record IDs and do not use a secondary
 model host or fallback source.
 
+## One directory per record, latest version only
+
+`deposits/` mirrors PSDI rather than recording our own history. A model gets a
+directory here when it is deposited, and that directory describes the record's
+**current** version.
+
+When a record gains a new version on PSDI, update its directory in place — new
+checksums in `manifest.json`, new numbers in `README.md`, the same path.
+Superseded versions stay in git history; they do not get a sibling directory or
+a version suffix. A model that is not on PSDI has no directory here.
+
 Validate a locally cached artifact before making any network request:
 
 ```bash
