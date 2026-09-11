@@ -16,29 +16,9 @@
     "sample_count": 1775
   },
   "decision": {
-    "bands": [
-      {
-        "count": 796,
-        "offset": 0,
-        "underprediction_rate": 0.026381909547738693,
-        "upper": 7.0
-      },
-      {
-        "count": 512,
-        "offset": 0,
-        "underprediction_rate": 0.03125,
-        "upper": 12.0
-      },
-      {
-        "count": 469,
-        "offset": 0,
-        "underprediction_rate": 0.057569296375266525,
-        "upper": null
-      }
-    ],
-    "level": 0.95,
-    "max_underprediction": 0.06,
-    "mean_excess": 2.9983117613956107,
+    "level": 0.6,
+    "max_underprediction": 0.25,
+    "mean_excess": 0.15081598199212154,
     "metric": "mean_excess",
     "rounding": "half_up",
     "rule": "quantile",

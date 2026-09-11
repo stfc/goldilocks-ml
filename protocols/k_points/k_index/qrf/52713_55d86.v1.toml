@@ -45,12 +45,16 @@ min_samples_leaf = [1, 5, 20]
 
 # A rung is acted on whole and the two directions of being wrong cost very
 # different things: too low is an under-converged calculation, too high is
-# machine time. The model publishes the cheapest quantile that keeps
-# under-prediction at or below six percent, chosen on validation.
+# machine time. Holding under-prediction at 6% (the policy the 0-based
+# protocol carried) forces q0.95 here with no band lift left to give, at a
+# mean cost of almost 3 rungs of extra mesh -- most of the distance between
+# the model and the truth, not a small correction on top of a good estimate.
 #
-# Ported forward unchanged from the 0-based protocol: this release moves the
-# ladder base and the contract, not the publishing policy. See issue #71 for
-# the policy change, made as its own protocol revision.
+# issue #71: the floor is raised to admit q0.6, which keeps essentially all of
+# the median's accuracy (validation mean_excess +0.15, against -0.23 for the
+# median itself) while still cutting under-prediction from ~28% to ~21% on
+# validation. No band lift on top -- the whole point is not buying back a few
+# points of safety at several rungs of mesh, band by band.
 [evaluation]
 primary_metric = "mean_excess"
 metrics = [
@@ -64,17 +68,12 @@ metrics = [
 ]
 baseline = "train_median"
 decision_metric = "mean_excess"
-max_underprediction = 0.06
-# Cut on the rung the model itself publishes, which is what a consumer has.
-# Each band is lifted by whole rungs until it honours the floor on its own, so
-# the promise holds where the model is weakest and not only on average.
-#
-# [7, 12], not [6, 11]: rung 12 on this 1-based ladder is the same physical
-# cut that rung 11 was on the 0-based one (see the screen protocol's
-# 52713_55d86.v1.toml, which anchors the same cut for the same reason).
-# Porting [6, 11] forward unchanged would silently band on a coarser
-# population than the superseded protocol did.
-decision_bands = [7, 12]
+# 0.25 sits strictly between q0.6's and q0.5's validation under-prediction
+# rates (~21% and ~28%), so it admits q0.6 without also admitting the median.
+max_underprediction = 0.25
 # Cut on the true rung. A diagnostic, not a rule: the truth is the one thing
-# missing when a prediction is served.
+# missing when a prediction is served. [7, 12], not [6, 11]: rung 12 on this
+# 1-based ladder is the same physical cut that rung 11 was on the 0-based one
+# (see the screen protocol's 52713_55d86.v1.toml, which anchors the same cut
+# for the same reason).
 coverage_bins = [7, 12]

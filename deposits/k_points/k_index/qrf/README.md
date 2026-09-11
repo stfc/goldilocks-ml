@@ -15,13 +15,21 @@ answer *is* the position in a table the consumer already has.
 
 ## This is a new version of the same record
 
-The superseded version of this record was trained on `d5ds2-64f16` and
-published a 0-based rung, with the ladder enumerated to 50 k-points per axis.
-That enumeration bound was never real: the ladder was always built to a
-minimum k-distance, and `50` was a name for something else entirely. This
-version fixes both things at once, retraining on `52713-55d86` -- the record
-that already carries the corrected ladder -- rather than shifting the old
-labels by one.
+Two changes landed here in sequence, on the same fitted forest.
+
+The first retrained on `52713-55d86` -- the record that already carries the
+corrected, floor-based 1-based ladder -- rather than shifting the previous
+version's `d5ds2-64f16` labels by one, and reissued the target contract as
+`ladder_1based.v2`: the superseded `ladder_1based.max50.v1` declared a
+50-per-axis enumeration cap that was never real, since the ladder was always
+built to a minimum k-distance.
+
+The second changed what quantile is published (issue #71). Ported forward
+unchanged, the previous publishing policy -- hold under-prediction at 6% --
+landed on q0.95 with no band lift left to give on this record, at a mean cost
+of almost 3 rungs of extra mesh per recommendation. This version publishes
+q0.6 instead, with no band lift at all. See "What it predicts, and what it
+publishes" below for the trade this makes.
 
 ## Files
 
@@ -51,25 +59,31 @@ a rung too high   a denser mesh than was needed; it costs machine time
 ```
 
 Mean absolute error prices those the same. A model selected on it publishes the
-middle of its distribution -- and read at its median, this forest comes in
-below the true rung 29.9% of the time on the held-out test split.
+middle of its distribution -- and read at its exact median (q0.5), this forest
+comes in below the true rung 29.9% of the time on the held-out test split.
 
-So it does not publish its median. It publishes:
+This record publishes close to that median, but not quite at it:
 
 ```text
-rung = round_half_up(q0.95 estimate)
+rung = round_half_up(q0.6 estimate)
 ```
 
-with no band lift needed on top: at this level every band already honours the
-floor on its own (see below). The quantile level was chosen on the validation
-split as the cheapest one keeping under-prediction at or below 6%, and is
-recorded in `model.json` under `decision`. A consumer applies nothing further:
-the number in the prediction is the rung to use.
+with no band lift. Publishing further out -- q0.95, as a previous version of
+this record did -- would have kept under-prediction below 6% at a cost of
+almost 3 rungs of extra mesh on every recommendation: most of the distance
+between the model and the truth, not a small correction on top of a good
+estimate. q0.6 keeps essentially all of the median's accuracy while cutting
+its under-prediction rate meaningfully. The level was chosen on the validation
+split as the cheapest one keeping under-prediction below 25%, and is recorded
+in `model.json` under `decision`. A consumer applies nothing further: the
+number in the prediction is the rung to use.
 
-⚠️ The publishing *policy* itself -- whether a 6% floor is the right one to buy
-with this much extra mesh -- is being reconsidered separately (issue #71). This
-release only moves the ladder and corrects the contract; it keeps the
-superseded record's policy so the two effects are not measured at once.
+⚠️ This is a real trade, not a free improvement: under-prediction on the test
+split rose from 3.5% under the superseded policy to 22.9% under this one (see
+"Measured performance" and "Scope and limitations" below). The floor moved
+because the previous 6% target was judged to cost more mesh than the safety
+was worth for most recommendations, not because 6% was wrong to want in every
+case.
 
 ## Training data
 
@@ -141,40 +155,44 @@ level and the interval calibration were both settled on other splits:
 
 ```text
                                 too coarse   mean excess   exact rung     mae      r2
-this model, as published             0.035         +2.96        0.097   3.124  -0.153
-the same forest read at its median   0.299         -0.29        0.437   1.124   0.729
+this model, as published             0.229        +0.06        0.422   1.135   0.741
+the same forest read at its median   0.299        -0.29        0.437   1.124   0.729
+q0.95, no band lift (previous policy) 0.035       +2.96        0.097   3.124  -0.153
 ```
 
-Read the first two columns. The floor was set at 6% on validation, and the test
-split, which chose nothing, comes in at 3.5% at a mean of 2.96 rungs more mesh
-than was needed -- more than the superseded record's 2.42 rungs, because the
-same 6% floor lands on a higher quantile level (0.95, against 0.90) once the
-ladder and its labels change.
+Read the first two columns. This model is close to unbiased (mean excess
++0.06 rungs) and comes in below the true rung 22.9% of the time -- against
+3.5% under the previous, more conservative policy, at a fraction of its mesh
+cost. MAE and r2 now describe the estimator directly rather than pricing a
+deliberate bias as if it were error, because the published value sits close to
+the estimator's own median rather than deliberately above it: test MAE 1.135
+against 1.124 at the exact median, r2 0.741 against 0.729.
 
-MAE and r2 are not measuring accuracy here. They price a deliberate bias as if
-it were error, and read at its median this forest is essentially as accurate as
-the superseded one was (test MAE 1.124 against 1.118, exact rung 43.7% against
-43.8%): what changed is not the estimator's skill, it is how the safety-floor
-policy responds to the corrected labels.
-
-Banded on the rung this model publishes -- the conditional the rule controls:
+Banded on the rung this model publishes -- the conditional a consumer
+actually has:
 
 ```text
 published rung   count   too coarse   mean excess
-below 7             796        0.026         +1.63
-7 to 11              512        0.031         +3.15
-12 and above         469        0.058         +4.85
+below 7             1236        0.188         +0.01
+7 to 11               389        0.283         +0.24
+12 and above          150        0.433         +0.02
 ```
+
+Under-prediction rises with the published rung even though there is no band
+lift to counteract it: the model is least reliable exactly where it also
+recommends the densest meshes, which is the opposite of where the previous
+policy concentrated its safety margin.
 
 ## Scope and limitations
 
-**The top of the ladder is not reliable, and is measurably harder here than on
-the superseded record.** Banded on the *true* rung rather than the published
-one, structures that genuinely need rung 12 or above -- the same physical cut
-the superseded record's rung 11 named -- are under-converged 17.8% of the
-time, against 14.6% at that cut on the superseded record. Treat a prediction
-for a structure you expect to be demanding as a lower bound, and check
-convergence directly.
+**The top of the ladder is markedly less reliable under this policy.** Banded
+on the *true* rung rather than the published one, structures that genuinely
+need rung 12 or above are under-converged 76.7% of the time -- against 17.8%
+under the more conservative q0.95 policy this replaces, and 14.6% at the
+equivalent cut on the superseded record before that. This is the direct cost
+of publishing near the median rather than far above it: treat a prediction
+for a structure you expect to be demanding as a lower bound, not an answer,
+and check convergence directly.
 
 This is a data limit before it is a modelling one. A quantile forest returns a
 quantile of labels it saw in a leaf, so it cannot reach rungs the training set
@@ -201,16 +219,14 @@ self-consistent-field settings. Nothing here has been checked on surfaces,
 molecules, low-dimensional systems, or other codes and pseudopotential
 families.
 
-**Small cells, made worse by this release.** The known over-prediction on
-structures with few training analogues (see the model index) is not merely
-unaffected here -- it is larger, because the decision level moved from 0.90 to
-0.95 with no band lift on top. Primitive diamond silicon (2 atoms) now
-predicts rung 34, a (34, 34, 34) mesh of 39304 k-points, against rung 26 and
-19683 k-points on the superseded record and roughly 512 in common practice.
-This is a known, tracked limitation (issue #68 in stfc/goldilocks-ml), not
-something this release set out to change -- but it is a real cost of porting
-the safety-floor policy forward unchanged, and worth weighing when #71
-reconsiders that policy.
+**Small cells still over-predict, though less severely under this policy.**
+Primitive diamond silicon (2 atoms) now predicts rung 17, a (17, 17, 17) mesh
+of 4913 k-points -- against rung 34 (39304 k-points) under the q0.95 policy
+this replaces, and roughly 512 in common practice. Moving the decision level
+narrowed this gap considerably but did not close it: 4913 is still about 9.6x
+common practice. This is a known, tracked limitation (issue #68 in
+stfc/goldilocks-ml) rooted in the training set containing almost no small
+cells, not something either policy change set out to fix.
 
 ## Runtime and safe loading
 
@@ -258,19 +274,19 @@ Conformal calibration cannot make a fine adjustment to an interval whose
 endpoints are whole rungs.
 
 Do not read the interval as a uniform guarantee. The published rung, not the
-interval, is what carries the stated 6% floor.
+interval, is what carries the stated under-prediction floor -- 25% on
+validation under this policy, not 6%.
 
 ## Reproducibility
 
 Fitted by a versioned training protocol in stfc/goldilocks-ml, from a sealed
 dataset snapshot, with a fixed seed on CPU.
 
-**The run reproduces bit for bit.** A second run over the same snapshot, reusing
-the recorded split assignment, produced an identical estimator pickle -- the
-same SHA-256 as the file in this record, and the same one the superseded
-version's own retrain would have produced had it used this snapshot, since
-nothing about the forest's fit depends on the band edges a later evaluation
-pass chose to report.
+**The run reproduces bit for bit.** This version and the one it replaces share
+the exact same estimator pickle SHA-256, because the two are the same forest:
+changing which quantile gets published and dropping the band lift changed
+`model.json` alone. Refitting from scratch over the same snapshot and split
+assignment reproduces that same pickle again.
 
 `model.json` carries the hyperparameter search that chose `min_samples_leaf`,
 the validation scores of every candidate, and the trials behind the decision
