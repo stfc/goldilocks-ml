@@ -168,6 +168,90 @@ def test_quantile_forest_writes_a_distinct_kindex_runtime(
     assert (model_dir / KINDEX_MODEL_FILE).is_file()
 
 
+def test_a_decision_still_rounds_with_no_bands_declared(
+    tmp_path: Path, snapshot_dir: Path
+) -> None:
+    """A plain quantile level, with no band lift, still publishes a whole rung.
+
+    Rounding must not be something a protocol gets only by also declaring
+    bands: issue #71 drops the band lift but the target is still an integer
+    rung, and the published value has to be one.
+    """
+    rows = [
+        {
+            "sample_id": f"syn-{index:03d}",
+            "group": f"grp-{index % 8:02d}",
+            "x1": (index % 5) - 2.0,
+            "x2": (index % 3) - 1.0,
+            "x3": (index % 7) / 7.0,
+            "value": float(index % 6),
+            "label": "metal" if (index % 5) - 2.0 >= 0 else "insulator",
+        }
+        for index in range(24)
+    ]
+    digest = build_snapshot(snapshot_dir, rows=rows)
+    document = regression_document(
+        id="k_points.k_index.qrf.synthetic.v1",
+        trainer="quantile_random_forest",
+        split={
+            "method": "group",
+            "train": 0.5,
+            "validation": 0.1,
+            "calibration": 0.2,
+            "test": 0.2,
+            "seed": 17,
+        },
+        dataset={
+            "record_id": "synthetic",
+            "snapshot_version": "v1",
+            "manifest_sha256": digest,
+        },
+    )
+    document["model"] = {
+        "seed": 17,
+        "parameters": {
+            "n_estimators": 8,
+            "quantiles": [0.05, 0.5, 0.95],
+            "n_jobs": 1,
+            "decision_levels": [0.5, 0.9],
+        },
+    }
+    document["evaluation"] = {
+        "primary_metric": "mean_excess",
+        "metrics": ["mean_excess", "underprediction_rate", "mae"],
+        "baseline": "train_median",
+        "decision_metric": "mean_excess",
+        "max_underprediction": 0.9,
+        # No decision_bands: this is exactly the shape issue #71 publishes.
+    }
+    protocol = load_protocol(write_protocol(tmp_path / "kindex.toml", document))
+    snapshot = load_snapshot(snapshot_dir, protocol)
+
+    result = execute(
+        protocol,
+        snapshot,
+        tmp_path / "run",
+        artifact_dir=tmp_path / "artifacts",
+        splits_source=None,
+        overwrite=False,
+    )
+
+    record = json.loads(
+        (result["directory"] / "model" / "model.json").read_text(encoding="utf-8")
+    )
+    decision = record["decision"]
+    assert decision["rounding"] == "half_up"
+    assert "bands" not in decision
+
+    predictions = (result["directory"] / "predictions.csv").read_text(encoding="utf-8")
+    published = [
+        float(row.split(",")[4])
+        for row in predictions.splitlines()[1:]
+        if ",model," in row
+    ]
+    assert all(value == int(value) for value in published)
+
+
 def test_kindex_runtime_loads_verified_estimator_and_serves_cslr(
     tmp_path: Path,
 ) -> None:
