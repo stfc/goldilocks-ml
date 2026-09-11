@@ -60,6 +60,23 @@ KINDS = frozenset({DFT_PARAMETER, MATERIAL_PROPERTY, DATASET_SELECTION})
 
 
 @dataclass(frozen=True, slots=True)
+class ConvergenceCriterion:
+    """What "converged" means for a contract whose value comes off a ladder.
+
+    ``metric`` names which physical quantity was tracked, never its size:
+    ``threshold`` is the width of the trailing oscillation the sweep required
+    before it accepted a rung, not a bound on the quantity itself. Two
+    datasets can rank the same integer with a looser or tighter threshold on
+    the same metric, or on a different metric entirely, and those are three
+    different questions even though the answer is the same-shaped integer.
+    """
+
+    metric: str
+    threshold: float
+    unit: str
+
+
+@dataclass(frozen=True, slots=True)
 class ContractSpec:
     """What a published target contract means to a consumer.
 
@@ -67,6 +84,11 @@ class ContractSpec:
     Core carries it in. ``quantity`` says what the number is, which is what
     decides how Core converts it. ``units`` and the domain are checked here so
     that a mismatch fails rather than producing a plausible, wrong setting.
+
+    ``min_k_distance`` and ``convergence`` are structured facts about a k-mesh
+    ladder rather than semantics encoded into the contract name: a rung means
+    nothing without the resolution floor it was enumerated to, and nothing
+    about what "converged" meant when the label was assigned.
     """
 
     parameter: str
@@ -76,6 +98,8 @@ class ContractSpec:
     positive: bool = False
     non_negative: bool = False
     boolean: bool = False
+    min_k_distance: float | None = None
+    convergence: ConvergenceCriterion | None = None
 
     def check_units(self, units: str | None) -> None:
         """Reject a record whose units are not the ones this contract means."""
@@ -125,12 +149,22 @@ CONTRACTS: Mapping[str, ContractSpec] = {
     # rather than rung 0. A consumer must not treat the two as interchangeable:
     # the integers differ by one over most of the ladder, and by more wherever
     # the 1-based enumeration also dropped a repeated mesh.
-    "goldilocks.k_index.ladder_1based.max50.v1": ContractSpec(
+    #
+    # v2, not a v1 with the name corrected: the superseded v1 name declared
+    # "max50", an enumeration cap that never existed for this ladder -- it was
+    # enumerated to a resolution floor instead. A contract that lies about its
+    # own bound is worse than one that is merely incomplete, so this is a
+    # replacement, not a patch.
+    "goldilocks.k_index.ladder_1based.v2": ContractSpec(
         parameter="k_points",
         quantity="k_index",
         kind=DFT_PARAMETER,
         units=None,
         positive=True,
+        min_k_distance=0.03,
+        convergence=ConvergenceCriterion(
+            metric="total_energy", threshold=1.0, unit="meV/atom"
+        ),
     ),
     "goldilocks.is_metal.dft_band_gap_zero.v1": ContractSpec(
         parameter="metallicity",
