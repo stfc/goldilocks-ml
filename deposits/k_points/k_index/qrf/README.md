@@ -3,14 +3,33 @@
 A quantile random forest that answers one question: how far up Goldilocks
 Core's ordered ladder of k-point meshes does this crystal have to go.
 
-It returns a **rung on that ladder**, not a spacing in reciprocal space. Rung 0
-is the Gamma-only (1, 1, 1) mesh, rungs are **0-based**, and the ladder the
-labels come from was enumerated to 50 k-points per reciprocal-lattice axis.
+It returns a **rung on that ladder**, not a spacing in reciprocal space. Rung 1
+is the Gamma-only `(1, 1, 1)` mesh, rungs are **1-based**, and the ladder was
+enumerated down to a minimum k-distance of **0.03 inverse angstrom** rather
+than a fixed count per axis.
 
 This is a different quantity from the k-distance predicted by record
 `q3bye-wep37`, which is a spacing in inverse angstroms that a consumer converts
 into a mesh through the reciprocal lattice. A k-index needs no conversion: the
 answer *is* the position in a table the consumer already has.
+
+## This is a new version of the same record
+
+Two changes landed here in sequence, on the same fitted forest.
+
+The first retrained on `52713-55d86` -- the record that already carries the
+corrected, floor-based 1-based ladder -- rather than shifting the previous
+version's `d5ds2-64f16` labels by one, and reissued the target contract as
+`ladder_1based.v2`: the superseded `ladder_1based.max50.v1` declared a
+50-per-axis enumeration cap that was never real, since the ladder was always
+built to a minimum k-distance.
+
+The second changed what quantile is published (issue #71). Ported forward
+unchanged, the previous publishing policy -- hold under-prediction at 6% --
+landed on q0.95 with no band lift left to give on this record, at a mean cost
+of almost 3 rungs of extra mesh per recommendation. This version publishes
+q0.6 instead, with no band lift at all. See "What it predicts, and what it
+publishes" below for the trade this makes.
 
 ## Files
 
@@ -40,45 +59,63 @@ a rung too high   a denser mesh than was needed; it costs machine time
 ```
 
 Mean absolute error prices those the same. A model selected on it publishes the
-middle of its distribution — and read at its median, this forest comes in below
-the true rung 29.7% of the time.
+middle of its distribution -- and read at its exact median (q0.5), this forest
+comes in below the true rung 29.9% of the time on the held-out test split.
 
-So it does not publish its median. It publishes:
+This record publishes close to that median, but not quite at it:
 
 ```text
-rung = round_half_up(q0.90 estimate)    then  + 2  if that rung is 11 or above
+rung = round_half_up(q0.6 estimate)
 ```
 
-The quantile level and the band offsets were chosen on the validation split as
-the cheapest rule keeping under-prediction at or below 6%, and are recorded in
-`model.json` under `decision`. A consumer applies nothing further: the number in
-the prediction is the rung to use.
+with no band lift. Publishing further out -- q0.95, as a previous version of
+this record did -- would have kept under-prediction below 6% at a cost of
+almost 3 rungs of extra mesh on every recommendation: most of the distance
+between the model and the truth, not a small correction on top of a good
+estimate. q0.6 keeps essentially all of the median's accuracy while cutting
+its under-prediction rate meaningfully. The level was chosen on the validation
+split as the cheapest one keeping under-prediction below 25%, and is recorded
+in `model.json` under `decision`. A consumer applies nothing further: the
+number in the prediction is the rung to use.
+
+⚠️ This is a real trade, not a free improvement: under-prediction on the test
+split rose from 3.5% under the superseded policy to 22.9% under this one (see
+"Measured performance" and "Scope and limitations" below). The floor moved
+because the previous 6% target was judged to cost more mesh than the safety
+was worth for most recommendations, not because 6% was wrong to want in every
+case.
 
 ## Training data
 
-PSDI record `d5ds2-64f16`, CC BY 4.0. The record holds 18220 MC3D structures
-with Quantum ESPRESSO k-mesh convergence studies; 17757 of them converged and
-carry a label, and only those were used. The other 463 have a structure and no
-answer.
+PSDI record `52713-55d86`, CC BY 4.0. The same 17757 MC3D structures that
+`d5ds2-64f16` held, relabelled under the corrected ladder -- **not a uniform
++1 shift**: the 1-based enumeration also drops a small number of repeated
+meshes the old per-axis count did not, so a handful of structures move by a
+different amount or not at all.
 
-Labels run from rung 0 to rung 41 and are heavily skewed:
+Convergence is judged on **total energy alone**: the first of three
+consecutive rungs whose energies agree within **1 meV/atom**. No force
+criterion is applied.
+
+Labels run from rung 1 to rung 42 and are heavily skewed, the same shape the
+superseded record had:
 
 ```text
-rungs 0-3     50.8% of the dataset
-rungs 4-10    39.8%
-rungs 11-20    8.9%
-rungs 21-41    0.6%
+rungs 1-4     50.8% of the dataset
+rungs 5-11    39.8%
+rungs 12-21    8.9%
+rungs 22-42    0.6%
 ```
 
-Five of the rungs below 41 have no example at all.
-
 The split is 70/10/10/10 train/validation/calibration/test, seed 42, grouped by
-reduced composition — 15712 groups over 17757 structures, so two polymorphs of
+reduced composition -- 15712 groups over 17757 structures, so two polymorphs of
 one composition cannot land on opposite sides of it. No group spans more than
-one split.
+one split. Because the underlying structures and the split are unchanged from
+the superseded record, this is the same partition, on the same crystals, with
+corrected labels.
 
 The local snapshot the run consumed is sealed at SHA-256
-`66eb62879cb65aef18b3e74d73349831eaa2ebd1ec10de88ab58a77d368e82bd`, and the
+`5a6cffc002123f9d6f2f1f34be8622f32a6446b64f84c7e4d5601043392b4bea`, and the
 training protocol pins that digest.
 
 ## Input features
@@ -106,69 +143,71 @@ answers silently, so read the names out of `model.json` rather than assuming
 them.
 
 Matminer cannot compute a packing fraction for an element with no tabulated
-atomic radius. 45 of the 17757 training structures contain He, Ne, Kr or Xe, and
-their whole 7-column structure block was written as zeros. A consumer must apply
-the same fallback, deterministically, or those crystals will be described
-differently at inference than they were at training.
+atomic radius. Structures containing He, Ne, Kr, Ar or Xe have their whole
+7-column structure block written as zeros. A consumer must apply the same
+fallback, deterministically, or those crystals will be described differently
+at inference than they were at training.
 
 ## Measured performance
 
 On the 1775-structure test split, which was scored once after the quantile
-level, the band offsets and the interval calibration were all settled on other
-splits:
+level and the interval calibration were both settled on other splits:
 
 ```text
                                 too coarse   mean excess   exact rung     mae      r2
-this model, as published             0.044         +2.42        0.163   2.634   0.042
-the same forest read at its median   0.297         -0.30        0.438   1.118   0.729
-baseline: always rung 3              0.492         -1.77        0.184   2.707  -0.208
+this model, as published             0.229        +0.06        0.422   1.135   0.741
+the same forest read at its median   0.299        -0.29        0.437   1.124   0.729
+q0.95, no band lift (previous policy) 0.035       +2.96        0.097   3.124  -0.153
 ```
 
-Read the first two columns. The floor was set at 6% on validation, and the test
-split, which chose nothing, comes in at 4.4% at a mean of 2.42 rungs more mesh
-than was needed.
+Read the first two columns. This model is close to unbiased (mean excess
++0.06 rungs) and comes in below the true rung 22.9% of the time -- against
+3.5% under the previous, more conservative policy, at a fraction of its mesh
+cost. MAE and r2 now describe the estimator directly rather than pricing a
+deliberate bias as if it were error, because the published value sits close to
+the estimator's own median rather than deliberately above it: test MAE 1.135
+against 1.124 at the exact median, r2 0.741 against 0.729.
 
-MAE and r2 are not measuring accuracy here. They price a deliberate bias as if
-it were error. The correlation with the truth is 0.828 for the published value
-against 0.858 for the median, so the model's ability to rank structures by the
-mesh they need is intact, and what changed is where the number sits relative to
-the truth. Of the published mean squared error of 14.54, some 5.88 is the
-deliberate lift: a perfect rule sitting exactly 2.42 rungs above every true rung
-would itself score r2 = 0.612 against a target variance of 15.17.
-
-The median row is a diagnostic about the estimator, recomputed from this
-artifact. No run scores it, because the model does not publish a median.
-
-Banded on the rung this model publishes — the conditional the rule controls:
+Banded on the rung this model publishes -- the conditional a consumer
+actually has:
 
 ```text
 published rung   count   too coarse   mean excess
-below 6            954        0.050         +1.02
-6 to 10            444        0.036         +2.40
-11 and above       377        0.037         +6.01
+below 7             1236        0.188         +0.01
+7 to 11               389        0.283         +0.24
+12 and above          150        0.433         +0.02
 ```
+
+Under-prediction rises with the published rung even though there is no band
+lift to counteract it: the model is least reliable exactly where it also
+recommends the densest meshes, which is the opposite of where the previous
+policy concentrated its safety margin.
 
 ## Scope and limitations
 
-**The top of the ladder is not reliable.** Banded on the *true* rung rather than
-the published one, structures that genuinely need rung 11 or above are
-under-converged 14.6% of the time, well outside the 6% this model otherwise
-honours. The band offsets brought that down from 27.4% and cannot go further:
-they lift the structures the model *places* in the top band, and these are the
-ones it does not. Treat a prediction for a structure you expect to be demanding
-as a lower bound, and check convergence directly.
+**The top of the ladder is markedly less reliable under this policy.** Banded
+on the *true* rung rather than the published one, structures that genuinely
+need rung 12 or above are under-converged 76.7% of the time -- against 17.8%
+under the more conservative q0.95 policy this replaces, and 14.6% at the
+equivalent cut on the superseded record before that. This is the direct cost
+of publishing near the median rather than far above it: treat a prediction
+for a structure you expect to be demanding as a lower bound, not an answer,
+and check convergence directly.
 
 This is a data limit before it is a modelling one. A quantile forest returns a
 quantile of labels it saw in a leaf, so it cannot reach rungs the training set
-barely contains, and 0.6% of the labels sit above rung 20.
+barely contains, and 0.6% of the labels sit above rung 21.
 
-**The contract is 0-based.** A consumer that feeds this number into a 1-based
-ladder gets a mesh one step too coarse, every time, silently. `model.json`
-declares `goldilocks.k_index.ladder_0based.max50.v1` for exactly this reason.
+**The contract is 1-based.** A consumer that feeds this number into a 0-based
+ladder gets a mesh one step too dense, every time, silently. `model.json`
+declares `goldilocks.k_index.ladder_1based.v2` for exactly this reason, and
+records the ladder's floor (`min_k_distance = 0.03`) as a structured field
+rather than encoding it into the contract name.
 
 **The ladder must be the same one.** These rungs index the mesh table used by
-record `d5ds2-64f16`, enumerated to 50 k-points per axis. A differently
-constructed ladder gives the same integers a different meaning.
+record `52713-55d86`, enumerated down to a minimum k-distance of 0.03 inverse
+angstrom. A differently constructed ladder gives the same integers a different
+meaning.
 
 **No metallicity information.** k-point density is a question about the Fermi
 surface, and none of the 174 columns knows whether the crystal is a metal. That
@@ -177,7 +216,17 @@ does not matter.
 
 **Applicability.** Trained on MC3D bulk crystals with Quantum ESPRESSO
 self-consistent-field settings. Nothing here has been checked on surfaces,
-molecules, low-dimensional systems, or other codes and pseudopotential families.
+molecules, low-dimensional systems, or other codes and pseudopotential
+families.
+
+**Small cells still over-predict, though less severely under this policy.**
+Primitive diamond silicon (2 atoms) now predicts rung 17, a (17, 17, 17) mesh
+of 4913 k-points -- against rung 34 (39304 k-points) under the q0.95 policy
+this replaces, and roughly 512 in common practice. Moving the decision level
+narrowed this gap considerably but did not close it: 4913 is still about 9.6x
+common practice. This is a known, tracked limitation (issue #68 in
+stfc/goldilocks-ml) rooted in the training set containing almost no small
+cells, not something either policy change set out to fix.
 
 ## Runtime and safe loading
 
@@ -186,7 +235,7 @@ digest in `manifest.json` before loading it, and load it only from this record:
 
 ```bash
 shasum -a 256 k_index_qrf.pkl
-# bbabd7ed9be6a229251f145984b055232af68cfc9cf37e83b0f6c2c4ca5bc5e4
+# 42dc3ee1d7973ca2f299ef0155d0e39f4fd034d45efb4595182ff6696600e0f7
 ```
 
 `model.json` pins the same digest, and the `goldilocks-ml` loader refuses to
@@ -215,28 +264,29 @@ under `levels`. The published rung comes from the `decision` block; the 5th and
 ## The interval is a diagnostic, not the answer
 
 `model.json` records a 90% interval and a split-conformal calibration whose
-correction came out at exactly 0.0 — the raw interval already covered 94.8% of
-the calibration split.
+correction came out at exactly 0.0 -- the raw interval already covered 95.3% of
+the test split.
 
 That zero is a property of the target. A quantile forest returns quantiles of
-integer labels, so 22.5% of the calibration set has a nonconformity score of
-exactly zero, and the correction lands inside that atom. Conformal calibration
-cannot make a fine adjustment to an interval whose endpoints are whole rungs.
+integer labels, so a meaningful fraction of the calibration set has a
+nonconformity score of exactly zero, and the correction lands inside that atom.
+Conformal calibration cannot make a fine adjustment to an interval whose
+endpoints are whole rungs.
 
-Test coverage is 0.953 overall but 0.805 for structures whose true rung is 11 or
-above, at a mean width of 10.5 rungs. Do not read the interval as a uniform
-guarantee. The published rung, not the interval, is what carries the stated 6%
-floor.
+Do not read the interval as a uniform guarantee. The published rung, not the
+interval, is what carries the stated under-prediction floor -- 25% on
+validation under this policy, not 6%.
 
 ## Reproducibility
 
 Fitted by a versioned training protocol in stfc/goldilocks-ml, from a sealed
 dataset snapshot, with a fixed seed on CPU.
 
-**The run reproduces bit for bit.** A second run over the same snapshot, reusing
-the recorded split assignment, produced an identical estimator pickle, model
-record, metrics and predictions — the same SHA-256 as the file in this record.
-The decision rule reproduces with it: same quantile level, same band offsets.
+**The run reproduces bit for bit.** This version and the one it replaces share
+the exact same estimator pickle SHA-256, because the two are the same forest:
+changing which quantile gets published and dropping the band lift changed
+`model.json` alone. Refitting from scratch over the same snapshot and split
+assignment reproduces that same pickle again.
 
 `model.json` carries the hyperparameter search that chose `min_samples_leaf`,
 the validation scores of every candidate, and the trials behind the decision

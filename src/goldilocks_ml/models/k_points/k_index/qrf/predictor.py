@@ -1,4 +1,9 @@
-"""Serve a CSLR quantile forest that predicts zero-based k-index."""
+"""Serve a CSLR quantile forest that predicts k-index, 0-based or 1-based.
+
+Both ladder bases are served by this one runtime: the fitted forest and the
+174-column feature contract do not change between them, only which rung
+counts as the Gamma-only mesh, which the record's target contract fixes.
+"""
 
 from __future__ import annotations
 
@@ -25,6 +30,14 @@ if TYPE_CHECKING:
     from pymatgen.core.structure import Structure
 
 WIDE_INTERVAL_FACTOR = 2.0
+
+# The rung a served value counts from, keyed by the contract that fixes it.
+# Not derived from the contract string at call time: a new contract must add
+# a row here deliberately rather than have a base inferred from its name.
+INDEX_BASE = {
+    "goldilocks.k_index.ladder_0based.max50.v1": 0,
+    "goldilocks.k_index.ladder_1based.v2": 1,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +70,12 @@ class KIndexQRFPredictor:
         coverage = float(calibration["coverage"]) if calibration else None
         target_contract = self.record["target"]["contract"]
         contract = contract_for(target_contract)
+        try:
+            index_base = INDEX_BASE[target_contract]
+        except KeyError:
+            raise ValueError(
+                f"no index base is declared for target contract {target_contract!r}"
+            ) from None
 
         predictions: list[ModelPrediction] = []
         for index in range(len(structures)):
@@ -83,8 +102,8 @@ class KIndexQRFPredictor:
                     "coverage": coverage,
                     "calibrated": calibration is not None,
                     "units": None,
-                    "index_base": 0,
-                    "max_kpoints_per_axis": 50,
+                    "index_base": index_base,
+                    "min_k_distance": contract.min_k_distance,
                     "decision": dict(decision) if decision else None,
                 },
                 warnings=self._warnings(upper - lower),

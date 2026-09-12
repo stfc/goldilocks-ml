@@ -168,6 +168,90 @@ def test_quantile_forest_writes_a_distinct_kindex_runtime(
     assert (model_dir / KINDEX_MODEL_FILE).is_file()
 
 
+def test_a_decision_still_rounds_with_no_bands_declared(
+    tmp_path: Path, snapshot_dir: Path
+) -> None:
+    """A plain quantile level, with no band lift, still publishes a whole rung.
+
+    Rounding must not be something a protocol gets only by also declaring
+    bands: issue #71 drops the band lift but the target is still an integer
+    rung, and the published value has to be one.
+    """
+    rows = [
+        {
+            "sample_id": f"syn-{index:03d}",
+            "group": f"grp-{index % 8:02d}",
+            "x1": (index % 5) - 2.0,
+            "x2": (index % 3) - 1.0,
+            "x3": (index % 7) / 7.0,
+            "value": float(index % 6),
+            "label": "metal" if (index % 5) - 2.0 >= 0 else "insulator",
+        }
+        for index in range(24)
+    ]
+    digest = build_snapshot(snapshot_dir, rows=rows)
+    document = regression_document(
+        id="k_points.k_index.qrf.synthetic.v1",
+        trainer="quantile_random_forest",
+        split={
+            "method": "group",
+            "train": 0.5,
+            "validation": 0.1,
+            "calibration": 0.2,
+            "test": 0.2,
+            "seed": 17,
+        },
+        dataset={
+            "record_id": "synthetic",
+            "snapshot_version": "v1",
+            "manifest_sha256": digest,
+        },
+    )
+    document["model"] = {
+        "seed": 17,
+        "parameters": {
+            "n_estimators": 8,
+            "quantiles": [0.05, 0.5, 0.95],
+            "n_jobs": 1,
+            "decision_levels": [0.5, 0.9],
+        },
+    }
+    document["evaluation"] = {
+        "primary_metric": "mean_excess",
+        "metrics": ["mean_excess", "underprediction_rate", "mae"],
+        "baseline": "train_median",
+        "decision_metric": "mean_excess",
+        "max_underprediction": 0.9,
+        # No decision_bands: this is exactly the shape issue #71 publishes.
+    }
+    protocol = load_protocol(write_protocol(tmp_path / "kindex.toml", document))
+    snapshot = load_snapshot(snapshot_dir, protocol)
+
+    result = execute(
+        protocol,
+        snapshot,
+        tmp_path / "run",
+        artifact_dir=tmp_path / "artifacts",
+        splits_source=None,
+        overwrite=False,
+    )
+
+    record = json.loads(
+        (result["directory"] / "model" / "model.json").read_text(encoding="utf-8")
+    )
+    decision = record["decision"]
+    assert decision["rounding"] == "half_up"
+    assert "bands" not in decision
+
+    predictions = (result["directory"] / "predictions.csv").read_text(encoding="utf-8")
+    published = [
+        float(row.split(",")[4])
+        for row in predictions.splitlines()[1:]
+        if ",model," in row
+    ]
+    assert all(value == int(value) for value in published)
+
+
 def test_kindex_runtime_loads_verified_estimator_and_serves_cslr(
     tmp_path: Path,
 ) -> None:
@@ -227,7 +311,7 @@ def test_kindex_runtime_loads_verified_estimator_and_serves_cslr(
         "calibrated": True,
         "units": None,
         "index_base": 0,
-        "max_kpoints_per_axis": 50,
+        "min_k_distance": None,
         "decision": {
             "rule": "quantile",
             "level": 0.9,
@@ -238,6 +322,62 @@ def test_kindex_runtime_loads_verified_estimator_and_serves_cslr(
             "bands": [{"upper": 6, "offset": 0}, {"upper": None, "offset": 2}],
         },
     }
+
+
+def test_kindex_runtime_serves_the_1based_ladder_and_its_floor(tmp_path: Path) -> None:
+    """A prediction on this contract must carry the 1-based boundary and floor.
+
+    Rung 1 on this ladder is the Gamma-only mesh, the same physical point that
+    rung 0 named on the superseded contract -- so a consumer reading
+    ``index_base`` is what tells it which boundary the served integer means.
+    """
+    estimator_path = tmp_path / KINDEX_MODEL_FILE
+    with estimator_path.open("wb") as handle:
+        pickle.dump(ConstantQuantileEstimator(), handle)
+    record = {
+        "record_schema_version": 1,
+        "runtime": {"id": KINDEX_RUNTIME, "version": KINDEX_RUNTIME_VERSION},
+        "trainer": "quantile_random_forest",
+        "target": {
+            "name": "k_index",
+            "contract": "goldilocks.k_index.ladder_1based.v2",
+            "units": None,
+        },
+        "feature_schema": features.SCHEMA,
+        "feature_columns": list(features.column_names()),
+        "feature_parameters": {"batch_size": 128},
+        "requires_artifacts": [],
+        "quantiles": [0.05, 0.5, 0.95],
+        "levels": [0.05, 0.5, 0.9, 0.95],
+        "decision": {
+            "rule": "quantile",
+            "level": 0.9,
+            "metric": "mean_excess",
+            "max_underprediction": 0.06,
+            "selected_on": "validation",
+            "rounding": "half_up",
+            "bands": [{"upper": 6, "offset": 0}, {"upper": None, "offset": 2}],
+        },
+        "calibration": {
+            "method": CALIBRATION_METHOD,
+            "coverage": 0.9,
+            "correction": 0.5,
+            "mean_interval_width": 4.0,
+            "endpoint_adjustment": ENDPOINT_ADJUSTMENT,
+        },
+        "artifacts": {
+            "estimator": KINDEX_MODEL_FILE,
+            "estimator_sha256": sha256_file(estimator_path),
+        },
+    }
+    (tmp_path / "model.json").write_text(json.dumps(record), encoding="utf-8")
+
+    prediction = load_model(tmp_path).predict(silicon())
+
+    assert prediction.value == 3
+    assert prediction.target_contract == "goldilocks.k_index.ladder_1based.v2"
+    assert prediction.details["index_base"] == 1
+    assert prediction.details["min_k_distance"] == 0.03
 
 
 def test_a_k_index_artifact_without_a_decision_rule_is_refused(tmp_path: Path) -> None:

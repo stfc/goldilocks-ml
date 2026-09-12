@@ -7,11 +7,11 @@ trainer = "dense_mesh_screen"
 
 [dataset]
 target = "k_index"
-target_contract = "goldilocks.k_index.ladder_1based.max50.v1"
+target_contract = "goldilocks.k_index.ladder_1based.v2"
 requires = ["structures", "groups"]
 record_id = "52713-55d86"
 snapshot_version = "v1"
-manifest_sha256 = "e89063f354818b9725c63a9510537f6a4bad4e410e99629343889c631ebca293"
+manifest_sha256 = "5a6cffc002123f9d6f2f1f34be8622f32a6446b64f84c7e4d5601043392b4bea"
 
 # The snapshot records the rung that was measured; this model is asked the
 # coarser question. Rung 12 on the 1-based ladder is the same physical cut that

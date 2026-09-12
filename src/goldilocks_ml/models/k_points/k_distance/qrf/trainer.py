@@ -15,6 +15,7 @@ import numpy as np
 from sklearn_quantile import RandomForestQuantileRegressor
 
 from goldilocks_ml.evaluation import (
+    INTEGER_TARGET_METRICS,
     pinball_loss,
     select_band_offsets,
     select_decision_level,
@@ -591,19 +592,24 @@ def _decision(
         max_underprediction=protocol.evaluation.max_underprediction,
     )
     decision = {**chosen, "selected_on": "validation"}
+    # A decision metric drawn from the integer-target family (mean_excess,
+    # rounded_accuracy, ...) can only be computed on a whole-rung target, so
+    # choosing a level with one already commits the published value to being
+    # a whole rung -- independent of whether bands are also declared. Rounding
+    # must not depend on banding: a protocol that publishes a plain quantile
+    # with no band lift still publishes a rung, not a raw estimate.
+    if metric in INTEGER_TARGET_METRICS:
+        decision["rounding"] = "half_up"
     edges = protocol.evaluation.decision_bands
     if edges is not None:
         # A whole-step lift per band, so the floor is honoured inside the part
         # of the range where the model is weakest and not only on average.
-        # Integer offsets only make sense on an integer grid, so this is also
-        # where the published value becomes a whole step.
         decision["bands"] = select_band_offsets(
             truth,
             list(raw[levels.index(float(chosen["level"]))]),
             edges,
             max_underprediction=protocol.evaluation.max_underprediction,
         )
-        decision["rounding"] = "half_up"
     return decision
 
 
