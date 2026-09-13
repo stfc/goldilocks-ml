@@ -23,6 +23,7 @@ from goldilocks_ml.models.k_points.k_distance.qrf.trainer import (
     calibrate_interval,
     prediction_matrix,
     publish,
+    publish_by_band,
 )
 from goldilocks_ml.registry import register_predictor
 
@@ -48,7 +49,7 @@ class KIndexQRFPredictor:
     record: Mapping[str, Any]
     model_id: str
     levels: tuple[float, ...]
-    published: int
+    published: int | None
 
     def predict(self, structure: Structure) -> ModelPrediction:
         return self.predict_batch([structure])[0]
@@ -89,7 +90,13 @@ class KIndexQRFPredictor:
             # where the model is weakest. Applying it here, through the same
             # function the trainer scored, is what makes the served number the
             # number the run bundle measured.
-            value = publish(float(raw[self.published, index]), decision)
+            if decision.get("rule") == "quantile_by_band":
+                raw_by_level = {
+                    level: float(raw[i, index]) for i, level in enumerate(self.levels)
+                }
+                value = publish_by_band(raw_by_level, decision)
+            else:
+                value = publish(float(raw[self.published, index]), decision)
             prediction = ModelPrediction(
                 parameter=contract.parameter,
                 quantity=contract.quantity,
@@ -159,12 +166,29 @@ def load(
             "this artifact declares no decision rule; a k-index model must "
             "record which quantile it publishes"
         )
-    if decision.get("rule") != "quantile":
+    rule = decision.get("rule")
+    if rule not in ("quantile", "quantile_by_band"):
         raise ValueError(
-            f"this build serves the 'quantile' decision rule; the artifact "
-            f"records {decision.get('rule')!r}"
+            f"this build serves the 'quantile' or 'quantile_by_band' decision "
+            f"rules; the artifact records {rule!r}"
         )
-    if float(decision["level"]) not in levels:
+    if rule == "quantile_by_band":
+        if float(decision["baseline_level"]) not in levels:
+            raise ValueError(
+                f"the baseline level {decision['baseline_level']} is not "
+                f"among the fitted levels {list(levels)}"
+            )
+        bad_levels = [
+            band["level"]
+            for band in decision["bands"]
+            if float(band["level"]) not in levels
+        ]
+        if bad_levels:
+            raise ValueError(
+                f"band level(s) {bad_levels} are not among the fitted levels "
+                f"{list(levels)}"
+            )
+    elif float(decision["level"]) not in levels:
         raise ValueError(
             f"the decision level {decision['level']} is not among the fitted "
             f"levels {list(levels)}"
@@ -211,7 +235,9 @@ def load(
         record=record,
         model_id=f"{KINDEX_RUNTIME}@{schema}",
         levels=levels,
-        published=levels.index(float(decision["level"])),
+        published=None
+        if rule == "quantile_by_band"
+        else levels.index(float(decision["level"])),
     )
 
 

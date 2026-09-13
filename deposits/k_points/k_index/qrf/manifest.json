@@ -27,10 +27,15 @@
     "target_contract": "goldilocks.k_index.ladder_1based.v2",
     "quantiles": [0.05, 0.5, 0.95],
     "published_value": {
-      "rule": "quantile",
-      "level": 0.6,
+      "rule": "quantile_by_band",
       "rounding": "half_up",
-      "max_underprediction": 0.25,
+      "baseline_level": 0.5,
+      "bands": [
+        {"upper": 7, "level": 0.9},
+        {"upper": 12, "level": 0.975},
+        {"upper": null, "level": 0.975}
+      ],
+      "max_underprediction": 0.05,
       "selected_on": "validation"
     },
     "requires": []

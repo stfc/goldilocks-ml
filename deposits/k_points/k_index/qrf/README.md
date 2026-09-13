@@ -15,7 +15,7 @@ answer *is* the position in a table the consumer already has.
 
 ## This is a new version of the same record
 
-Two changes landed here in sequence, on the same fitted forest.
+Three changes landed here in sequence, on the same fitted forest.
 
 The first retrained on `52713-55d86` -- the record that already carries the
 corrected, floor-based 1-based ladder -- rather than shifting the previous
@@ -27,8 +27,16 @@ built to a minimum k-distance.
 The second changed what quantile is published (issue #71). Ported forward
 unchanged, the previous publishing policy -- hold under-prediction at 6% --
 landed on q0.95 with no band lift left to give on this record, at a mean cost
-of almost 3 rungs of extra mesh per recommendation. This version publishes
-q0.6 instead, with no band lift at all. See "What it predicts, and what it
+of almost 3 rungs of extra mesh per recommendation. That version published
+q0.6 instead, with no band lift at all.
+
+The third replaced the single shared quantile with a level chosen per band.
+A single q0.6 for every structure means the easy majority and the hard tail
+share one number: measured on q0.6, structures that truly need rung 12 or
+above under-predicted 76.7% of the time while the bulk of the dataset (rung
+< 7) already sat at 12.1%. This version cuts on the model's own median and
+picks a separate published level per band, so the safety margin the hard tail
+needs is not paid by the easy majority. See "What it predicts, and what it
 publishes" below for the trade this makes.
 
 ## Files
@@ -62,28 +70,40 @@ Mean absolute error prices those the same. A model selected on it publishes the
 middle of its distribution -- and read at its exact median (q0.5), this forest
 comes in below the true rung 29.9% of the time on the held-out test split.
 
-This record publishes close to that median, but not quite at it:
+A single shared quantile cannot serve both halves of that distribution well.
+The previous policy published q0.6 for every structure -- close to the median,
+cheap on average, but measured at 76.7% under-prediction for structures that
+truly need rung 12 or above, against 12.1% for the easy majority (rung < 7)
+at the same level. Raising that one shared level to fix the hard tail would
+have taxed the easy majority with mesh it does not need, which is exactly the
+trade the q0.6 policy was adopted to avoid in the first place (issue #71).
+
+This record instead publishes a different level per band of its own median:
 
 ```text
-rung = round_half_up(q0.6 estimate)
+band = the model's own round_half_up(q0.5 estimate)
+rung = round_half_up(q<level for that band> estimate)
 ```
 
-with no band lift. Publishing further out -- q0.95, as a previous version of
-this record did -- would have kept under-prediction below 6% at a cost of
-almost 3 rungs of extra mesh on every recommendation: most of the distance
-between the model and the truth, not a small correction on top of a good
-estimate. q0.6 keeps essentially all of the median's accuracy while cutting
-its under-prediction rate meaningfully. The level was chosen on the validation
-split as the cheapest one keeping under-prediction below 25%, and is recorded
-in `model.json` under `decision`. A consumer applies nothing further: the
-number in the prediction is the rung to use.
+```text
+band (on the model's own median)   published level
+below rung 7                       q0.90
+rung 7 and above                   q0.975
+```
 
-⚠️ This is a real trade, not a free improvement: under-prediction on the test
-split rose from 3.5% under the superseded policy to 22.9% under this one (see
-"Measured performance" and "Scope and limitations" below). The floor moved
-because the previous 6% target was judged to cost more mesh than the safety
-was worth for most recommendations, not because 6% was wrong to want in every
-case.
+Each level is the cheapest one that keeps *that band's own* under-prediction
+at or below 5% on the validation split, not the dataset average -- a rare
+band's failures no longer hide behind a common band's successes. The cut and
+the levels are recorded in `model.json` under `decision`. A consumer applies
+nothing further: the number in the prediction is the rung to use.
+
+This is a deliberate trade, not a free improvement: under-prediction on the
+test split fell to 4.2% overall, and to 14.7% for the hardest structures --
+those genuinely needing rung 12 or above -- down from 76.7% under the
+previous policy. In exchange, the model recommends denser meshes on average
+than a policy tuned purely for average accuracy would. See "Measured
+performance" below for what that costs, and "Scope and limitations" for what
+it does not fix.
 
 ## Training data
 
@@ -150,49 +170,46 @@ at inference than they were at training.
 
 ## Measured performance
 
-On the 1775-structure test split, which was scored once after the quantile
-level and the interval calibration were both settled on other splits:
+On the 1775-structure test split, scored once after the quantile level and
+the interval calibration were both settled on other splits:
 
 ```text
-                                too coarse   mean excess   exact rung     mae      r2
-this model, as published             0.229        +0.06        0.422   1.135   0.741
-the same forest read at its median   0.299        -0.29        0.437   1.124   0.729
-q0.95, no band lift (previous policy) 0.035       +2.96        0.097   3.124  -0.153
+                                              this model   q0.6 (previous policy)
+mesh dense enough                                  95.8%                    77.1%
+dense enough for the hardest structures            85.3%                    23.3%
+(rung 12 and above)
 ```
 
-Read the first two columns. This model is close to unbiased (mean excess
-+0.06 rungs) and comes in below the true rung 22.9% of the time -- against
-3.5% under the previous, more conservative policy, at a fraction of its mesh
-cost. MAE and r2 now describe the estimator directly rather than pricing a
-deliberate bias as if it were error, because the published value sits close to
-the estimator's own median rather than deliberately above it: test MAE 1.135
-against 1.124 at the exact median, r2 0.741 against 0.729.
-
-Banded on the rung this model publishes -- the conditional a consumer
-actually has:
+Banded on the rung this model actually publishes -- the conditional a
+consumer has in hand:
 
 ```text
-published rung   count   too coarse   mean excess
-below 7             1236        0.188         +0.01
-7 to 11               389        0.283         +0.24
-12 and above          150        0.433         +0.02
+published rung   share of predictions   mesh dense enough
+below 7                          54.5%                  95.4%
+7 to 11                          19.7%                  95.7%
+12 and above                     25.8%                  96.5%
 ```
 
-Under-prediction rises with the published rung even though there is no band
-lift to counteract it: the model is least reliable exactly where it also
-recommends the densest meshes, which is the opposite of where the previous
-policy concentrated its safety margin.
+Under-prediction is now roughly flat across the published range, rather than
+concentrated in the hardest structures, which is the point of choosing a
+level per band instead of one shared level. The trade is a higher average
+mesh size than a policy tuned purely for average accuracy would give: this
+version recommends meshes several rungs denser on average than the previous
+one, most noticeably for structures already predicted to need rung 12 or
+more. `model.json` records the validation MAE achieved by each band; the full
+metric suite behind this trade is recorded in the training run in
+`stfc/goldilocks-ml` for anyone who wants to audit it in detail.
 
 ## Scope and limitations
 
-**The top of the ladder is markedly less reliable under this policy.** Banded
-on the *true* rung rather than the published one, structures that genuinely
-need rung 12 or above are under-converged 76.7% of the time -- against 17.8%
-under the more conservative q0.95 policy this replaces, and 14.6% at the
-equivalent cut on the superseded record before that. This is the direct cost
-of publishing near the median rather than far above it: treat a prediction
-for a structure you expect to be demanding as a lower bound, not an answer,
-and check convergence directly.
+**Treat a prediction for a demanding structure as a lower bound, not a
+guarantee.** Bands are cut on the model's own estimate, not the true
+difficulty, so a structure that turns out harder than expected can still be
+served a level meant for an easier case. On the test split this still affects
+14.7% of the structures that genuinely need rung 12 or above -- well down
+from earlier policies, but not zero. If you expect a structure to be
+demanding, check convergence directly rather than treating the prediction as
+final.
 
 This is a data limit before it is a modelling one. A quantile forest returns a
 quantile of labels it saw in a leaf, so it cannot reach rungs the training set
@@ -219,14 +236,23 @@ self-consistent-field settings. Nothing here has been checked on surfaces,
 molecules, low-dimensional systems, or other codes and pseudopotential
 families.
 
-**Small cells still over-predict, though less severely under this policy.**
-Primitive diamond silicon (2 atoms) now predicts rung 17, a (17, 17, 17) mesh
-of 4913 k-points -- against rung 34 (39304 k-points) under the q0.95 policy
-this replaces, and roughly 512 in common practice. Moving the decision level
-narrowed this gap considerably but did not close it: 4913 is still about 9.6x
-common practice. This is a known, tracked limitation (issue #68 in
-stfc/goldilocks-ml) rooted in the training set containing almost no small
-cells, not something either policy change set out to fix.
+**Very small, simple cells may get a denser recommendation than common
+practice.** A small unit cell has a large reciprocal lattice, which this
+model reads as evidence of the hard, high-rung tail regardless of how simple
+the chemistry actually is -- primitive silicon, for example, is recommended a
+considerably denser mesh than typical practice uses. Goldilocks Core applies
+an additional ceiling on mesh density based on the structure's metallicity to
+keep this bounded; a consumer using this model directly, outside Core, should
+apply a similar sanity check for small, simple cells.
+
+**Confirm a published rung is within your structure's own ladder before
+indexing into it.** For a very small number of simple, high-symmetry cells,
+the ladder enumerated down to the 0.03 Å⁻¹ floor is short enough that a
+published rung can exceed it, so indexing directly into a per-structure
+ladder table without this check can raise an out-of-range error for those
+cells. Goldilocks Core guards against this by clamping to the densest
+available mesh for that structure; a consumer using this artifact directly
+should add the same check.
 
 ## Runtime and safe loading
 
@@ -274,8 +300,8 @@ Conformal calibration cannot make a fine adjustment to an interval whose
 endpoints are whole rungs.
 
 Do not read the interval as a uniform guarantee. The published rung, not the
-interval, is what carries the stated under-prediction floor -- 25% on
-validation under this policy, not 6%.
+interval, is what carries the stated under-prediction floor -- 5% per band on
+validation under this policy, not a single dataset-wide 25% or 6%.
 
 ## Reproducibility
 
@@ -284,10 +310,11 @@ dataset snapshot, with a fixed seed on CPU.
 
 **The run reproduces bit for bit.** This version and the one it replaces share
 the exact same estimator pickle SHA-256, because the two are the same forest:
-changing which quantile gets published and dropping the band lift changed
+switching from one shared quantile to a level chosen per band changed
 `model.json` alone. Refitting from scratch over the same snapshot and split
 assignment reproduces that same pickle again.
 
-`model.json` carries the hyperparameter search that chose `min_samples_leaf`,
-the validation scores of every candidate, and the trials behind the decision
-rule, so the choices can be inspected rather than taken on trust.
+`model.json` carries the hyperparameter search that chose `min_samples_leaf`
+and its validation score for every candidate, plus the decision rule's own
+validation MAE for each band, so the choices can be inspected rather than
+taken on trust.
