@@ -45,16 +45,21 @@ min_samples_leaf = [1, 5, 20]
 
 # A rung is acted on whole and the two directions of being wrong cost very
 # different things: too low is an under-converged calculation, too high is
-# machine time. Holding under-prediction at 6% (the policy the 0-based
-# protocol carried) forces q0.95 here with no band lift left to give, at a
-# mean cost of almost 3 rungs of extra mesh -- most of the distance between
-# the model and the truth, not a small correction on top of a good estimate.
+# machine time. Publishing one shared quantile (q0.6, the previous policy)
+# means every structure pays whatever safety margin the hardest structures
+# need, or the hardest structures get denied the accuracy the easy ones can
+# keep -- no single level is both. Measured on q0.6: under-prediction reaches
+# 76.7% for structures that truly need rung 12 or above, while the bulk of
+# the dataset (rung < 7) already sits at 12.1% with room to spare.
 #
-# issue #71: the floor is raised to admit q0.6, which keeps essentially all of
-# the median's accuracy (validation mean_excess +0.15, against -0.23 for the
-# median itself) while still cutting under-prediction from ~28% to ~21% on
-# validation. No band lift on top -- the whole point is not buying back a few
-# points of safety at several rungs of mesh, band by band.
+# quantile_by_band publishes a different level per band of the model's own
+# median instead of one shared level: each band searches decision_levels on
+# its own validation subset and picks the cheapest level keeping ITS OWN
+# under-prediction at or below the floor. A structure predicted easy does not
+# pay for one predicted hard, and vice versa. The floor is 5%, not 25% (q0.6's
+# global floor), because it is now enforced per band rather than on average --
+# a global 25% average let the hardest band's failures hide behind the
+# easiest band's successes.
 [evaluation]
 primary_metric = "mean_excess"
 metrics = [
@@ -67,10 +72,16 @@ metrics = [
     "r2",
 ]
 baseline = "train_median"
-decision_metric = "mean_excess"
-# 0.25 sits strictly between q0.6's and q0.5's validation under-prediction
-# rates (~21% and ~28%), so it admits q0.6 without also admitting the median.
-max_underprediction = 0.25
+decision_metric = "mae"
+decision_rule = "quantile_by_band"
+max_underprediction = 0.05
+# Reused as level bands, not offset bands: quantile_by_band picks a separate
+# published level per band, cut on the model's own median (0.5, the one
+# level every fit has regardless of policy) rather than on the value a band
+# would publish -- so the cut does not depend on the decision it feeds.
+# [7, 12], same cut as coverage_bins below, for the same reason recorded
+# there.
+decision_bands = [7, 12]
 # Cut on the true rung. A diagnostic, not a rule: the truth is the one thing
 # missing when a prediction is served. [7, 12], not [6, 11]: rung 12 on this
 # 1-based ladder is the same physical cut that rung 11 was on the 0-based one

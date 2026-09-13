@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import math
 import pickle
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from itertools import product
 from pathlib import Path
@@ -194,9 +194,13 @@ class QuantileRandomForestModel:
             self.estimator, features.matrix(samples), len(self.levels)
         )
         low, mid, high = (self.levels.index(level) for level in self.quantiles)
+        by_band = (
+            self.decision is not None
+            and self.decision.get("rule") == "quantile_by_band"
+        )
         published = (
             self.levels.index(float(self.decision["level"]))
-            if self.decision is not None
+            if self.decision is not None and not by_band
             else mid
         )
         rows: list[tuple[float, float, float]] = []
@@ -207,9 +211,14 @@ class QuantileRandomForestModel:
                 float(raw[high, index]),
                 self.correction,
             )
-            rows.append(
-                (lower, publish(float(raw[published, index]), self.decision), upper)
-            )
+            if by_band:
+                raw_by_level = {
+                    level: float(raw[i, index]) for i, level in enumerate(self.levels)
+                }
+                value = publish_by_band(raw_by_level, self.decision)
+            else:
+                value = publish(float(raw[published, index]), self.decision)
+            rows.append((lower, value, upper))
         return rows
 
     def predict(
@@ -585,6 +594,8 @@ def _decision(
         estimator, validation.features.matrix(validation.samples), len(levels)
     )
     truth = [float(sample.target) for sample in validation.samples]
+    if protocol.evaluation.decision_rule == "quantile_by_band":
+        return _decision_by_band(protocol, levels, raw, truth, metric, candidates)
     chosen = select_decision_level(
         truth,
         {level: list(raw[levels.index(level)]) for level in sorted(set(candidates))},
@@ -611,6 +622,99 @@ def _decision(
             max_underprediction=protocol.evaluation.max_underprediction,
         )
     return decision
+
+
+def _decision_by_band(
+    protocol: TrainingProtocol,
+    levels: tuple[float, ...],
+    raw: np.ndarray,
+    truth: list[float],
+    metric: str,
+    candidates: list[float],
+) -> dict[str, Any]:
+    """Choose a separate published level for each band of the model's median.
+
+    Cut on the rounded median rather than on whichever level a plain quantile
+    rule would have chosen: the median is fitted regardless of whether a
+    decision rule is declared at all, so the cut does not depend on the
+    policy it feeds. Every band must honour the same floor on its own,
+    because a rare band's failures do not average out against a common one's
+    successes the way a single global level lets them.
+    """
+    edges = protocol.evaluation.decision_bands
+    if edges is None:
+        raise ValueError(
+            "evaluation.decision_rule = 'quantile_by_band' requires "
+            "evaluation.decision_bands"
+        )
+    if 0.5 not in levels:
+        raise ValueError(
+            "quantile_by_band needs the median (0.5) among the fitted levels"
+        )
+    median = raw[levels.index(0.5)]
+    rounded_median = [math.floor(value + 0.5) for value in median]
+    bounds = [-math.inf, *edges, math.inf]
+    ordered_candidates = sorted(set(candidates))
+    bands: list[dict[str, Any]] = []
+    for low, high in zip(bounds, bounds[1:], strict=False):
+        indices = [i for i, value in enumerate(rounded_median) if low <= value < high]
+        if not indices:
+            raise ValueError(f"no validation sample falls in the ({low}, {high}) band")
+        band_truth = [truth[i] for i in indices]
+        values_by_level = {
+            level: [float(raw[levels.index(level), i]) for i in indices]
+            for level in ordered_candidates
+        }
+        chosen = select_decision_level(
+            band_truth,
+            values_by_level,
+            metric=metric,
+            max_underprediction=protocol.evaluation.max_underprediction,
+        )
+        bands.append(
+            {
+                "upper": None if high == math.inf else high,
+                "count": len(indices),
+                "level": chosen["level"],
+                metric: chosen[metric],
+            }
+        )
+    return {
+        "rule": "quantile_by_band",
+        "metric": metric,
+        "max_underprediction": protocol.evaluation.max_underprediction,
+        "baseline_level": 0.5,
+        "rounding": "half_up",
+        "bands": bands,
+        "selected_on": "validation",
+    }
+
+
+def publish_by_band(
+    raw_by_level: Mapping[float, float], decision: Mapping[str, Any]
+) -> float:
+    """Publish the level a quantile_by_band decision assigns to this sample's band.
+
+    Shared by the trainer and every serving runtime, mirroring ``publish``:
+    the band is cut on the median's own rounded value, which every band's
+    rule agrees is available, rather than on the value a band would publish.
+    """
+    baseline = float(raw_by_level[decision["baseline_level"]])
+    rounded = (
+        math.floor(baseline + 0.5)
+        if decision.get("rounding") == "half_up"
+        else baseline
+    )
+    for band in decision["bands"]:
+        upper = band.get("upper")
+        if upper is None or rounded < float(upper):
+            value = float(raw_by_level[float(band["level"])])
+            return (
+                math.floor(value + 0.5)
+                if decision.get("rounding") == "half_up"
+                else value
+            )
+    raise ValueError("quantile_by_band decision matched no band")
 
 
 register_trainer(TRAINER, fit)

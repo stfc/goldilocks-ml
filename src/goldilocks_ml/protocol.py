@@ -238,6 +238,7 @@ class EvaluationSpec:
     decision_metric: str | None = None
     max_underprediction: float | None = None
     decision_bands: tuple[float, ...] | None = None
+    decision_rule: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -307,7 +308,9 @@ _EVALUATION_KEYS = {
     "decision_metric",
     "max_underprediction",
     "decision_bands",
+    "decision_rule",
 }
+DECISION_RULES = frozenset({"quantile", "quantile_by_band"})
 
 
 def _table(value: object, name: str) -> dict[str, Any]:
@@ -636,6 +639,24 @@ def _load_evaluation(root: dict[str, Any], task: str) -> EvaluationSpec:
             for earlier, later in zip(decision_bands, decision_bands[1:], strict=False)
         ):
             raise ValueError("evaluation.decision_bands must increase")
+    decision_rule = table.get("decision_rule")
+    if decision_rule is not None:
+        if decision_metric is None:
+            raise ValueError(
+                "evaluation.decision_rule requires evaluation.decision_metric"
+            )
+        if decision_rule not in DECISION_RULES:
+            supported = ", ".join(sorted(DECISION_RULES))
+            raise ValueError(f"evaluation.decision_rule must be one of {supported}")
+        if decision_rule == "quantile_by_band" and decision_bands is None:
+            # quantile_by_band reuses decision_bands, but as level cuts rather
+            # than the offset cuts the plain quantile rule applies on top of
+            # one chosen level -- a band with nothing to choose between is not
+            # a rule.
+            raise ValueError(
+                "evaluation.decision_rule = 'quantile_by_band' requires "
+                "evaluation.decision_bands"
+            )
     return EvaluationSpec(
         primary_metric=primary_metric,
         metrics=metrics,
@@ -647,6 +668,7 @@ def _load_evaluation(root: dict[str, Any], task: str) -> EvaluationSpec:
         decision_metric=decision_metric,
         max_underprediction=max_underprediction,
         decision_bands=decision_bands,
+        decision_rule=decision_rule,
     )
 
 
