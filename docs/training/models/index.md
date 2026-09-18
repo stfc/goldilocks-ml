@@ -10,7 +10,7 @@ that produced them.
 | [k-point mesh](k_points/index.md) | `k_index_dense` | [Dense-mesh screen](k_points/k_index_dense-screen.md) | draft, serves the dataset |
 | [Metallicity](metallicity/index.md) | `is_metal` | [CGCNN](metallicity/is_metal-cgcnn.md) | published |
 | [Metallicity](metallicity/index.md) | a representation | [CGCNN](metallicity/representation-cgcnn.md) | published, historical |
-| [Magnetism](magnetism/index.md) | `is_magnetic` | [mMACE+MLP](magnetism/is_magnetic-mace_mlp.md) | draft, not published |
+| [Magnetism](magnetism/index.md) | `is_magnetic` | [mMACE+MLP](magnetism/is_magnetic-mace_mlp.md) | published |
 | [Hubbard U](hubbard_u/index.md) | — | — | planned |
 | [Pseudopotentials](pseudopotentials/index.md) | — | — | planned |
 | [Exchange-correlation](exchange_correlation/index.md) | — | — | planned |

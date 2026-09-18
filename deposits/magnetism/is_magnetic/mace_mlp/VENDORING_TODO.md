@@ -1,11 +1,12 @@
-# Open items before this record can be published
+# Open items
 
-This record is real code, loadable weights, and a real fitted MLP head. A
-PSDI draft (`1g8rw-q8128`) now bundles this classifier together with the
-mMACE backbone in one record -- review has **not** been submitted, and it
-should not be until item 4 is resolved. The licence (item 1) is resolved;
-external validation (item 4) is the remaining publication blocker; items 2
-and 3 are open but no longer block publication.
+This record is published on PSDI as
+[`1g8rw-q8128`](https://data-collections.psdi.ac.uk/records/1g8rw-q8128),
+bundling this classifier together with the mMACE backbone in one record.
+The licence (item 1) is resolved. Junwen chose to publish ahead of item 4
+(external validation) rather than hold the record back for it -- the record
+is public but is **not** `is_default` until that is recorded. Items 2 and 3
+remain open follow-ups, unrelated to publication.
 
 ## 1. Confirm the backbone checkpoint's licence -- RESOLVED
 
