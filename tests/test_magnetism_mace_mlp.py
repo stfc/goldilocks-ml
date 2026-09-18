@@ -212,9 +212,7 @@ def saved_model(tmp_path: Path, **overrides: Any) -> Path:
     """Write a classifier carrying a decision, and return its directory."""
     model = fitted_classifier(**overrides)
     if "decision" not in overrides:
-        model = model.with_decision(
-            {"threshold": 0.5, "selected_on": "validation"}
-        )
+        model = model.with_decision({"threshold": 0.5, "selected_on": "validation"})
     directory = tmp_path / "model"
     directory.mkdir()
     model.save(directory)

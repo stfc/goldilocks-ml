@@ -154,8 +154,7 @@ def _attempt(
     elif np.isfinite(final_grad) and final_grad > GRADIENT_NORM_TOLERANCE:
         status = WARNING_NOT_CONVERGED
         reasons.append(
-            f"final magnetic gradient norm {final_grad:.6g} "
-            f"> {GRADIENT_NORM_TOLERANCE}"
+            f"final magnetic gradient norm {final_grad:.6g} > {GRADIENT_NORM_TOLERANCE}"
         )
     else:
         status = OK
