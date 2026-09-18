@@ -23,7 +23,8 @@ guess and no DFT label leak into the embedding through the probe itself.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -36,6 +37,29 @@ if TYPE_CHECKING:
 # 128 scalar channels from the backbone's last product-basis block, pooled
 # three ways (mean, max, population std) over the atoms in the structure.
 EMBEDDING_WIDTH = 384
+
+
+@contextmanager
+def _default_dtype_float64() -> Iterator[None]:
+    """Run a block with torch's global default dtype set to float64.
+
+    The backbone needs float64 for numerical stability (its checkpoint was
+    trained that way), but ``torch.set_default_dtype`` is process-wide with
+    no scoping of its own -- unlike ``safe_load``'s own ``torch.jit.load``
+    monkeypatch below, ``MagneticMACECalculator(default_dtype="float64")``
+    sets it and leaves it set. Confirmed empirically: without this, any
+    float32-assuming model predicting later in the same process (e.g.
+    goldilocks_ml's own CGCNN classifier) starts building float64 tensors
+    against its float32 weights and fails on the first matmul.
+    """
+    import torch
+
+    previous = torch.get_default_dtype()
+    torch.set_default_dtype(torch.float64)
+    try:
+        yield
+    finally:
+        torch.set_default_dtype(previous)
 
 
 def safe_load(path: Path, device: str = "cpu") -> Any:
@@ -82,12 +106,14 @@ class MACEEmbedder:
         self._buffer.clear()
         handle = self.raw_model.products[-1].register_forward_hook(self._hook)
         try:
-            # Force a fresh forward pass even when the same Atoms object is
-            # embedded twice: ASE calculators otherwise skip recomputation for
-            # a structure they consider unchanged since the last call.
-            self.calculator.reset()
-            atoms.calc = self.calculator
-            atoms.get_potential_energy()
+            with _default_dtype_float64():
+                # Force a fresh forward pass even when the same Atoms object
+                # is embedded twice: ASE calculators otherwise skip
+                # recomputation for a structure they consider unchanged
+                # since the last call.
+                self.calculator.reset()
+                atoms.calc = self.calculator
+                atoms.get_potential_energy()
         finally:
             handle.remove()
 
@@ -120,9 +146,10 @@ def load_embedder(checkpoint: Path, device: str = "cpu") -> MACEEmbedder:
     one_step_model = MagneticSCFMACE(
         raw_model, n_scf_step=1, use_scf=False, scf_tol=1e-4, scf_logging=False
     )
-    calculator = MagneticMACECalculator(
-        models=[one_step_model], device=device, default_dtype="float64"
-    )
+    with _default_dtype_float64():
+        calculator = MagneticMACECalculator(
+            models=[one_step_model], device=device, default_dtype="float64"
+        )
     return MACEEmbedder(raw_model, calculator)
 
 
