@@ -438,3 +438,81 @@ def test_a_boolean_quantity_refuses_a_number() -> None:
     contract.check_value(False)
     with pytest.raises(ValueError, match="must be a boolean"):
         contract.check_value(0.87)
+
+
+def test_is_magnetic_is_a_material_property_like_is_metal() -> None:
+    from goldilocks_ml.inference import MATERIAL_PROPERTY, contract_for
+
+    contract = contract_for("goldilocks.is_magnetic.dft_max_site_magmom_0p5ub.v1")
+
+    assert contract.parameter == "magnetism"
+    assert contract.quantity == "is_magnetic"
+    assert contract.kind == MATERIAL_PROPERTY
+    contract.check_value(True)
+    contract.check_value(False)
+    with pytest.raises(ValueError, match="must be a boolean"):
+        contract.check_value(0.5)
+
+
+def test_a_labels_quantity_refuses_a_value_outside_the_set() -> None:
+    from goldilocks_ml.inference import CONTRACTS, MATERIAL_PROPERTY, ContractSpec
+
+    ordering = ContractSpec(
+        parameter="magnetism",
+        quantity="ordering",
+        kind=MATERIAL_PROPERTY,
+        labels=("NM", "FM", "AFM", "FiM"),
+    )
+    assert "goldilocks.ordering.collinear_class.v1" not in CONTRACTS  # not released yet
+
+    ordering.check_value("FM")
+    with pytest.raises(ValueError, match=r"must be one of \{NM, FM, AFM, FiM\}"):
+        ordering.check_value("antiferro")
+    with pytest.raises(ValueError, match="must be one of"):
+        ordering.check_value(1)
+
+
+def test_a_per_site_index_convention_checks_shape_not_just_type() -> None:
+    from goldilocks_ml.inference import DFT_PARAMETER, ContractSpec, IndexConvention
+
+    moments = ContractSpec(
+        parameter="magnetism",
+        quantity="magnetic_moments",
+        kind=DFT_PARAMETER,
+        units="bohr_magneton",
+        index_convention=IndexConvention(basis="site", order="input_order"),
+    )
+
+    moments.check_value((0.0, 4.6, 0.0))
+    moments.check_value((0.0, 4.6, 0.0), n_entities=3)
+    with pytest.raises(ValueError, match="must be a tuple"):
+        moments.check_value([0.0, 4.6, 0.0])
+    with pytest.raises(ValueError, match="must have 3 entries"):
+        moments.check_value((0.0, 4.6), n_entities=3)
+
+
+def test_a_per_species_index_convention_wants_a_mapping() -> None:
+    from goldilocks_ml.inference import ContractSpec, IndexConvention
+
+    hubbard = ContractSpec(
+        parameter="hubbard_u",
+        quantity="hubbard_u",
+        index_convention=IndexConvention(basis="species"),
+    )
+
+    hubbard.check_value({"Fe": 5.3})
+    with pytest.raises(ValueError, match="must be a mapping"):
+        hubbard.check_value((5.3,))
+
+
+def test_an_unknown_index_convention_basis_is_refused() -> None:
+    from goldilocks_ml.inference import ContractSpec, IndexConvention
+
+    broken = ContractSpec(
+        parameter="magnetism",
+        quantity="magnetic_moments",
+        index_convention=IndexConvention(basis="bond"),
+    )
+
+    with pytest.raises(ValueError, match="unknown index_convention.basis"):
+        broken.check_value(())

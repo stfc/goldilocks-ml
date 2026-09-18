@@ -1,0 +1,163 @@
+{
+  "access": {
+    "files": "public",
+    "record": "public"
+  },
+  "files": {
+    "enabled": true,
+    "default_preview": "README.md"
+  },
+  "custom_fields": {
+    "dsmd": []
+  },
+  "metadata": {
+    "title": "Goldilocks mMACE+MLP magnetism classifier",
+    "description": "<p>A frozen mMACE foundation model's pooled structure embedding, fed through a small MLP, predicting whether a periodic material's DFT ground state is spin-polarised. Trained on MatPES PBE (not Materials Project); test ROC-AUC 0.986 on an in-distribution held-out split. This record bundles the classifier and the mMACE backbone it depends on, licensed CC-BY-4.0 by the training collaborator.</p><p>External validation on an independent dataset (MP-ALOE) has not been run yet -- the metrics above are an in-distribution MatPES PBE test split. See the README's Status section before treating this as a default model.</p>",
+    "creators": [
+      {
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ],
+        "person_or_org": {
+          "family_name": "Yin",
+          "given_name": "Junwen",
+          "identifiers": [
+            {
+              "identifier": "0000-0001-7374-9352",
+              "scheme": "orcid"
+            }
+          ],
+          "name": "Yin, Junwen",
+          "type": "personal"
+        }
+      }
+    ],
+    "contributors": [
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Elena, Alin-Marin",
+          "given_name": "Alin-Marin",
+          "family_name": "Elena"
+        },
+        "role": {
+          "id": "projectmanager"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Yin, Junwen",
+          "given_name": "Junwen",
+          "family_name": "Yin"
+        },
+        "role": {
+          "id": "projectmember"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Basak, Susmita",
+          "given_name": "Susmita",
+          "family_name": "Basak"
+        },
+        "role": {
+          "id": "projectmember"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Cha, Jaehoon",
+          "given_name": "Jaehoon",
+          "family_name": "Cha"
+        },
+        "role": {
+          "id": "projectmember"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Teobaldi, Gilberto",
+          "given_name": "Gilberto",
+          "family_name": "Teobaldi"
+        },
+        "role": {
+          "id": "projectmember"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
+      },
+      {
+        "person_or_org": {
+          "type": "personal",
+          "name": "Sparks, Willow",
+          "given_name": "Willow",
+          "family_name": "Sparks"
+        },
+        "role": {
+          "id": "projectmember"
+        },
+        "affiliations": [
+          {
+            "name": "UKRI STFC"
+          }
+        ]
+      }
+    ],
+    "rights": [
+      {
+        "id": "cc-by-4.0"
+      }
+    ],
+    "resource_type": {
+      "id": "model"
+    },
+    "subjects": [
+      {
+        "subject": "Materials science"
+      },
+      {
+        "subject": "Magnetism classification"
+      },
+      {
+        "subject": "Machine-learned interatomic potentials"
+      },
+      {
+        "subject": "Density functional theory"
+      },
+      {
+        "subject": "MatPES"
+      }
+    ],
+    "publisher": "PSDI",
+    "version": "v1.0"
+  }
+}
