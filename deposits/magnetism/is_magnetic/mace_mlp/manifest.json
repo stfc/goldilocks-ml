@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "community": "data-to-knowledge",
+  "artifacts": [
+    {
+      "name": "is_magnetic.pt",
+      "size_bytes": 474957,
+      "sha256": "b575832a9bfdc2a089d81704a09e0578e2ace62f720fc72c2092f845bcd23d2b"
+    },
+    {
+      "name": "mace_matpes_pbe_baseline_run-3.model",
+      "size_bytes": 84430851,
+      "sha256": "bdf6b8ccad5585eefd49ef5bcc4d8fab260abc04626ec4940d49a3dea310acb6"
+    }
+  ],
+  "inference_requirements": {
+    "artifact_format": "torch state dict with its architecture and a fitted mean/scale standardizer; the backbone is a whole pickled torch.nn.Module, not a state dict",
+    "feature_contract": "mace_probe_embedding.v1",
+    "target": "is_magnetic",
+    "target_contract": "goldilocks.is_magnetic.dft_max_site_magmom_0p5ub.v1",
+    "decision_threshold": 0.323869526386261,
+    "requires": [
+      "The mace fork's architecture classes must be importable at their original module paths to unpickle mace_matpes_pbe_baseline_run-3.model. No pinned, installable mirror exists yet; goldilocks-ml's magnetism extra currently only declares ase/e3nn/sphericart, with mace-torch left as a manual editable install."
+    ],
+    "torch": "2.13.0"
+  }
+}

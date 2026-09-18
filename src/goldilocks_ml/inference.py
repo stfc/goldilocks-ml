@@ -77,6 +77,49 @@ class ConvergenceCriterion:
 
 
 @dataclass(frozen=True, slots=True)
+class IndexConvention:
+    """What position in a per-entity prediction corresponds to.
+
+    ``basis`` says what one entry means: ``"site"`` -- one value per site, in
+    the structure's own input order, before any relabeling a consumer performs
+    (Core may split "Fe" into "Fe1"/"Fe2" for an antiferromagnetic cell; that
+    expansion is Core's problem, not this contract's); ``"species"`` -- one
+    value per distinct chemical symbol, keyed by symbol as pymatgen spells it.
+
+    ``order`` is only meaningful for ``basis == "site"`` and names the
+    ordering rule. Only ``"input_order"`` is defined: the order Core's own
+    Structure object already has when handed to ``predict()``. A model that
+    reorders sites internally must undo that before returning, not document it
+    here.
+    """
+
+    basis: str
+    order: str | None = None
+
+    def check_value(self, value: Any, *, n_entities: int | None = None) -> None:
+        """Reject a per-entity prediction with the wrong shape."""
+        if self.basis == "site":
+            if not isinstance(value, tuple):
+                raise ValueError(
+                    "a per-site prediction must be a tuple, one entry per "
+                    f"site in input order; got {type(value).__name__}"
+                )
+            if n_entities is not None and len(value) != n_entities:
+                raise ValueError(
+                    f"a per-site prediction must have {n_entities} entries "
+                    f"(one per site); got {len(value)}"
+                )
+        elif self.basis == "species":
+            if not isinstance(value, Mapping):
+                raise ValueError(
+                    "a per-species prediction must be a mapping keyed by "
+                    f"chemical symbol; got {type(value).__name__}"
+                )
+        else:
+            raise ValueError(f"unknown index_convention.basis {self.basis!r}")
+
+
+@dataclass(frozen=True, slots=True)
 class ContractSpec:
     """What a published target contract means to a consumer.
 
@@ -89,6 +132,11 @@ class ContractSpec:
     ladder rather than semantics encoded into the contract name: a rung means
     nothing without the resolution floor it was enumerated to, and nothing
     about what "converged" meant when the label was assigned.
+
+    ``labels`` and ``index_convention`` are the same idea applied to a
+    multi-class or per-entity quantity: the legal label set, or the position
+    convention, is part of what the contract means and belongs here rather
+    than in a name a consumer has to parse.
     """
 
     parameter: str
@@ -100,6 +148,8 @@ class ContractSpec:
     boolean: bool = False
     min_k_distance: float | None = None
     convergence: ConvergenceCriterion | None = None
+    labels: tuple[str, ...] | None = None
+    index_convention: IndexConvention | None = None
 
     def check_units(self, units: str | None) -> None:
         """Reject a record whose units are not the ones this contract means."""
@@ -109,13 +159,29 @@ class ContractSpec:
                 f"declares {units!r}"
             )
 
-    def check_value(self, value: Any) -> None:
-        """Reject a prediction outside the domain the quantity admits."""
+    def check_value(self, value: Any, *, n_entities: int | None = None) -> None:
+        """Reject a prediction outside the domain the quantity admits.
+
+        ``n_entities`` is only meaningful for a per-site ``index_convention``
+        and is optional: a caller that does not know the site count yet still
+        gets the type check.
+        """
         if self.boolean:
             if not isinstance(value, bool):
                 raise ValueError(
                     f"{self.quantity} must be a boolean; the model predicted {value!r}"
                 )
+            return
+        if self.labels is not None:
+            if not isinstance(value, str) or value not in self.labels:
+                allowed = ", ".join(self.labels)
+                raise ValueError(
+                    f"{self.quantity} must be one of {{{allowed}}}; the model "
+                    f"predicted {value!r}"
+                )
+            return
+        if self.index_convention is not None:
+            self.index_convention.check_value(value, n_entities=n_entities)
             return
         if self.positive and not float(value) > 0:
             raise ValueError(
@@ -190,6 +256,28 @@ CONTRACTS: Mapping[str, ContractSpec] = {
         kind=DATASET_SELECTION,
         boolean=True,
     ),
+    # Whether DFT gives this structure a spin-polarised ground state. The name
+    # states the label rule, not a decision threshold (that lives in the
+    # record's own `decision` block, the same split `is_metal` uses): a
+    # structure whose maximum on-site moment lands strictly between 0.05 and
+    # 0.5 Bohr magnetons was excluded from the training and test data this
+    # contract's models are fitted and scored against, so a prediction near
+    # that boundary is extrapolation, not interpolation. That caveat belongs
+    # in a model card, not in this name -- see the "max50" lesson in the
+    # k_index history above for why a name should not try to carry it.
+    "goldilocks.is_magnetic.dft_max_site_magmom_0p5ub.v1": ContractSpec(
+        parameter="magnetism",
+        quantity="is_magnetic",
+        kind=MATERIAL_PROPERTY,
+        boolean=True,
+    ),
+    # `ordering` (NM/FM/AFM/FiM, a `labels`-shaped quantity) and
+    # `magnetic_moments` (one signed z-component per site, an
+    # `index_convention`-shaped quantity) are not added here: no model backs
+    # either yet, and a contract with no loadable release would be a promise
+    # this build cannot keep. `IndexConvention` and `ContractSpec.labels`
+    # above exist so that when one is trained, declaring it is a dict entry,
+    # not new mechanism.
 }
 
 

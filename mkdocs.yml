@@ -66,6 +66,7 @@ nav:
       - "· Classifier": training/models/metallicity/is_metal-cgcnn.md
       - "· Representation": training/models/metallicity/representation-cgcnn.md
       - Magnetism: training/models/magnetism/index.md
+      - "· Classifier (draft)": training/models/magnetism/is_magnetic-mace_mlp.md
       - Hubbard U: training/models/hubbard_u/index.md
       - Pseudopotentials: training/models/pseudopotentials/index.md
       - Exchange-correlation: training/models/exchange_correlation/index.md

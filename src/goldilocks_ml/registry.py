@@ -144,10 +144,12 @@ _QRF = "goldilocks_ml.models.k_points.k_distance.qrf"
 _KINDEX_QRF = "goldilocks_ml.models.k_points.k_index.qrf"
 _KINDEX_SCREEN = "goldilocks_ml.models.k_points.k_index.screen"
 _CGCNN = "goldilocks_ml.models.metallicity.is_metal.cgcnn"
+_MAGNETIC_MLP = "goldilocks_ml.models.magnetism.is_magnetic.mace_mlp"
 _BUILTIN_TRAINERS = {
     "quantile_random_forest": f"{_QRF}.trainer",
     "cgcnn_classifier": f"{_CGCNN}.trainer",
     "dense_mesh_screen": f"{_KINDEX_SCREEN}.trainer",
+    "magnetic_mlp_classifier": f"{_MAGNETIC_MLP}.trainer",
 }
 # Keyed by serving runtime, not by trainer: one fitting algorithm can produce
 # models that must be read back differently.
@@ -156,11 +158,13 @@ _BUILTIN_PREDICTORS = {
     "k_points.k_index.qrf": f"{_KINDEX_QRF}.predictor",
     "metallicity.is_metal.cgcnn": f"{_CGCNN}.predictor",
     "k_points.k_index.screen": f"{_KINDEX_SCREEN}.predictor",
+    "magnetism.is_magnetic.mace_mlp": f"{_MAGNETIC_MLP}.predictor",
 }
 _BUILTIN_FEATURES = {
     "comp_struct_soap_lattice_metal.v1": f"{_QRF}.features",
     "cslr.v1": f"{_KINDEX_QRF}.features",
     "crystal_graph.v1": f"{_CGCNN}.graphs",
+    "mace_probe_embedding.v1": f"{_MAGNETIC_MLP}.features",
 }
 _MODEL_DEPENDENCIES = {
     "ase",
@@ -173,6 +177,15 @@ _MODEL_DEPENDENCIES = {
     "torch",
     "torch_geometric",
 }
+# A separate, heavier and less stable stack than `models`: the frozen mMACE
+# backbone this predicts from is not on PyPI as an upstream release (see
+# `deposits/magnetism/is_magnetic/mace_mlp/README.md`), so this extra is
+# kept out of the base `models` install that every other builtin needs.
+_MAGNETISM_DEPENDENCIES = {"ase", "e3nn", "mace", "sphericart"}
+_EXTRA_FOR_DEPENDENCY: dict[str, str] = {
+    **{name: "models" for name in _MODEL_DEPENDENCIES},
+    **{name: "magnetism" for name in _MAGNETISM_DEPENDENCIES},
+}
 
 
 def _load_builtin(name: str, modules: Mapping[str, str]) -> None:
@@ -182,10 +195,12 @@ def _load_builtin(name: str, modules: Mapping[str, str]) -> None:
     try:
         import_module(module)
     except ModuleNotFoundError as error:
-        if error.name and error.name.split(".")[0] in _MODEL_DEPENDENCIES:
+        missing = (error.name or "").split(".")[0]
+        extra = _EXTRA_FOR_DEPENDENCY.get(missing)
+        if extra:
             raise ValueError(
-                f"{name!r} needs the QRF95 dependencies; install them with "
-                "'uv sync --extra models'"
+                f"{name!r} needs the {extra} dependencies; install them with "
+                f"'uv sync --extra {extra}'"
             ) from error
         raise
 
