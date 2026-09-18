@@ -3,15 +3,14 @@
 Whether the calculation is spin-polarised, how the spins are arranged, and what
 to start the moments at.
 
-!!! warning "Draft, not published"
-    [`is_magnetic`](is_magnetic-mace_mlp.md) has a real, tested model behind
-    it, but it is not published and must not be treated as a default —
-    external validation has not been run. See the model card's Status
-    section.
+!!! warning "Not a default model"
+    [`is_magnetic`](is_magnetic-mace_mlp.md) is published, but external
+    validation on an independent dataset has not been run yet. See the model
+    card's "How good it is" section.
 
 | Quantity | What it is | Model |
 | --- | --- | --- |
-| `is_magnetic` | Whether the ground state is spin-polarised | [mMACE+MLP](is_magnetic-mace_mlp.md), draft |
+| `is_magnetic` | Whether the ground state is spin-polarised | [mMACE+MLP](is_magnetic-mace_mlp.md) |
 | `ordering` | Non-magnetic, ferro-, antiferro-, ferrimagnetic | none |
 | `magnetic_moments` | Starting moment per site | none |
 

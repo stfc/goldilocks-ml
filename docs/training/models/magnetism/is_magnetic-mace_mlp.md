@@ -1,11 +1,8 @@
 # mMACE + MLP magnetism classifier
 
-!!! warning "Draft, not published"
-    Not a default model. A PSDI draft exists, bundling this classifier with
-    the mMACE backbone it depends on, but review has not been submitted:
-    external validation on an independent dataset has not been run. See
-    `deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md` in the
-    repository for what is open.
+!!! warning "Not a default model"
+    External validation on an independent dataset has not been run yet. See
+    "How good it is" below.
 
 Answers one question: **is this structure's DFT ground state
 spin-polarised?** Goldilocks needs the answer early, the same way it needs
@@ -18,7 +15,7 @@ CC-BY-4.0 by the training collaborator.
 | --- | --- |
 | Predicts | `is_magnetic` — `magnetic` or `non_magnetic` |
 | Trained on | MatPES PBE (`materialyze/matpes/pbe-2025.2`), not Materials Project |
-| Record | not published — see the warning above |
+| Record | [1g8rw-q8128](https://data-collections.psdi.ac.uk/records/1g8rw-q8128) |
 | Source | ported from `2-research/2-mace/1-magnetic-mace` (outside this ecosystem) |
 
 ## Use it
@@ -85,5 +82,6 @@ ground-state search.
   spin-polarised calculation.
 - **The score is not a probability**, and 0.5 is not its decision point. Use
   `prediction.value`, not your own threshold.
-- **This is a draft record.** Do not depend on it as a default model — see
-  the warning at the top of this page.
+- **External validation is still pending.** Do not depend on this as a
+  default model until it is recorded — see the warning at the top of this
+  page.

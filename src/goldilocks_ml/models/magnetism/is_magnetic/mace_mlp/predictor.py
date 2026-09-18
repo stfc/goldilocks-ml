@@ -74,9 +74,7 @@ class MagneticPredictor:
             note = validation_status.get(
                 "external_validation_note", "see the model card"
             )
-            warnings = (
-                f"{self.model_id} has not been externally validated ({note})",
-            )
+            warnings = (f"{self.model_id} has not been externally validated ({note})",)
 
         predictions = []
         for score in scores:
