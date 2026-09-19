@@ -35,12 +35,33 @@ prediction.quantity  # 'k_distance'
 | k-index forest | which mesh on the ladder a crystal needs | [4050a-aas85](https://data-collections.psdi.ac.uk/records/4050a-aas85) |
 | CGCNN metallicity classifier | metal or insulator | [ba06w-n6a68](https://data-collections.psdi.ac.uk/records/ba06w-n6a68) |
 | CGCNN representation | 64 numbers describing a crystal | [m742g-g0k14](https://data-collections.psdi.ac.uk/records/m742g-g0k14) |
+| is_magnetic | whether a structure's DFT ground state is spin-polarised | [1g8rw-q8128](https://data-collections.psdi.ac.uk/records/1g8rw-q8128) |
 
 The CGCNN representation record is a feature extractor for QRF95's own feature
 pipeline, not something you call `load_model(...).predict(...)` on directly --
 `load_model` refuses it with a clear error naming what it's for instead. See
 [its own docs
 page](https://stfc.github.io/goldilocks-ml/training/models/metallicity/representation-cgcnn/).
+
+### Use the is_magnetic classifier
+
+`is_magnetic` reads a frozen mMACE backbone's embedding, which needs `mace`
+on top of the `models` extra above -- and there is no extra for this one:
+
+```bash
+uv sync --extra models
+uv pip install ase==3.28.0 e3nn==0.4.4 sphericart==1.0.9 sphericart-torch==1.0.9
+uv pip install "mace-torch @ git+https://github.com/CheukHinHoJerry/mace.git@ac8ff4764122ced0d57198fe2f9ba170c9fcd16d"
+```
+
+That `mace-torch` is a research collaborator's fork, not the upstream
+package of the same name on PyPI (`ACEsuit/mace`) -- the backbone was
+trained against this exact fork commit, and confirmed to load correctly
+from it. A package published to PyPI cannot declare a direct git dependency
+in its own metadata, so this can't become a normal extra; it has to stay a
+manual step. See
+[`deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md`](deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md)
+for the full story.
 
 ## Train one
 

@@ -3,9 +3,9 @@
 Deliberately mace-free except for one skip-guarded end-to-end test: every
 other test here monkeypatches the embedding step, mirroring
 ``tests/test_inference.py``'s ``stub_features`` fixture for QRF95. The
-``mace``/``e3nn``/``sphericart`` stack is a separate, heavier extra
-(``magnetism``) than the rest of ``models``, and this suite must pass without
-it installed.
+``mace``/``e3nn``/``sphericart`` stack has no installable extra of its own
+(see "Use the is_magnetic classifier" in README.md), and this suite must
+pass without it installed.
 """
 
 from __future__ import annotations
@@ -338,9 +338,10 @@ def test_reordered_feature_columns_are_refused(
 def test_the_real_backbone_end_to_end(tmp_path: Path) -> None:
     """A coarse sanity check against the real checkpoint, when it is present.
 
-    Never runs in CI: the ~80 MB backbone is undistributed pending its
-    licence (see deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md),
-    and the `magnetism` extra (mace/e3nn/sphericart) is not installed there.
+    Never runs in CI: the ~80 MB backbone is undistributed (see
+    deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md), and mace/
+    e3nn/sphericart -- manual installs, see README.md -- are not installed
+    there.
     """
     checkpoint = Path(
         "local_data/artifacts/UNPUBLISHED-PENDING-LICENCE/"
@@ -351,7 +352,7 @@ def test_the_real_backbone_end_to_end(tmp_path: Path) -> None:
     try:
         import mace  # noqa: F401
     except ImportError:
-        pytest.skip("the magnetism extra is not installed")
+        pytest.skip("mace is not installed")
 
     from goldilocks_ml.models.magnetism._mace_backbone import embed_structures
 

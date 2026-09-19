@@ -52,40 +52,22 @@ models = [
     # GHSA-63cw-57p8-fm3p / CVE-2026-24747 (torch.load(weights_only=True)
     # arbitrary code execution, fixed >=2.10.0 -- this package's own
     # inference.py loads every checkpoint with weights_only=True) that is
-    # also within the magnetism extra's sphericart-torch==1.0.9 requirement
-    # (torch>=2.3,<2.12). Verified: full test suite green, and the
+    # also within is_magnetic's manually-installed sphericart-torch==1.0.9
+    # requirement (torch>=2.3,<2.12). Verified: full test suite green, and the
     # published is_metal/k_distance/k_index models produce identical
     # predictions to the 2.13.0 pin on real structures (2026-09-18).
     "torch==2.10.0",
     "torch-geometric==2.8.0.post1",
 ]
-# Heavier and less stable than `models`: the mace-torch fork this depends on
-# has no PyPI release (see deposits/magnetism/is_magnetic/mace_mlp/), so
-# it is kept out of `models`, which every other builtin needs to import.
-# Additive on top of `models` for torch/numpy: install both extras together.
-magnetism = [
-    "ase==3.28.0",
-    "e3nn==0.4.4",
-    # 1.0.9, not 2.0.4: the training collaborator confirmed 1.0.2 as what
-    # actually produced mace_matpes_pbe_baseline_run-3.model, and every
-    # 1.x release keeps the same TorchScript custom-class registration
-    # (`sphericart_torch.SolidHarmonics`) that checkpoint was pickled
-    # against -- confirmed empirically, torch.load succeeds under 1.0.9
-    # where it fails under 2.0.4. The 2.x line renames that registration
-    # (see the superseded comment this replaces), so it can deserialize the
-    # checkpoint's *numbers* but not the checkpoint's *pickle*. 1.0.9 is the
-    # last 1.x release and the only one whose torch requirement
-    # (>=2.3,<2.12) reaches up to the models extra's now-patched torch pin
-    # above; earlier 1.x releases cap torch<2.8.
-    "sphericart==1.0.9",
-    "sphericart-torch==1.0.9",
-    # TODO(magnetism-mirror): pin mace-torch to our own mirror of the commit
-    # that actually produced mace_matpes_pbe_baseline_run-3.model, once that
-    # mirror exists and the commit is confirmed (ac8ff476 vs 19cdf669 -- see
-    # deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md). For now,
-    # install the local fork checkout in editable mode for development:
-    #   uv pip install -e /path/to/1-magnetic-mace/mace
-]
+# No `magnetism` extra: `mace`, the package `is_magnetic`'s backbone actually
+# imports, has no PyPI release (it's a research collaborator's fork -- see
+# deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md) and a package
+# published to PyPI cannot declare a direct git/URL dependency in its own
+# metadata, so there is no extra this project could publish that would ever
+# make `pip install goldilocks-ml[magnetism]` actually work. Pretending
+# otherwise (an extra that installs everything except the one dependency
+# that matters) was worse than not having one. See "Use the is_magnetic
+# classifier" in README.md for the manual install this needs instead.
 
 [project.urls]
 Homepage = "https://stfc.github.io/goldilocks-ml/"

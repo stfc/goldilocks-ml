@@ -17,6 +17,23 @@ away:
 pip install "goldilocks-ml[models]"
 ```
 
+### The is_magnetic classifier needs one more, manual step
+
+`is_magnetic` reads a frozen mMACE backbone's embedding, which needs `mace`
+on top of `[models]` above. There is no extra for it: the `mace-torch` this
+needs is a research collaborator's fork (`CheukHinHoJerry/mace`, not the
+upstream `ACEsuit/mace` package of the same name on PyPI), which has no PyPI
+release at all -- and a package published to PyPI cannot declare a direct
+git dependency in its own metadata regardless. Install it by hand:
+
+```bash
+pip install ase==3.28.0 e3nn==0.4.4 sphericart==1.0.9 sphericart-torch==1.0.9
+pip install "mace-torch @ git+https://github.com/CheukHinHoJerry/mace.git@ac8ff4764122ced0d57198fe2f9ba170c9fcd16d"
+```
+
+See `deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md` in the
+repository for the full story on that pinned commit.
+
 ## Check it worked
 
 ```bash

@@ -167,7 +167,6 @@ _BUILTIN_FEATURES = {
     "mace_probe_embedding.v1": f"{_MAGNETIC_MLP}.features",
 }
 _MODEL_DEPENDENCIES = {
-    "ase",
     "dscribe",
     "matminer",
     "numpy",
@@ -177,15 +176,19 @@ _MODEL_DEPENDENCIES = {
     "torch",
     "torch_geometric",
 }
-# A separate, heavier and less stable stack than `models`: the frozen mMACE
-# backbone this predicts from is not on PyPI as an upstream release (see
-# `deposits/magnetism/is_magnetic/mace_mlp/README.md`), so this extra is
-# kept out of the base `models` install that every other builtin needs.
-_MAGNETISM_DEPENDENCIES = {"ase", "e3nn", "mace", "sphericart"}
-_EXTRA_FOR_DEPENDENCY: dict[str, str] = {
-    **{name: "models" for name in _MODEL_DEPENDENCIES},
-    **{name: "magnetism" for name in _MAGNETISM_DEPENDENCIES},
-}
+_EXTRA_FOR_DEPENDENCY: dict[str, str] = {name: "models" for name in _MODEL_DEPENDENCIES}
+
+# No installable extra covers these: `ase`/`e3nn`/`sphericart`/
+# `sphericart_torch` only ever exist here for is_magnetic's mace backbone
+# (not declared under `models` -- nothing else imports `ase`), and `mace`
+# itself has no PyPI release at all (a research collaborator's fork -- see
+# `deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md`). A missing
+# one of these means "follow the manual install steps", not "run uv sync".
+_MAGNETISM_DEPENDENCIES = {"ase", "e3nn", "mace", "sphericart", "sphericart_torch"}
+MAGNETISM_INSTALL_HINT = (
+    "see 'Use the is_magnetic classifier' in README.md for the manual "
+    "install steps (the mace fork it depends on has no PyPI release)"
+)
 
 
 def _load_builtin(name: str, modules: Mapping[str, str]) -> None:
@@ -196,6 +199,10 @@ def _load_builtin(name: str, modules: Mapping[str, str]) -> None:
         import_module(module)
     except ModuleNotFoundError as error:
         missing = (error.name or "").split(".")[0]
+        if missing in _MAGNETISM_DEPENDENCIES:
+            raise ValueError(
+                f"{name!r} needs {missing}; {MAGNETISM_INSTALL_HINT}"
+            ) from error
         extra = _EXTRA_FOR_DEPENDENCY.get(missing)
         if extra:
             raise ValueError(
