@@ -17,6 +17,24 @@ input files.
 
 📖 **[Documentation](https://stfc.github.io/goldilocks-ml/)**
 
+## Installation
+
+```bash
+pip install goldilocks-ml
+```
+
+That's enough to use a published model below and to train with the built-in
+reference trainers. The real scientific models need PyTorch, pymatgen and
+friends, which are optional because they are slow to install and most people
+don't need them right away:
+
+```bash
+pip install "goldilocks-ml[models]"
+```
+
+`is_magnetic` needs one more, manual step on top of that -- see [Use the
+is_magnetic classifier](#use-the-is_magnetic-classifier) below.
+
 ## Use a published model
 
 ```python
