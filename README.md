@@ -36,6 +36,12 @@ prediction.quantity  # 'k_distance'
 | CGCNN metallicity classifier | metal or insulator | [ba06w-n6a68](https://data-collections.psdi.ac.uk/records/ba06w-n6a68) |
 | CGCNN representation | 64 numbers describing a crystal | [m742g-g0k14](https://data-collections.psdi.ac.uk/records/m742g-g0k14) |
 
+The CGCNN representation record is a feature extractor for QRF95's own feature
+pipeline, not something you call `load_model(...).predict(...)` on directly --
+`load_model` refuses it with a clear error naming what it's for instead. See
+[its own docs
+page](https://stfc.github.io/goldilocks-ml/training/models/metallicity/representation-cgcnn/).
+
 ## Train one
 
 A training job is one TOML file, not a notebook. This runs offline in a clean
@@ -72,13 +78,18 @@ model](https://stfc.github.io/goldilocks-ml/publishing/).
 ## Development
 
 ```bash
-uv sync --group dev --extra models
+uv sync --group dev --group docs --extra models
 uv run pytest
 uv run ruff check .
 uv run ruff format --check .
 uv run mkdocs build --strict
 uv build
 ```
+
+`--group docs` is what actually installs `mkdocs`/`mkdocs-material` -- CI runs
+lint/tests and the docs build as two separate jobs with their own `uv sync`
+(`.github/workflows/ci.yml` and `docs.yml`), so leaving it out here previously
+worked in CI but failed the moment someone ran this exact sequence locally.
 
 The lint and format checks cover the whole tree, including Python inside
 fenced blocks in the documentation. Narrowing them to `src tests` passes

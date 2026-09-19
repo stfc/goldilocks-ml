@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "goldilocks-ml"
-version = "0.1.0"
+version = "0.2.0"
 description = "Train and publish the models that choose DFT settings for you"
 readme = "README.md"
 license = "BSD-3-Clause"

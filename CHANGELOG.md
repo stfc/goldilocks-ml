@@ -2,10 +2,44 @@
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/stfc/goldilocks-ml/releases/tag/v0.2.0) — 2026-09-19
+
+### Models
+
+- Added `is_magnetic`, a classifier predicting whether a periodic material's
+  DFT ground state is spin-polarised, from a frozen mMACE backbone's pooled
+  embedding. Backbone and classifier ship together as one PSDI record
+  (`1g8rw-q8128`), licensed CC-BY-4.0 by the training collaborator
+  (CheukHinHoJerry) -- see
+  `deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md` for what
+  remains open (external validation on MP-ALOE). The mMACE backbone's fork
+  (`CheukHinHoJerry/mace`) has no PyPI release yet, so `pip install
+  goldilocks-ml[magnetism]` alone does not give a working environment for
+  this classifier specifically; nothing else in this release depends on it.
+- **Breaking:** reissued the k-index target contract as
+  `goldilocks.k_index.ladder_1based.v2` (was `ladder_1based.max50.v1`),
+  replacing a 50-per-axis enumeration cap that never actually existed for
+  this ladder with the real minimum-k-distance floor and the dataset's
+  convergence criterion, carried as structured `ContractSpec` fields
+  instead of encoded into the contract name.
+- Retrained the k-index quantile forest on the corrected 1-based ladder
+  (PSDI `52713-55d86`), then revised its publishing policy from one shared
+  quantile to a level chosen per band, holding under-prediction at or below
+  5% in both the easy majority and the hard dense-mesh tail without taxing
+  the majority with mesh it doesn't need. The estimator itself is
+  unchanged between policy revisions -- only which quantile is published.
+- Added a screening classifier that ranks candidate structures likely to
+  need a dense mesh (rung >= 12 on the 1-based ladder), so a training run
+  can spend its labelling budget where it measurably improves the k-index
+  forest's tail accuracy instead of sampling randomly; retrained against
+  the same 1-based ladder rebase as the forest above.
+
+### Fixed
+
 - `magnetism` extra: `sphericart-torch` moved from `2.0.4` back to `1.0.9`,
   and the `models` extra's `torch` pin moved from `2.13.0` to `2.10.0`. The
-  `2.0.4` bump (same-day fix in the release below) was numerically correct
-  but pickle-incompatible with the real mMACE backbone checkpoint; `1.0.9`
+  `2.0.4` bump (same-day fix, above) was numerically correct but
+  pickle-incompatible with the real mMACE backbone checkpoint; `1.0.9`
   is the last release before that incompatible rename and is the one
   version whose torch ceiling (`<2.12`) reaches a torch floor
   (`>=2.10.0`) patched against
