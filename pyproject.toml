@@ -52,7 +52,7 @@ dependencies = [
     # requirement (torch>=2.3,<2.12). Verified: full test suite green, and the
     # published is_metal/k_distance/k_index models produce identical
     # predictions to the 2.13.0 pin on real structures (2026-09-18).
-    "torch==2.10.0",
+    "torch==2.13.0",
     "torch-geometric==2.8.0.post1",
 ]
 # No `magnetism` extra, and no `models` extra either: everything above is a
