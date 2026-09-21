@@ -44,15 +44,29 @@ dependencies = [
     "pymatgen==2026.5.4",
     "scikit-learn==1.7.2",
     "sklearn-quantile==0.1.1",
-    # 2.10.0, not the previous 2.13.0: the lowest torch patched against
-    # GHSA-63cw-57p8-fm3p / CVE-2026-24747 (torch.load(weights_only=True)
-    # arbitrary code execution, fixed >=2.10.0 -- this package's own
-    # inference.py loads every checkpoint with weights_only=True) that is
-    # also within is_magnetic's manually-installed sphericart-torch==1.0.9
-    # requirement (torch>=2.3,<2.12). Verified: full test suite green, and the
+    # Pinned to 2.10.0, not the latest patched release: the lowest torch
+    # patched against GHSA-63cw-57p8-fm3p / CVE-2026-24747
+    # (torch.load(weights_only=True) arbitrary code execution, fixed
+    # >=2.10.0 -- this package's own inference.py loads every checkpoint
+    # with weights_only=True) that is also within is_magnetic's
+    # manually-installed sphericart-torch==1.0.9 requirement
+    # (torch>=2.3,<2.12). Verified: full test suite green, and the
     # published is_metal/k_distance/k_index models produce identical
-    # predictions to the 2.13.0 pin on real structures (2026-09-18).
-    "torch==2.13.0",
+    # predictions to a 2.13.0 pin on real structures (2026-09-18).
+    #
+    # Dependabot will try to bump this to 2.13.0+ for GHSA-rrmf-rvhw-rf47
+    # (low severity, requires locally calling torch.jit.script on untrusted
+    # input -- this package never does). Don't take that bump: 2.13.0 and
+    # sphericart-torch==1.0.9 are mutually exclusive (`uv pip install` of
+    # both together is unsatisfiable), and no sphericart-torch release both
+    # keeps the mMACE checkpoint's pickle-compatible class registration and
+    # supports torch>=2.12 -- see
+    # deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md. Ignored in
+    # .github/dependabot.yml for the same reason. (2026-09-21: this exact
+    # bump landed on main via an automatic Dependabot security PR and broke
+    # the documented is_magnetic manual install before anyone noticed --
+    # reverted here.)
+    "torch==2.10.0",
     "torch-geometric==2.8.0.post1",
 ]
 # No `magnetism` extra, and no `models` extra either: everything above is a
