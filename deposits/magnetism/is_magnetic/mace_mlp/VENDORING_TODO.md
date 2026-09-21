@@ -45,6 +45,49 @@ load success does not by itself distinguish them -- `ac8ff476` is what the
 recorded training environment used, which is the actual claim being
 verified here, not merely "some commit that manages to unpickle it".
 
+**Superseded (2026-09-21): the pinned commit is now `19cdf6692c48e068a24e06cfe1ffc670e8aea3dd`, not `ac8ff476`.**
+Filed as [goldilocks-ml#92](https://github.com/stfc/goldilocks-ml/issues/92):
+`magnetic_moments/fm_fim_relax/relax.py`'s `_attempt()` calls
+`MagneticSCFMACE(..., use_collinear=True, constrain_magnitude=False)`, ported
+from research code that ran against `19cdf669`. `ac8ff476`'s
+`MagneticSCFMACE.__init__` doesn't accept either kwarg -- confirmed by
+reading its actual source, not just its signature -- and, more importantly,
+its `forward()` has no gradient-masking mechanism at all: it optimises the
+full unconstrained 3-vector moment with plain LBFGS. There is no way to get
+collinear-constrained relaxation out of `ac8ff476` by omitting the kwargs;
+omitting them doesn't select a "collinear mode", it just runs the only mode
+that exists, which is unconstrained non-collinear relaxation -- silently
+wrong physics for a feature whose entire purpose is comparing *collinear*
+FM/FiM orderings, not a crash you'd notice.
+
+Rather than reimplement `19cdf669`'s gradient-masking in goldilocks-ml's own
+code (which would have worked, keeping `ac8ff476` pinned), we re-pin to
+`19cdf669` directly, after confirming empirically (2026-09-21) that doing so
+does not reopen the provenance question item 2 above was written to close:
+
+- `embed_structures()` against the real checkpoint (Fe bcc, Si diamond, Pt
+  fcc) produces **bit-identical 384-dim embeddings** under `ac8ff476` and
+  `19cdf669` -- `max abs diff == 0.0` on every element, not merely "close".
+  None of the 6 commits between them that touch `models.py` changed the
+  actual forward-pass computation of the classes this checkpoint's pickle
+  references, only added new parameters/classes elsewhere.
+- `relax()` with `use_collinear=True` now runs against `19cdf669` (it raised
+  `TypeError` under `ac8ff476`, confirmed above) and produces genuinely
+  collinear output: relaxing `Fe` from a `[0, 0, 2.2]` seed lands at
+  `[0, 0, 2.43]` on every site, x/y held at exactly `0.0` by the gradient
+  mask, not merely small.
+- `sphericart-torch==1.0.9`'s pickle-compatible class registration (item
+  "Also previously undocumented" below) is a property of the checkpoint's
+  own serialized state, not of which `mace` commit deserialises it --
+  unaffected by this change, confirmed by the successful loads above.
+
+So `19cdf669` is not "some commit that manages to unpickle it" in the sense
+item 2 warned against -- it is verified to compute the classifier path
+identically to the training commit on real structures, while also being the
+commit the `fm_fim_relax` research code this was ported from actually ran
+against. `ac8ff476` remains the exact commit the training run's
+`requirements.txt` pinned; `19cdf669` is what this project now serves from.
+
 ## 3. `mace-torch` install path -- resolved as "no extra", not a mirror (2026-09-19)
 
 The checkpoint is a whole pickled `nn.Module` graph (not a state dict), and

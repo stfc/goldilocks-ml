@@ -20,7 +20,7 @@
     "target_contract": "goldilocks.is_magnetic.dft_max_site_magmom_0p5ub.v1",
     "decision_threshold": 0.323869526386261,
     "requires": [
-      "The mace fork's architecture classes must be importable at their original module paths to unpickle mace_matpes_pbe_baseline_run-3.model. Confirmed commit: CheukHinHoJerry/mace @ ac8ff4764122ced0d57198fe2f9ba170c9fcd16d. There is no pip extra for this -- PyPI's own upload validation rejects a direct git dependency, and 'mace-torch' as a PyPI project name is already taken by upstream ACEsuit/mace -- see 'Use the is_magnetic classifier' in README.md for the manual install."
+      "The mace fork's architecture classes must be importable at their original module paths to unpickle mace_matpes_pbe_baseline_run-3.model. Pinned commit: CheukHinHoJerry/mace @ 19cdf6692c48e068a24e06cfe1ffc670e8aea3dd (a later commit on the same branch than the one that trained the checkpoint, ac8ff4764122ced0d57198fe2f9ba170c9fcd16d; confirmed to produce bit-identical classifier embeddings on real structures, and required for the magnetic-ordering-ranking feature's collinear moment relaxation). There is no pip extra for this -- PyPI's own upload validation rejects a direct git dependency, and 'mace-torch' as a PyPI project name is already taken by upstream ACEsuit/mace -- see 'Use the is_magnetic classifier' in README.md for the manual install."
     ],
     "torch": "2.10.0"
   }

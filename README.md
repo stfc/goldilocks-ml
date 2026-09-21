@@ -64,15 +64,19 @@ on top of the install above -- and there is no extra for this one:
 ```bash
 uv sync
 uv pip install ase==3.28.0 e3nn==0.4.4 sphericart==1.0.9 sphericart-torch==1.0.9
-uv pip install "mace-torch @ git+https://github.com/CheukHinHoJerry/mace.git@ac8ff4764122ced0d57198fe2f9ba170c9fcd16d"
+uv pip install "mace-torch @ git+https://github.com/CheukHinHoJerry/mace.git@19cdf6692c48e068a24e06cfe1ffc670e8aea3dd"
 ```
 
 That `mace-torch` is a research collaborator's fork, not the upstream
-package of the same name on PyPI (`ACEsuit/mace`) -- the backbone was
-trained against this exact fork commit, and confirmed to load correctly
-from it. A package published to PyPI cannot declare a direct git dependency
-in its own metadata, so this can't become a normal extra; it has to stay a
-manual step. See
+package of the same name on PyPI (`ACEsuit/mace`). The backbone was trained
+against an earlier commit on the same branch (`ac8ff4764122ced0d57198fe2f9ba170c9fcd16d`);
+this later commit is pinned instead because it also implements the collinear
+moment relaxation the magnetic-ordering-ranking feature needs, and is
+confirmed to produce bit-identical classifier embeddings to the training
+commit on real structures -- see item 2 of the file below for the full
+verification. A package published to PyPI cannot declare a direct git
+dependency in its own metadata, so this can't become a normal extra; it has
+to stay a manual step. See
 [`deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md`](deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md)
 for the full story.
 
