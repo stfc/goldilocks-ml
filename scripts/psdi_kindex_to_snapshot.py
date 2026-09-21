@@ -5,7 +5,7 @@ both converged and unconverged structures.  This converter selects exactly the
 labelled structures, groups them by reduced composition, and seals every output
 file with SHA-256 before training can read it.
 
-    uv run --extra models python scripts/psdi_kindex_to_snapshot.py \
+    uv run python scripts/psdi_kindex_to_snapshot.py \
         --source /path/to/downloaded-record \
         --output local_data/snapshots/kindex-d5ds2-64f16
 """

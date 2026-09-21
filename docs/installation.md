@@ -4,23 +4,15 @@
 pip install goldilocks-ml
 ```
 
-That is enough to [use a published model](inference.md) and to train with the
-built-in reference trainers.
-
-## Training the real models
-
-The scientific models need PyTorch, pymatgen and friends. They are optional
-because they are slow to install and most people do not need them straight
-away:
-
-```bash
-pip install "goldilocks-ml[models]"
-```
+That installs everything, including PyTorch, pymatgen and the rest of the
+scientific stack the real models need. It's enough to [use a published
+model](inference.md) and to train with the built-in reference trainers or
+the real ones.
 
 ### The is_magnetic classifier needs one more, manual step
 
 `is_magnetic` reads a frozen mMACE backbone's embedding, which needs `mace`
-on top of `[models]` above. There is no extra for it: the `mace-torch` this
+on top of the install above. There is no extra for it: the `mace-torch` this
 needs is a research collaborator's fork (`CheukHinHoJerry/mace`, not the
 upstream `ACEsuit/mace` package of the same name on PyPI), which has no PyPI
 release at all -- and a package published to PyPI cannot declare a direct
@@ -51,7 +43,7 @@ environment:
 ```bash
 git clone https://github.com/stfc/goldilocks-ml.git
 cd goldilocks-ml
-uv sync --group dev --extra models
+uv sync --group dev
 uv run pytest
 ```
 

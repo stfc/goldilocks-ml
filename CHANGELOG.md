@@ -54,6 +54,9 @@
   metadata regardless), so it silently installed everything except the one
   dependency that mattered. `is_magnetic` now documents a manual install
   instead -- see "Use the is_magnetic classifier" in README.md.
+- **Breaking:** removed the `models` extra too. `pip install goldilocks-ml`
+  now installs PyTorch, pymatgen and the rest of the scientific stack
+  unconditionally instead of via `pip install "goldilocks-ml[models]"`.
 - Fixed a global-state bug where predicting with the `is_magnetic` mMACE
   classifier left `torch`'s default dtype at `float64` for the rest of the
   process, breaking any `is_metal`/`k_distance` prediction that ran

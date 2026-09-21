@@ -131,7 +131,7 @@ MP-ALOE is recorded. `validation_status.external_validation` stays
   torch version itself (see the dtype-leak fix below). `torch==2.10.0` is
   the one version that is simultaneously patched, within
   `sphericart-torch==1.0.9`'s `<2.12` ceiling, and doesn't trigger the dtype
-  issue -- now the pin in `[project.optional-dependencies].models`.
+  issue -- now the pin in `pyproject.toml`'s unconditional `dependencies`.
 - **Global dtype leak, found while chasing the above (2026-09-18, fixed):**
   `_mace_backbone.py`'s `load_embedder()` calls
   `MagneticMACECalculator(..., default_dtype="float64")`, and that

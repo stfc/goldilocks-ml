@@ -23,14 +23,9 @@ input files.
 pip install goldilocks-ml
 ```
 
-That's enough to use a published model below and to train with the built-in
-reference trainers. The real scientific models need PyTorch, pymatgen and
-friends, which are optional because they are slow to install and most people
-don't need them right away:
-
-```bash
-pip install "goldilocks-ml[models]"
-```
+That installs everything, including PyTorch, pymatgen and the rest of the
+scientific stack the real models need -- there's no separate extra to
+remember.
 
 `is_magnetic` needs one more, manual step on top of that -- see [Use the
 is_magnetic classifier](#use-the-is_magnetic-classifier) below.
@@ -64,10 +59,10 @@ page](https://stfc.github.io/goldilocks-ml/training/models/metallicity/represent
 ### Use the is_magnetic classifier
 
 `is_magnetic` reads a frozen mMACE backbone's embedding, which needs `mace`
-on top of the `models` extra above -- and there is no extra for this one:
+on top of the install above -- and there is no extra for this one:
 
 ```bash
-uv sync --extra models
+uv sync
 uv pip install ase==3.28.0 e3nn==0.4.4 sphericart==1.0.9 sphericart-torch==1.0.9
 uv pip install "mace-torch @ git+https://github.com/CheukHinHoJerry/mace.git@ac8ff4764122ced0d57198fe2f9ba170c9fcd16d"
 ```
@@ -95,12 +90,6 @@ uv run goldilocks-ml train run protocols/synthetic/regression.toml \
 You get one folder holding the predictions, the split, the scores against a
 baseline, the environment, and a SHA-256 for every file involved.
 
-The real scientific models need the optional dependency set:
-
-```bash
-uv sync --extra models
-```
-
 See [Train a model](https://stfc.github.io/goldilocks-ml/training/).
 
 ## Publish one
@@ -117,7 +106,7 @@ model](https://stfc.github.io/goldilocks-ml/publishing/).
 ## Development
 
 ```bash
-uv sync --group dev --group docs --extra models
+uv sync --group dev --group docs
 uv run pytest
 uv run ruff check .
 uv run ruff format --check .

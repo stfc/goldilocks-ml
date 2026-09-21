@@ -38,10 +38,6 @@ classifiers = [
 ]
 dependencies = [
     "data-collections-api==0.1.0",
-]
-
-[project.optional-dependencies]
-models = [
     "dscribe==2.1.2",
     "matminer==0.10.1",
     "numpy==2.5.2",
@@ -59,7 +55,8 @@ models = [
     "torch==2.10.0",
     "torch-geometric==2.8.0.post1",
 ]
-# No `magnetism` extra: `mace`, the package `is_magnetic`'s backbone actually
+# No `magnetism` extra, and no `models` extra either: everything above is a
+# hard dependency now. `mace`, the package `is_magnetic`'s backbone actually
 # imports, has no PyPI release (it's a research collaborator's fork -- see
 # deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md) and a package
 # published to PyPI cannot declare a direct git/URL dependency in its own

@@ -166,23 +166,11 @@ _BUILTIN_FEATURES = {
     "crystal_graph.v1": f"{_CGCNN}.graphs",
     "mace_probe_embedding.v1": f"{_MAGNETIC_MLP}.features",
 }
-_MODEL_DEPENDENCIES = {
-    "dscribe",
-    "matminer",
-    "numpy",
-    "pymatgen",
-    "sklearn",
-    "sklearn_quantile",
-    "torch",
-    "torch_geometric",
-}
-_EXTRA_FOR_DEPENDENCY: dict[str, str] = {name: "models" for name in _MODEL_DEPENDENCIES}
-
 # No installable extra covers these: `ase`/`e3nn`/`sphericart`/
 # `sphericart_torch` only ever exist here for is_magnetic's mace backbone
-# (not declared under `models` -- nothing else imports `ase`), and `mace`
-# itself has no PyPI release at all (a research collaborator's fork -- see
-# `deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md`). A missing
+# (everything else this package needs is an unconditional dependency), and
+# `mace` itself has no PyPI release at all (a research collaborator's fork --
+# see `deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md`). A missing
 # one of these means "follow the manual install steps", not "run uv sync".
 _MAGNETISM_DEPENDENCIES = {"ase", "e3nn", "mace", "sphericart", "sphericart_torch"}
 MAGNETISM_INSTALL_HINT = (
@@ -202,12 +190,6 @@ def _load_builtin(name: str, modules: Mapping[str, str]) -> None:
         if missing in _MAGNETISM_DEPENDENCIES:
             raise ValueError(
                 f"{name!r} needs {missing}; {MAGNETISM_INSTALL_HINT}"
-            ) from error
-        extra = _EXTRA_FOR_DEPENDENCY.get(missing)
-        if extra:
-            raise ValueError(
-                f"{name!r} needs the {extra} dependencies; install them with "
-                f"'uv sync --extra {extra}'"
             ) from error
         raise
 
