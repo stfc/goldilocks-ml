@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `is_magnetic`'s manual mace-fork install now pins `19cdf6692c48e068a24e06cfe1ffc670e8aea3dd`
+  instead of `ac8ff4764122ced0d57198fe2f9ba170c9fcd16d`. The magnetic-ordering-ranking
+  feature (`magnetic_moments.fm_fim_relax.relax`, e.g. goldilocks-core's
+  `--rank-with-mmace`) never worked on the previously pinned commit -- it
+  raised `TypeError` on every real structure, since that commit's
+  `MagneticSCFMACE` has no collinear-constraint mechanism at all, not merely
+  a different keyword name for one. Confirmed the new commit produces
+  bit-identical `is_magnetic` classifier embeddings to the old one on real
+  structures before switching, so the published classifier's accuracy
+  numbers are unaffected. See
+  `deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md` item 2 and
+  [goldilocks-ml#92](https://github.com/stfc/goldilocks-ml/issues/92).
+
 ## [0.2.0](https://github.com/stfc/goldilocks-ml/releases/tag/v0.2.0) — 2026-09-19
 
 ### Models

@@ -20,7 +20,7 @@ git dependency in its own metadata regardless. Install it by hand:
 
 ```bash
 pip install ase==3.28.0 e3nn==0.4.4 sphericart==1.0.9 sphericart-torch==1.0.9
-pip install "mace-torch @ git+https://github.com/CheukHinHoJerry/mace.git@ac8ff4764122ced0d57198fe2f9ba170c9fcd16d"
+pip install "mace-torch @ git+https://github.com/CheukHinHoJerry/mace.git@19cdf6692c48e068a24e06cfe1ffc670e8aea3dd"
 ```
 
 See `deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md` in the
