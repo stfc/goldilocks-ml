@@ -3,10 +3,10 @@
 This record is published on PSDI as
 [`1g8rw-q8128`](https://data-collections.psdi.ac.uk/records/1g8rw-q8128),
 bundling this classifier together with the mMACE backbone in one record.
-The licence (item 1) is resolved. Junwen chose to publish ahead of item 4
-(external validation) rather than hold the record back for it -- the record
-is public but is **not** `is_default` until that is recorded. Items 2 and 3
-remain open follow-ups, unrelated to publication.
+The licence (item 1), the fork commit (item 2), and the install path (item
+3) are all resolved. Junwen chose to publish ahead of item 4 (external
+validation) rather than hold the record back for it -- the record is public
+but is **not** `is_default` until that is recorded.
 
 ## 1. Confirm the backbone checkpoint's licence -- RESOLVED
 
@@ -19,30 +19,39 @@ this record (`manifest.json`, `model.json`'s `artifacts.backbone*` fields)
 rather than published as a separate `representation/mace_probe` record --
 that record was removed once this decision was made.
 
-## 2. Resolve which fork commit produced the checkpoint -- not required by the licence, still unresolved
+## 2. Resolve which fork commit produced the checkpoint -- RESOLVED (2026-09-19)
 
-Two different commits of `CheukHinHoJerry/mace` are in play:
+Two different commits of `CheukHinHoJerry/mace` were in play:
 
-- The local checkout at `2-research/2-mace/1-magnetic-mace/mace` is at
+- The local checkout at `2-research/2-mace/1-magnetic-mace/mace` sat at
   `19cdf6692c48e068a24e06cfe1ffc670e8aea3dd`.
 - `magmace-examples/requirements.txt` (the recorded training environment)
   pins `ac8ff4764122ced0d57198fe2f9ba170c9fcd16d`.
 
-The training collaborator's CC-BY-4.0 grant does not depend on which of
-these trained the checkpoint, so this no longer blocks *publication*. It is
-still open for provenance (`model.json`'s `fork_commit` records this as
-unpinned, not confirmed) and it still matters for item 3 below, since
-loading the pickled checkpoint requires the exact classes at their exact
-import paths from *some* commit -- not knowing which one is a real risk if
-the two candidate commits' architecture classes differ.
+**`ac8ff4764122ced0d57198fe2f9ba170c9fcd16d` is confirmed correct.**
+`git merge-base` shows it is an ancestor of `19cdf669` -- the local checkout
+had simply moved forward on the same branch after training, not diverged
+onto an unrelated line. Confirmed empirically, not just by the requirements
+pin: disassembling `mace_matpes_pbe_baseline_run-3.model`'s pickle opcodes
+(via a recording `Unpickler.find_class`, bypassing `torch.load`'s normal
+persistent-storage handling) lists the exact 19 `mace.modules.*` classes the
+checkpoint references; both candidate commits define all 19 at those paths,
+but `models.py`/`blocks.py` differ by 1944/791 lines between them. Cloning
+each commit into its own venv and running a real `torch.load(...,
+weights_only=False)` against the actual checkpoint, `ac8ff476` deserialises
+it into a working model (`model.interactions` inspectable, forward-pass
+ready); `19cdf669` also happens to deserialise without raising, so a bare
+load success does not by itself distinguish them -- `ac8ff476` is what the
+recorded training environment used, which is the actual claim being
+verified here, not merely "some commit that manages to unpickle it".
 
-## 3. Stand up a self-controlled mirror and pin `mace-torch` to it -- deferred, shipping the artifact directly instead
+## 3. `mace-torch` install path -- resolved as "no extra", not a mirror (2026-09-19)
 
 The checkpoint is a whole pickled `nn.Module` graph (not a state dict), and
 unpickling it requires the exact classes at the exact import paths
 `mace.modules.blocks.*` / `mace.modules.models.*` that produced it --
 confirmed by disassembling the checkpoint's pickle opcodes directly, not by
-inspection. That rules out copying a handful of classes into a
+inspection (see item 2). That rules out copying a handful of classes into a
 differently-named module inside goldilocks-ml: the fork-only architecture
 classes (`MagneticMACE`, `MagneticSolidHarmonicsSpinOrbitCoupledWithSelfMagmomScaleShiftMACE`,
 the `Magnetic*InteractionBlock`/`EquivariantProductBasisWithSelfMagmomBlock`
@@ -52,21 +61,27 @@ would break unpickling without a custom `Unpickler.find_class` remap -- a
 real, fiddly piece of engineering with its own failure mode (silently missing
 a class breaks loading with a confusing error).
 
-Originally decided: mirror the confirmed commit to a repository this
-ecosystem controls, and depend on it as a normal package:
+Originally planned: mirror the confirmed commit to a repository this
+ecosystem controls, and depend on it as a normal package
+(`mace-torch @ git+https://github.com/<org>/mace@<pinned-commit>` in
+`pyproject.toml`'s `magnetism` extra). Two problems with that, found while
+actually trying it: PyPI's own upload validation rejects a package whose
+metadata declares a direct git/URL dependency, so `goldilocks-ml` itself
+could never publish an extra shaped that way; and `mace-torch` as a PyPI
+*project name* is already taken by upstream `ACEsuit/mace`'s own official
+package, so even mirroring to an org-controlled repo and publishing
+separately would collide with it at the `import mace` namespace the moment
+both were ever installed in the same environment (the checkpoint's pickle
+paths require the top-level module to stay literally named `mace`, so
+renaming to dodge the collision was not an option either).
 
-```toml
-# pyproject.toml, [project.optional-dependencies].magnetism
-"mace-torch @ git+https://github.com/<org>/mace@<pinned-commit>",
-```
-
-**Superseded (2026-09-18):** rather than block on standing up that mirror,
-we're shipping the checkpoint artifact itself now that the licence is
-resolved, and leaving the pinned dependency as a follow-up. Until it lands,
-`_mace_backbone.py`'s `from mace.calculators.mace import ...` is only
-satisfied by a manual editable install of the fork (see the comment in
-`pyproject.toml`'s `magnetism` extra) -- there is no `pip install
-goldilocks-ml[magnetism]` path that works end-to-end yet.
+**Decided:** there is no `magnetism` extra. `pyproject.toml` no longer
+declares one, and `goldilocks_ml.registry`'s friendly-error mechanism (and
+`_mace_backbone.py`'s own lazy `mace` import) now point users at README.md's
+"Use the is_magnetic classifier" section instead of a `uv sync --extra`
+command that could never have worked end to end. That section documents the
+exact confirmed commit above as a manual `pip install
+"mace-torch @ git+https://..."` step.
 
 ## 4. Run MP-ALOE external validation
 
@@ -116,7 +131,7 @@ MP-ALOE is recorded. `validation_status.external_validation` stays
   torch version itself (see the dtype-leak fix below). `torch==2.10.0` is
   the one version that is simultaneously patched, within
   `sphericart-torch==1.0.9`'s `<2.12` ceiling, and doesn't trigger the dtype
-  issue -- now the pin in `[project.optional-dependencies].models`.
+  issue -- now the pin in `pyproject.toml`'s unconditional `dependencies`.
 - **Global dtype leak, found while chasing the above (2026-09-18, fixed):**
   `_mace_backbone.py`'s `load_embedder()` calls
   `MagneticMACECalculator(..., default_dtype="float64")`, and that

@@ -6,12 +6,14 @@ module takes a ``pymatgen.core.structure.Structure`` directly rather than
 leaving every caller to build its own ASE ``Atoms``, so the feature contract,
 the predictor, and any future consumer of this embedding all see one seam.
 
-Needs the ``magnetism`` extra (``mace``, ``e3nn``, ``sphericart``, ``ase``).
-Nothing at import time of *this* file touches those packages -- only calling
-:func:`embed_structures` does, so importing this module to read its docstring
-or constants never requires them, and a missing one surfaces through
-:mod:`goldilocks_ml.registry`'s friendly error naming the ``magnetism`` extra
-rather than a bare ``ModuleNotFoundError`` here.
+Needs ``mace``, ``e3nn``, ``sphericart`` and ``ase`` -- none of which install
+via a `pip`-able extra of this package (see "Use the is_magnetic classifier"
+in README.md for the manual steps; ``mace`` specifically is a research
+collaborator's fork with no PyPI release at all). Nothing at import time of
+*this* file touches those packages -- only calling :func:`embed_structures`
+does, so importing this module to read its docstring or constants never
+requires them, and a missing one raises a message naming the manual install
+steps rather than a bare ``ModuleNotFoundError`` here.
 
 The probe is deliberately uninformative: every call runs the backbone once at
 an all-zero magnetic moment, with SCF relaxation switched off (this is a
@@ -136,8 +138,14 @@ class MACEEmbedder:
 def load_embedder(checkpoint: Path, device: str = "cpu") -> MACEEmbedder:
     """Load the frozen backbone once per checkpoint path and device."""
     import torch
-    from mace.calculators.mace import MagneticMACECalculator
-    from mace.modules import MagneticSCFMACE
+
+    try:
+        from mace.calculators.mace import MagneticMACECalculator
+        from mace.modules import MagneticSCFMACE
+    except ModuleNotFoundError as error:
+        from goldilocks_ml.registry import MAGNETISM_INSTALL_HINT
+
+        raise ValueError(f"is_magnetic needs mace; {MAGNETISM_INSTALL_HINT}") from error
 
     torch.serialization.add_safe_globals([slice])
     raw_model = safe_load(Path(checkpoint), device)

@@ -675,21 +675,6 @@ wheels = [
 ]
 
 [[package]]
-name = "e3nn"
-version = "0.4.4"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "opt-einsum-fx" },
-    { name = "scipy" },
-    { name = "sympy" },
-    { name = "torch" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/aa/98/8e7102dea93106603383fda23bf96649c397a37b910e7c76086e584cd92d/e3nn-0.4.4.tar.gz", hash = "sha256:51c91a84c1fb72e7e3600000958fa8caad48f8270937090fb8d0f8bfffbb3525", size = 361661, upload-time = "2021-12-16T08:49:23.382Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9a/b6/c8327065d1dd8bca28521fe65ff72b649ed17ca8a1f0c1f498006d7567b7/e3nn-0.4.4-py3-none-any.whl", hash = "sha256:87d99876abb362a6e07d555d10752ff2e20c2b7731d8928ebe5d9121fb019f84", size = 387707, upload-time = "2021-12-16T08:49:21.596Z" },
-]
-
-[[package]]
 name = "executing"
 version = "2.2.1"
 source = { registry = "https://pypi.org/simple" }
@@ -869,20 +854,10 @@ wheels = [
 
 [[package]]
 name = "goldilocks-ml"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "data-collections-api" },
-]
-
-[package.optional-dependencies]
-magnetism = [
-    { name = "ase" },
-    { name = "e3nn" },
-    { name = "sphericart" },
-    { name = "sphericart-torch" },
-]
-models = [
     { name = "dscribe" },
     { name = "matminer" },
     { name = "numpy" },
@@ -907,21 +882,16 @@ docs = [
 
 [package.metadata]
 requires-dist = [
-    { name = "ase", marker = "extra == 'magnetism'", specifier = "==3.28.0" },
     { name = "data-collections-api", specifier = "==0.1.0" },
-    { name = "dscribe", marker = "extra == 'models'", specifier = "==2.1.2" },
-    { name = "e3nn", marker = "extra == 'magnetism'", specifier = "==0.4.4" },
-    { name = "matminer", marker = "extra == 'models'", specifier = "==0.10.1" },
-    { name = "numpy", marker = "extra == 'models'", specifier = "==2.5.2" },
-    { name = "pymatgen", marker = "extra == 'models'", specifier = "==2026.5.4" },
-    { name = "scikit-learn", marker = "extra == 'models'", specifier = "==1.7.2" },
-    { name = "sklearn-quantile", marker = "extra == 'models'", specifier = "==0.1.1" },
-    { name = "sphericart", marker = "extra == 'magnetism'", specifier = "==1.0.9" },
-    { name = "sphericart-torch", marker = "extra == 'magnetism'", specifier = "==1.0.9" },
-    { name = "torch", marker = "extra == 'models'", specifier = "==2.10.0" },
-    { name = "torch-geometric", marker = "extra == 'models'", specifier = "==2.8.0.post1" },
+    { name = "dscribe", specifier = "==2.1.2" },
+    { name = "matminer", specifier = "==0.10.1" },
+    { name = "numpy", specifier = "==2.5.2" },
+    { name = "pymatgen", specifier = "==2026.5.4" },
+    { name = "scikit-learn", specifier = "==1.7.2" },
+    { name = "sklearn-quantile", specifier = "==0.1.1" },
+    { name = "torch", specifier = "==2.10.0" },
+    { name = "torch-geometric", specifier = "==2.8.0.post1" },
 ]
-provides-extras = ["models", "magnetism"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -2107,29 +2077,6 @@ wheels = [
 ]
 
 [[package]]
-name = "opt-einsum"
-version = "3.4.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/8c/b9/2ac072041e899a52f20cf9510850ff58295003aa75525e58343591b0cbfb/opt_einsum-3.4.0.tar.gz", hash = "sha256:96ca72f1b886d148241348783498194c577fa30a8faac108586b14f1ba4473ac", size = 63004, upload-time = "2024-09-26T14:33:24.483Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/23/cd/066e86230ae37ed0be70aae89aabf03ca8d9f39c8aea0dec8029455b5540/opt_einsum-3.4.0-py3-none-any.whl", hash = "sha256:69bb92469f86a1565195ece4ac0323943e83477171b91d24c35afe028a90d7cd", size = 71932, upload-time = "2024-09-26T14:33:23.039Z" },
-]
-
-[[package]]
-name = "opt-einsum-fx"
-version = "0.1.4"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "opt-einsum" },
-    { name = "packaging" },
-    { name = "torch" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/93/de/856dab99be0360c7275fee075eb0450a2ec82a54c4c33689606f62e9615b/opt_einsum_fx-0.1.4.tar.gz", hash = "sha256:7eeb7f91ecb70be65e6179c106ea7f64fc1db6319e3d1289a4518b384f81e74f", size = 12969, upload-time = "2021-11-07T20:49:33.811Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/8d/4c/e0370709aaf9d7ceb68f975cac559751e75954429a77e83202e680606560/opt_einsum_fx-0.1.4-py3-none-any.whl", hash = "sha256:85f489f4c7c31fd88d5faf9669c09e61ec37a30098809fdcfe2a08a9e42f23c9", size = 13213, upload-time = "2021-11-07T20:49:32.395Z" },
-]
-
-[[package]]
 name = "orjson"
 version = "3.12.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3208,35 +3155,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/b5/c6/89a3f31f831efc4108a19f110873559990b72186745cd3e151de28b256cc/spglib-2.7.0-cp314-cp314t-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:9b6ca88bb6e604bc8f63efe87b3b2470c2e25f56988b775bd332cefa8866f5c5", size = 946881, upload-time = "2025-12-29T09:48:09.154Z" },
     { url = "https://files.pythonhosted.org/packages/7e/e9/1ca63db2cebd381bd6b27ae309f25d270e70928359a6f0360db09b77894e/spglib-2.7.0-cp314-cp314t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:50629939a9cd6fa3df5a12f6f025ceb3c78534284f875371574c360e4ccaf5e1", size = 963803, upload-time = "2025-12-29T09:48:12.478Z" },
     { url = "https://files.pythonhosted.org/packages/28/97/459b37c3802633f77c883883c75f5d4429b601ae8d930410b999c4e1dafb/spglib-2.7.0-cp314-cp314t-win_amd64.whl", hash = "sha256:cb77daaf9dd5d48d523a888f37cebd47fa63ff28dfcf1aac2b031b914f9ed55a", size = 696536, upload-time = "2025-12-29T09:48:13.885Z" },
-]
-
-[[package]]
-name = "sphericart"
-version = "1.0.9"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/cc/04/0774bb31ec40682e349571548de76667816dc637198a8f3e34b6c0e10a16/sphericart-1.0.9.tar.gz", hash = "sha256:c5b51cf9fd01419597cc5823b99e7d06c926568884a969a782b8a250bf8d8965", size = 61407, upload-time = "2026-03-26T17:28:17.384Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/47/86/bf4ee112e351727ef1b9f0030c8950b0b145a292e0f80d6a645aba50a152/sphericart-1.0.9-py3-none-macosx_11_0_arm64.whl", hash = "sha256:f37b8e309eb6e598d21864ac338dba7cba233ad6f2e8ff6fac1a8e0cdd113a07", size = 155591, upload-time = "2026-03-26T17:27:52.712Z" },
-    { url = "https://files.pythonhosted.org/packages/b3/c7/1e9128af034445581d1b6d36767ceca38a423d94cb7a18eccb7ef2df1b0b/sphericart-1.0.9-py3-none-macosx_11_0_x86_64.whl", hash = "sha256:a1168f06b50967a7871aedc964c4934787fef297823d82be17a4f6749df28cf5", size = 278754, upload-time = "2026-03-26T17:27:54.8Z" },
-    { url = "https://files.pythonhosted.org/packages/64/ce/8b72397021f65e22d1aa85bfcdffd340f98fd57ab8750d01f4b3bbec7eb2/sphericart-1.0.9-py3-none-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:d0f3adf9bdb6194573a3d794e9c93007a439b67b3b5dceb29b220077ed147d72", size = 375693, upload-time = "2026-03-26T17:27:57.209Z" },
-    { url = "https://files.pythonhosted.org/packages/e3/3c/f90044c8ea1b00664a22593db52161c23a4edabec28f84f89a28da480075/sphericart-1.0.9-py3-none-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:0e082b74313e0ac5be6da224b4dab5d7d7e48049bcb6ac4132161f62633f6264", size = 393618, upload-time = "2026-03-26T17:27:59.49Z" },
-]
-
-[[package]]
-name = "sphericart-torch"
-version = "1.0.9"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "torch" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/04/44/29cd5bd1d1c36dda3397dbf5e6ebaea7960196b28c9ce8facd449b531dbe/sphericart_torch-1.0.9.tar.gz", hash = "sha256:35ed803da2a4e09c5c6eb378e25942f9be86a85085132b9b797e478622915059", size = 62368, upload-time = "2026-03-26T17:28:19.406Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/e7/05/6be50dc20394a155e8a551705a6525b30f4eaf9eda7c2f3c4940d6d4459b/sphericart_torch-1.0.9-py3-none-macosx_11_0_arm64.whl", hash = "sha256:24958385b6e4c74cf4515b20c3da0429dd6fad9c9871b8e6af6c75809dcb0fa7", size = 2270245, upload-time = "2026-03-26T17:28:11.617Z" },
-    { url = "https://files.pythonhosted.org/packages/4b/15/5a3564e5fb4e27164051f617c1b310dcb13e91f2743dcf96c39028daa7f8/sphericart_torch-1.0.9-py3-none-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:42d801f14555a67fc3dd3102ad7b14ca8b6cbc7304d7228adf11e7630b9aeeb1", size = 3880616, upload-time = "2026-03-26T17:28:13.911Z" },
-    { url = "https://files.pythonhosted.org/packages/81/c6/54e9ef25cb4603dff3fcaf0ec4c87cdfe75aedc99db326e78395f8a90339/sphericart_torch-1.0.9-py3-none-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:7eac2d649fbf43f6abb4214948a622f7c7ed8a3acf4cca0b3367337a1c4ff2f1", size = 4905402, upload-time = "2026-03-26T17:28:15.987Z" },
 ]
 
 [[package]]
