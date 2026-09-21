@@ -1,0 +1,16 @@
+version: 2
+updates:
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    ignore:
+      # Pinned deliberately below torch 2.12 so the manually-installed
+      # sphericart-torch==1.0.9 (is_magnetic's mMACE backbone dependency)
+      # can still deserialize the checkpoint -- see pyproject.toml's
+      # torch pin comment and
+      # deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md. Applies
+      # to Dependabot's automatic security-update PRs too, not just
+      # scheduled ones -- an automatic security PR is exactly what broke
+      # this on 2026-09-21.
+      - dependency-name: "torch"
