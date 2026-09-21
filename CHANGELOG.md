@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.2.1](https://github.com/stfc/goldilocks-ml/releases/tag/v0.2.1) — 2026-09-21
+
 ### Fixed
 
 - `is_magnetic`'s manual mace-fork install now pins `19cdf6692c48e068a24e06cfe1ffc670e8aea3dd`
