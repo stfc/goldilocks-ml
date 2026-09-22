@@ -25,6 +25,7 @@ guess and no DFT label leak into the embedding through the probe itself.
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from functools import lru_cache
@@ -39,6 +40,19 @@ if TYPE_CHECKING:
 # 128 scalar channels from the backbone's last product-basis block, pooled
 # three ways (mean, max, population std) over the atoms in the structure.
 EMBEDDING_WIDTH = 384
+
+# Serializes every `_default_dtype_float64` caller across the whole process
+# (there are three: this module's own calculator construction and embed
+# step, plus magnetic_moments.fm_fim_relax.relax's). Without this, two
+# threads racing through the save/restore below can interleave: thread B
+# reads the "previous" dtype while it has already been changed to float64 by
+# thread A, so when A restores first, B's computation is silently corrupted
+# mid-flight, and when B then restores last it writes back the *wrong*
+# "previous" value (float64), leaving the global stuck exactly like the bug
+# this context manager exists to prevent -- confirmed empirically with two
+# threads and a barrier forcing that exact interleaving. Serializing costs
+# little: mace inference is CPU-bound anyway.
+_dtype_lock = threading.Lock()
 
 
 @contextmanager
@@ -56,12 +70,13 @@ def _default_dtype_float64() -> Iterator[None]:
     """
     import torch
 
-    previous = torch.get_default_dtype()
-    torch.set_default_dtype(torch.float64)
-    try:
-        yield
-    finally:
-        torch.set_default_dtype(previous)
+    with _dtype_lock:
+        previous = torch.get_default_dtype()
+        torch.set_default_dtype(torch.float64)
+        try:
+            yield
+        finally:
+            torch.set_default_dtype(previous)
 
 
 def safe_load(path: Path, device: str = "cpu") -> Any:
