@@ -104,3 +104,44 @@ def test_guess_oxidation_states_works_from_a_worker_thread() -> None:
         result = pool.submit(guess_oxidation_states, ["Mn", "O"]).result(timeout=5.0)
 
     assert result.get("Mn") is not None
+
+
+def test_guess_oxidation_states_times_out_on_a_slow_search(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A search that never returns must not hang its caller forever."""
+    import time
+
+    from pymatgen.core.composition import Composition
+
+    def never_returns(self: Composition, *args: object, **kwargs: object) -> tuple[()]:
+        time.sleep(10.0)
+        return ()
+
+    monkeypatch.setattr(Composition, "oxi_state_guesses", never_returns)
+    guess_oxidation_states.cache_clear()
+
+    started = time.monotonic()
+    result = guess_oxidation_states(["Fr", "At"])
+    elapsed = time.monotonic() - started
+
+    assert result == {}
+    assert elapsed < 5.0  # comfortably under the 10s the search itself sleeps for
+
+
+def test_guess_oxidation_states_reraises_a_real_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A genuine failure inside the search must reach the caller, not be
+    swallowed as a timeout -- the guess runs on a worker thread now, and an
+    unhandled exception there would otherwise just be lost."""
+    from pymatgen.core.composition import Composition
+
+    def broken(self: Composition, *args: object, **kwargs: object) -> tuple[()]:
+        raise ValueError("deliberately broken for this test")
+
+    monkeypatch.setattr(Composition, "oxi_state_guesses", broken)
+    guess_oxidation_states.cache_clear()
+
+    with pytest.raises(ValueError, match="deliberately broken"):
+        guess_oxidation_states(["Kr"])

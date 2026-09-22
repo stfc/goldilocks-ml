@@ -26,10 +26,10 @@ which is what an antiferromagnetic sublattice initialisation needs.
 
 from __future__ import annotations
 
+import queue
+import threading
 from collections import Counter
 from collections.abc import Mapping, Sequence
-from concurrent.futures import ThreadPoolExecutor
-from concurrent.futures import TimeoutError as FutureTimeoutError
 from functools import lru_cache
 from typing import TYPE_CHECKING
 
@@ -93,25 +93,37 @@ def _guess_oxidation_states(
     """Return the most likely oxidation state per element, or ``{}`` if none."""
     from pymatgen.core.composition import Composition
 
-    def guess() -> tuple[Mapping[str, float], ...]:
-        return Composition(dict(composition_key)).oxi_state_guesses(max_sites=-1)
+    outcome: queue.Queue[tuple[bool, object]] = queue.Queue(maxsize=1)
+
+    def guess() -> None:
+        try:
+            result = Composition(dict(composition_key)).oxi_state_guesses(max_sites=-1)
+            outcome.put((True, result))
+        except Exception as error:  # noqa: BLE001 -- re-raised on the caller's thread below
+            outcome.put((False, error))
 
     # A signal-based timeout (SIGALRM) only works on the main thread of the
     # main interpreter, which this cannot assume -- a web framework's
     # threadpool or an async runtime's worker thread calls in here too.
-    # Running the search in its own thread and giving up on the *future*
+    # Running the search on its own thread and giving up on *waiting for it*
     # times out from any caller thread; it does not stop the search itself
     # (Python cannot forcibly kill a thread), so an abandoned search keeps
-    # running in the background until it finishes on its own. That is an
-    # accepted cost: `shutdown(wait=False)` at least returns to the caller
-    # promptly instead of blocking on it.
-    pool = ThreadPoolExecutor(max_workers=1)
+    # running in the background until it finishes on its own. That thread
+    # must be a daemon thread, not a `ThreadPoolExecutor` one: the latter
+    # registers every worker with `concurrent.futures.thread`'s atexit hook,
+    # which unconditionally joins it at interpreter shutdown regardless of
+    # `shutdown(wait=False)` -- confirmed empirically, an abandoned
+    # `ThreadPoolExecutor` task hangs process exit until it finishes, turning
+    # "an unusual composition is slow" into "the process will not exit". A
+    # daemon thread carries no such hook and is simply dropped at shutdown.
+    threading.Thread(target=guess, daemon=True).start()
     try:
-        guesses = pool.submit(guess).result(timeout=OXIDATION_GUESS_TIMEOUT_SECONDS)
-    except FutureTimeoutError:
-        guesses = ()
-    finally:
-        pool.shutdown(wait=False)
+        ok, payload = outcome.get(timeout=OXIDATION_GUESS_TIMEOUT_SECONDS)
+    except queue.Empty:
+        return {}
+    if not ok:
+        raise payload  # type: ignore[misc]
+    guesses = payload
     return guesses[0] if guesses else {}
 
 
