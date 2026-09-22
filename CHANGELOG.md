@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.2.2](https://github.com/stfc/goldilocks-ml/releases/tag/v0.2.2) — 2026-09-22
+
 ### Fixed
 
 - `fm_fim_relax.seed_moments`'s oxidation-state guess used a SIGALRM-based
