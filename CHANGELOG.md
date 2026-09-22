@@ -22,6 +22,16 @@
   overlapping requests in goldilocks-core's threadpool) rather than a
   single missed call site. Added a module-level lock serializing every
   caller.
+- `safe_load`'s `torch.jit.load` monkeypatch and `MACEEmbedder.embed`'s
+  shared hook/buffer were both unsynchronized -- the same class of bug as
+  above, in the same file, just not covered by that fix. Two threads racing
+  through `safe_load` with different devices could leave `torch.jit.load`
+  permanently stuck on the wrong one; two threads racing through `embed`
+  (which `load_embedder`'s cache hands the same instance to) could silently
+  return each other's embeddings with no error at all -- two concurrent
+  `is_magnetic` requests swapping magnetism classifications. Widened the
+  existing lock to cover both whole methods, not just their inference
+  calls. See [goldilocks-ml#100](https://github.com/stfc/goldilocks-ml/issues/100).
 
 ## [0.2.2](https://github.com/stfc/goldilocks-ml/releases/tag/v0.2.2) — 2026-09-22
 

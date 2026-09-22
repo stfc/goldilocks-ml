@@ -41,18 +41,20 @@ if TYPE_CHECKING:
 # three ways (mean, max, population std) over the atoms in the structure.
 EMBEDDING_WIDTH = 384
 
-# Serializes every `_default_dtype_float64` caller across the whole process
-# (there are three: this module's own calculator construction and embed
-# step, plus magnetic_moments.fm_fim_relax.relax's). Without this, two
-# threads racing through the save/restore below can interleave: thread B
-# reads the "previous" dtype while it has already been changed to float64 by
-# thread A, so when A restores first, B's computation is silently corrupted
-# mid-flight, and when B then restores last it writes back the *wrong*
-# "previous" value (float64), leaving the global stuck exactly like the bug
-# this context manager exists to prevent -- confirmed empirically with two
-# threads and a barrier forcing that exact interleaving. Serializing costs
-# little: mace inference is CPU-bound anyway.
-_dtype_lock = threading.Lock()
+# Serializes every operation in this module that touches process-wide global
+# state or the shared cached `MACEEmbedder` instance: `_default_dtype_float64`
+# (three callers -- this module's calculator construction and embed step,
+# plus magnetic_moments.fm_fim_relax.relax's), `safe_load`'s `torch.jit.load`
+# monkeypatch, and `MACEEmbedder.embed`'s hook registration + buffer. Each of
+# those is documented at its own use below; all three share this one lock
+# because they are the same underlying problem (mace mutates or shares
+# process-wide state with no synchronisation of its own) and goldilocks-core
+# is exactly the kind of caller that triggers it -- FastAPI runs handlers in
+# a threadpool. Reentrant because `MACEEmbedder.embed` holds it for its whole
+# body and then also calls `_default_dtype_float64`, which acquires it again
+# on the same thread. Serializing costs little: mace inference is CPU-bound
+# anyway.
+_mace_lock = threading.RLock()
 
 
 @contextmanager
@@ -67,10 +69,19 @@ def _default_dtype_float64() -> Iterator[None]:
     float32-assuming model predicting later in the same process (e.g.
     goldilocks_ml's own CGCNN classifier) starts building float64 tensors
     against its float32 weights and fails on the first matmul.
+
+    Without ``_mace_lock``, two threads racing through the save/restore
+    below can also interleave: thread B reads the "previous" dtype while it
+    has already been changed to float64 by thread A, so when A restores
+    first, B's computation is silently corrupted mid-flight, and when B
+    then restores last it writes back the *wrong* "previous" value
+    (float64), leaving the global stuck exactly like the bug this context
+    manager exists to prevent -- confirmed empirically with two threads and
+    a barrier forcing that exact interleaving.
     """
     import torch
 
-    with _dtype_lock:
+    with _mace_lock:
         previous = torch.get_default_dtype()
         torch.set_default_dtype(torch.float64)
         try:
@@ -87,17 +98,25 @@ def safe_load(path: Path, device: str = "cpu") -> Any:
     This monkeypatches it for the duration of this one load only, then
     restores it -- other code in the same process that calls ``torch.jit.load``
     is unaffected once this returns.
+
+    Locked for the same reason ``_default_dtype_float64`` is: two threads
+    racing through this save/restore of ``torch.jit.load`` (a process-wide
+    global with no scoping of its own) can leave it permanently monkeypatched
+    to whichever thread's ``device`` lost the race, rather than restored to
+    the real original -- confirmed empirically with a forced two-thread
+    interleaving.
     """
     import torch
 
-    original_jit_load = torch.jit.load
-    torch.jit.load = lambda f, map_location=None, **kwargs: original_jit_load(
-        f, map_location=device, **kwargs
-    )
-    try:
-        return torch.load(path, map_location=device, weights_only=False)
-    finally:
-        torch.jit.load = original_jit_load
+    with _mace_lock:
+        original_jit_load = torch.jit.load
+        torch.jit.load = lambda f, map_location=None, **kwargs: original_jit_load(
+            f, map_location=device, **kwargs
+        )
+        try:
+            return torch.load(path, map_location=device, weights_only=False)
+        finally:
+            torch.jit.load = original_jit_load
 
 
 class MACEEmbedder:
@@ -113,28 +132,40 @@ class MACEEmbedder:
         self._buffer["features"] = features.detach().cpu()
 
     def embed(self, atoms: Any) -> np.ndarray:
-        """Return the pooled embedding for one ASE ``Atoms``."""
+        """Return the pooled embedding for one ASE ``Atoms``.
+
+        The whole body is locked, not just the forward pass: ``load_embedder``
+        hands the *same* cached instance to every caller, so ``self._buffer``
+        and the hook registered on ``self.raw_model.products[-1]`` are shared
+        mutable state across concurrent callers. Locking only the inference
+        step still let one thread's stale, not-yet-removed hook fire during
+        another thread's forward pass and overwrite the shared buffer before
+        the first thread read it back -- silently returning another request's
+        embedding instead of raising. Confirmed with a forced two-thread
+        interleaving using fake hooks standing in for the real ones.
+        """
         import torch
 
         atoms = atoms.copy()
         moments = np.zeros((len(atoms), 3), dtype=float)
         atoms.arrays["dft_magmom"] = moments
 
-        self._buffer.clear()
-        handle = self.raw_model.products[-1].register_forward_hook(self._hook)
-        try:
-            with _default_dtype_float64():
-                # Force a fresh forward pass even when the same Atoms object
-                # is embedded twice: ASE calculators otherwise skip
-                # recomputation for a structure they consider unchanged
-                # since the last call.
-                self.calculator.reset()
-                atoms.calc = self.calculator
-                atoms.get_potential_energy()
-        finally:
-            handle.remove()
+        with _mace_lock:
+            self._buffer.clear()
+            handle = self.raw_model.products[-1].register_forward_hook(self._hook)
+            try:
+                with _default_dtype_float64():
+                    # Force a fresh forward pass even when the same Atoms
+                    # object is embedded twice: ASE calculators otherwise
+                    # skip recomputation for a structure they consider
+                    # unchanged since the last call.
+                    self.calculator.reset()
+                    atoms.calc = self.calculator
+                    atoms.get_potential_energy()
+            finally:
+                handle.remove()
+            features = self._buffer.get("features")
 
-        features = self._buffer.get("features")
         if features is None:
             raise RuntimeError("the product-layer hook produced no embedding")
         # Mean alone can hide a rare magnetic atom in a large cell. All three
