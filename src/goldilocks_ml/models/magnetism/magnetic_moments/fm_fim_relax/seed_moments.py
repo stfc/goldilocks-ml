@@ -26,9 +26,10 @@ which is what an antiferromagnetic sublattice initialisation needs.
 
 from __future__ import annotations
 
-import signal
 from collections import Counter
 from collections.abc import Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from functools import lru_cache
 from typing import TYPE_CHECKING
 
@@ -44,12 +45,8 @@ if TYPE_CHECKING:
 DOMAIN_SAFETY_FACTOR = 0.7
 # How long an oxidation-state guess may run before it is treated as having
 # failed. `Composition.oxi_state_guesses` searches combinatorially and can
-# hang on an unusual composition; this bounds it, POSIX only (SIGALRM).
+# hang on an unusual composition; this bounds it.
 OXIDATION_GUESS_TIMEOUT_SECONDS = 2.0
-
-
-class OxidationGuessTimedOut(Exception):
-    """Raised when an oxidation-state search is aborted by the timeout."""
 
 
 def high_spin_moment(shell: str, electron_count: float) -> float:
@@ -96,18 +93,25 @@ def _guess_oxidation_states(
     """Return the most likely oxidation state per element, or ``{}`` if none."""
     from pymatgen.core.composition import Composition
 
-    def timeout_handler(signum: int, frame: object) -> None:
-        raise OxidationGuessTimedOut
+    def guess() -> tuple[Mapping[str, float], ...]:
+        return Composition(dict(composition_key)).oxi_state_guesses(max_sites=-1)
 
-    previous_handler = signal.signal(signal.SIGALRM, timeout_handler)
-    signal.setitimer(signal.ITIMER_REAL, OXIDATION_GUESS_TIMEOUT_SECONDS)
+    # A signal-based timeout (SIGALRM) only works on the main thread of the
+    # main interpreter, which this cannot assume -- a web framework's
+    # threadpool or an async runtime's worker thread calls in here too.
+    # Running the search in its own thread and giving up on the *future*
+    # times out from any caller thread; it does not stop the search itself
+    # (Python cannot forcibly kill a thread), so an abandoned search keeps
+    # running in the background until it finishes on its own. That is an
+    # accepted cost: `shutdown(wait=False)` at least returns to the caller
+    # promptly instead of blocking on it.
+    pool = ThreadPoolExecutor(max_workers=1)
     try:
-        guesses = Composition(dict(composition_key)).oxi_state_guesses(max_sites=-1)
-    except OxidationGuessTimedOut:
+        guesses = pool.submit(guess).result(timeout=OXIDATION_GUESS_TIMEOUT_SECONDS)
+    except FutureTimeoutError:
         guesses = ()
     finally:
-        signal.setitimer(signal.ITIMER_REAL, 0.0)
-        signal.signal(signal.SIGALRM, previous_handler)
+        pool.shutdown(wait=False)
     return guesses[0] if guesses else {}
 
 

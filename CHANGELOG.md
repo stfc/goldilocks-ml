@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `fm_fim_relax.seed_moments`'s oxidation-state guess used a SIGALRM-based
+  timeout, which only works on the main thread of the main interpreter --
+  any caller from a worker thread (a web framework's threadpool, an async
+  runtime's `to_thread`) raised `ValueError: signal only works in main
+  thread of the main interpreter` on every call, making the magnetic-
+  ordering-ranking feature completely non-functional over HTTP or MCP.
+  Replaced with a `ThreadPoolExecutor`-based timeout that works from any
+  thread. See [goldilocks-ml#95](https://github.com/stfc/goldilocks-ml/issues/95).
+
 ## [0.2.1](https://github.com/stfc/goldilocks-ml/releases/tag/v0.2.1) — 2026-09-21
 
 ### Fixed
