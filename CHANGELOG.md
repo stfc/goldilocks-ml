@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.2.3](https://github.com/stfc/goldilocks-ml/releases/tag/v0.2.3) — 2026-09-22
+
 ### Fixed
 
 - `fm_fim_relax.relax` left `torch`'s global default dtype at `float64`
