@@ -26,7 +26,10 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from goldilocks_ml.models.magnetism._mace_backbone import safe_load
+from goldilocks_ml.models.magnetism._mace_backbone import (
+    _default_dtype_float64,
+    safe_load,
+)
 
 if TYPE_CHECKING:
     from pymatgen.core.structure import Structure
@@ -135,16 +138,27 @@ def _attempt(
         scf_tol=1e-4,
         scf_logging=False,
     )
-    calculator = MagneticMACECalculator(models=[scf_model], device=device)
     limits = domain_limits(raw_model)
 
     atoms = AseAtomsAdaptor.get_atoms(structure)
     symbols = atoms.get_chemical_symbols()
     atoms.arrays["dft_magmom"] = np.array(initial_moments, dtype=float, copy=True)
-    atoms.calc = calculator
 
-    energy_ev = float(atoms.get_potential_energy())
-    moments = np.asarray(atoms.arrays["dft_magmom"], dtype=float).copy()
+    # `MagneticMACECalculator` without `default_dtype` makes mace auto-detect
+    # the checkpoint's dtype and call the process-wide, unscoped
+    # `torch.set_default_dtype` -- the same hazard `_mace_backbone.py`'s own
+    # calculator construction already guards against (see
+    # `_default_dtype_float64`'s docstring). Left unguarded here, one relax()
+    # call would leave every later float32 prediction in the same process
+    # (e.g. the CGCNN `is_metal` classifier) broken until the process
+    # restarts -- see goldilocks-ml#98.
+    with _default_dtype_float64():
+        calculator = MagneticMACECalculator(
+            models=[scf_model], device=device, default_dtype="float64"
+        )
+        atoms.calc = calculator
+        energy_ev = float(atoms.get_potential_energy())
+        moments = np.asarray(atoms.arrays["dft_magmom"], dtype=float).copy()
     reasons = _validity_reasons(energy_ev, moments, symbols, limits)
     grad_history = calculator.results.get("grad_norm_history", np.array([]))
     final_grad = float(grad_history[-1]) if len(grad_history) else float("nan")

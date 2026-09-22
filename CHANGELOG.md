@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `fm_fim_relax.relax` left `torch`'s global default dtype at `float64`
+  after every call, breaking every later float32 prediction (e.g. the
+  CGCNN `is_metal` classifier) in the same process until it restarted --
+  `MagneticMACECalculator` was constructed without `default_dtype`, so
+  `mace` auto-detected the checkpoint's float64 dtype and set the
+  process-wide global, exactly the hazard `_mace_backbone.py`'s own
+  calculator construction was already guarded against, just not at this
+  second call site. Reused the existing `_default_dtype_float64` context
+  manager. See [goldilocks-ml#98](https://github.com/stfc/goldilocks-ml/issues/98).
+
 ## [0.2.2](https://github.com/stfc/goldilocks-ml/releases/tag/v0.2.2) — 2026-09-22
 
 ### Fixed
