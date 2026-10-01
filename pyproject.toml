@@ -41,7 +41,7 @@ dependencies = [
     "dscribe==2.1.2",
     "matminer==0.10.1",
     "numpy==2.5.2",
-    "pymatgen==2026.5.4",
+    "pymatgen==2026.9.24",
     "scikit-learn==1.7.2",
     "sklearn-quantile==0.1.1",
     # Pinned to 2.10.0, not the latest patched release: the lowest torch
