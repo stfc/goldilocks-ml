@@ -41,10 +41,11 @@ def test_relax_restores_torchs_global_default_dtype() -> None:
     ``MagneticMACECalculator`` without ``default_dtype`` makes mace
     auto-detect the checkpoint's dtype and call the process-wide, unscoped
     ``torch.set_default_dtype(float64)`` -- confirmed to otherwise leak past
-    ``relax()`` returning and break every later float32 prediction (e.g. the
-    CGCNN ``is_metal`` classifier) in the same process. Checks both the
-    global directly and that a real float32 embedding call still works
-    right after ``relax()`` returns.
+    ``relax()`` returning, which at the time broke every later float32
+    prediction (e.g. the CGCNN ``is_metal`` classifier) in the same process.
+    Those models now fix their own dtype (goldilocks-ml#110), but the global
+    must still be restored. Checks both the global directly and that a real
+    float32 embedding call still works right after ``relax()`` returns.
     """
     import torch
 

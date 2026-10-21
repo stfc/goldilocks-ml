@@ -12,6 +12,7 @@ import pytest
 from pymatgen.core import Lattice, Structure
 
 from goldilocks_ml import inference
+from goldilocks_ml.artifacts import ENVIRONMENT_VARIABLE
 from goldilocks_ml.hashing import sha256_file
 from goldilocks_ml.inference import (
     ModelPrediction,
@@ -123,6 +124,21 @@ def stub_features(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
+@pytest.fixture
+def deleted_working_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Run from a deleted working directory with no artifact store configured.
+
+    A server may have its working directory changed or deleted under it
+    (enumlib's ``ScratchDir`` does both). Importing the model stack reads it
+    too; this module has imported that stack already, as such a server must.
+    """
+    removed = tmp_path / "removed"
+    removed.mkdir()
+    monkeypatch.chdir(removed)
+    removed.rmdir()
+    monkeypatch.delenv(ENVIRONMENT_VARIABLE, raising=False)
+
+
 def test_a_prediction_names_the_parameter_it_advises(
     tmp_path: Path, stub_features: None
 ) -> None:
@@ -226,11 +242,8 @@ def test_declared_artifacts_are_resolved_and_verified(
     assert model.predict(structure()).value == pytest.approx(0.22)
 
 
-def test_a_record_may_ship_its_own_dependency(
-    tmp_path: Path, stub_features: None
-) -> None:
-    """A deposit that carries the file is loadable without the pinned record."""
-    directory = tmp_path / "model"
+def write_dependencies(directory: Path) -> list[dict[str, str]]:
+    """Write QRF95's two dependencies into ``directory``; return their pins."""
     directory.mkdir(parents=True)
     declared = []
     for name, filename in (
@@ -247,12 +260,53 @@ def test_a_record_may_ship_its_own_dependency(
                 "sha256": sha256_file(beside),
             }
         )
+    return declared
+
+
+def test_a_record_may_ship_its_own_dependency(
+    tmp_path: Path, stub_features: None
+) -> None:
+    """A deposit that carries the file is loadable without the pinned record."""
+    directory = tmp_path / "model"
+    declared = write_dependencies(directory)
 
     # No artifact store at all: everything the record needs is in the record.
     model = load_model(
         write_model(directory, requires_artifacts=declared),
         artifact_directory=tmp_path / "empty",
     )
+
+    assert model.predict(structure()).value == pytest.approx(0.22)
+
+
+def test_a_self_contained_record_loads_without_a_working_directory(
+    tmp_path: Path, stub_features: None, deleted_working_directory: None
+) -> None:
+    """A record that ships every dependency never consults the artifact store.
+
+    The store's default location is relative to the working directory.
+    """
+    directory = tmp_path / "model"
+    write_model(directory, requires_artifacts=write_dependencies(directory))
+
+    model = load_model(directory)
+
+    assert model.predict(structure()).value == pytest.approx(0.22)
+
+
+def test_supplied_dependencies_load_without_a_working_directory(
+    tmp_path: Path, stub_features: None, deleted_working_directory: None
+) -> None:
+    """Paths the caller passes for every dependency keep the store unconsulted.
+
+    The files live outside the record, so only those paths can supply them.
+    """
+    downloads = tmp_path / "downloads"
+    declared = write_dependencies(downloads)
+    directory = write_model(tmp_path / "model", requires_artifacts=declared)
+    supplied = {item["name"]: downloads / item["file"] for item in declared}
+
+    model = load_model(directory, artifacts=supplied)
 
     assert model.predict(structure()).value == pytest.approx(0.22)
 

@@ -26,7 +26,7 @@ def artifact_directory(override: Path | None = None) -> Path:
 
 def resolve(
     dependencies: Sequence[ArtifactDependency],
-    directory: Path,
+    directory: Path | None = None,
     overrides: Mapping[str, Path] | None = None,
 ) -> dict[str, Path]:
     """Return verified local paths for every pinned artifact dependency.
@@ -34,13 +34,21 @@ def resolve(
     An override supplies the path for one dependency without excusing it from
     verification: a caller that points at its own file still gets the digest
     the protocol pinned checked against it.
+
+    A dependency without an override is read from the local cache,
+    ``artifact_directory(directory)``, which is located only then. Its default
+    is relative to the working directory, so a caller that supplies every path
+    works even where that directory has been changed or deleted.
     """
     resolved: dict[str, Path] = {}
     supplied = dict(overrides or {})
+    cache: Path | None = None
     for dependency in dependencies:
-        path = supplied.get(
-            dependency.name, directory / dependency.record_id / dependency.file
-        )
+        path = supplied.get(dependency.name)
+        if path is None:
+            if cache is None:
+                cache = artifact_directory(directory)
+            path = cache / dependency.record_id / dependency.file
         if not path.is_file():
             raise FileNotFoundError(
                 f"{path} is missing. The {dependency.name} feature dependency is "

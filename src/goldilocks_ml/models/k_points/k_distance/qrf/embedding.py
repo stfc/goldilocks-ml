@@ -35,7 +35,10 @@ class RBFExpansion(nn.Module):
         lengthscale: float | None = None,
     ) -> None:
         super().__init__()
-        centers = torch.linspace(vmin, vmax, bins)
+        # Explicitly float32: ``gamma`` below is derived from these centres, and
+        # at a float64 default (mMACE sets one while it runs) it would differ
+        # from the value the checkpoints were trained with.
+        centers = torch.linspace(vmin, vmax, bins, dtype=torch.float32)
         self.register_buffer("centers", centers)
         self.gamma = 1 / ((lengthscale or (centers[1] - centers[0]).item()) ** 2)
 
@@ -173,13 +176,20 @@ def build_graph(
 
 @lru_cache(maxsize=4)
 def load_cgcnn(checkpoint: Path) -> CGCNN:
-    """Load the digest-verified checkpoint without arbitrary pickle objects."""
+    """Load the digest-verified checkpoint without arbitrary pickle objects.
+
+    The model is float32 whatever torch's process-wide default dtype is while
+    it is built, and it is cached for the life of the process.
+    """
     state = torch.load(checkpoint, map_location="cpu", weights_only=True)
     model = CGCNN(**state["hyper_parameters"]["model"])
     weights = {
         key.removeprefix("model."): value for key, value in state["state_dict"].items()
     }
     model.load_state_dict(weights)
+    # Layers are created at torch's process-wide default dtype, which mMACE
+    # holds at float64 while it runs, possibly on another thread.
+    model.to(torch.float32)
     model.eval()
     return model
 

@@ -2,6 +2,27 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- The float32 models (the `is_metal` classifier, the CGCNN embedding in
+  `k_distance`'s features, and the `is_magnetic` head) took their dtype from
+  `torch`'s process-wide default when they were built. mMACE holds that
+  default at `float64` while it runs, and its lock only serializes mace
+  callers, so a model loaded on another thread in the meantime came out
+  `float64` and failed its first prediction with `mat1 and mat2 must have the
+  same dtype`. The cached `k_distance` embedding then stayed broken for the
+  life of the process. Each model is now cast to `float32` after loading, and
+  the CGCNN builds its radial-basis centres at `float32` explicitly. See
+  [goldilocks-ml#110](https://github.com/stfc/goldilocks-ml/issues/110).
+- `load_model` resolved the default artifact directory (`local_data/artifacts`,
+  relative to the working directory) even when every dependency a record
+  declares was passed in `artifacts` or ships beside its `model.json`. A
+  self-contained deposit therefore failed with `FileNotFoundError` in a
+  process whose working directory had been deleted. The artifact cache is now
+  looked up only for a dependency supplied neither way. Importing `torch` and
+  `torch_geometric` still needs a working directory, so a process must import
+  the model stack before its working directory can disappear.
+
 ## [0.2.3](https://github.com/stfc/goldilocks-ml/releases/tag/v0.2.3) — 2026-09-22
 
 ### Fixed

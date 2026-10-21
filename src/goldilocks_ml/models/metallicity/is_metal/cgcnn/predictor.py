@@ -158,6 +158,9 @@ def load(
         )
     model = CGCNN(**architecture)
     model.load_state_dict(stored["state_dict"])
+    # Layers are created at torch's process-wide default dtype, which mMACE
+    # holds at float64 while it runs, possibly on another thread.
+    model.to(torch.float32)
     model.eval()
 
     return MetallicityPredictor(

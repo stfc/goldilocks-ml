@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 import torch
-from conftest import write_protocol
+from conftest import floating_dtypes, write_protocol
 from pymatgen.core import Lattice, Structure
 
 from goldilocks_ml.cli import seal
@@ -365,3 +365,84 @@ def test_the_atom_table_must_be_supplied(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="needs artifact"):
         load_model(directory, artifacts={})
+
+
+def test_a_classifier_loaded_under_a_float64_default_stays_float32(
+    tmp_path: Path,
+) -> None:
+    """mMACE holds torch's process-wide default dtype at float64 while it runs.
+
+    A request served on another thread meanwhile loads its classifier under
+    that default. The classifier must still be float32 and decide exactly as
+    one loaded outside that window, both inside it and after it closes.
+    """
+    from goldilocks_ml.inference import load_model
+    from goldilocks_ml.models.magnetism._mace_backbone import _default_dtype_float64
+
+    directory, atom_init = saved_model(tmp_path)
+    artifacts = {"atom_init": atom_init}
+    expected = load_model(directory, artifacts=artifacts).predict(a_structure())
+
+    with _default_dtype_float64():
+        model = load_model(directory, artifacts=artifacts)
+        during = model.predict(a_structure())
+    after = model.predict(a_structure())
+
+    assert floating_dtypes(model.model) == {torch.float32}
+    assert during.details["score"] == expected.details["score"]
+    assert after.details["score"] == expected.details["score"]
+
+
+def test_the_embedding_checkpoint_loaded_under_a_float64_default_stays_float32(
+    tmp_path: Path,
+) -> None:
+    """``load_cgcnn`` keeps the model it builds for the life of the process.
+
+    Built while mMACE holds the process-wide default dtype at float64, the
+    cached instance must still be float32 and embed exactly as a model built
+    outside that window, both inside it and after it closes.
+    """
+    from torch_geometric.data import Batch
+
+    from goldilocks_ml.models.k_points.k_distance.qrf.embedding import (
+        CGCNN,
+        build_graph,
+        crystal_representations,
+        load_cgcnn,
+    )
+    from goldilocks_ml.models.magnetism._mace_backbone import _default_dtype_float64
+
+    torch.manual_seed(0)
+    reference = CGCNN(**ARCHITECTURE).eval()
+    checkpoint = tmp_path / "is_metal.ckpt"
+    # The published checkpoint's layout: Lightning hyperparameters and a
+    # state dict whose keys carry the LightningModule's "model." prefix.
+    torch.save(
+        {
+            "hyper_parameters": {"model": dict(ARCHITECTURE)},
+            "state_dict": {
+                f"model.{key}": value for key, value in reference.state_dict().items()
+            },
+        },
+        checkpoint,
+    )
+    atom_init = atom_table(tmp_path)
+    with torch.no_grad():
+        expected = reference.extract_crystal_repr(
+            Batch.from_data_list([build_graph(a_structure(), atom_init)])
+        )
+
+    def embed() -> torch.Tensor:
+        return crystal_representations(
+            [a_structure()], checkpoint=checkpoint, atom_init=atom_init
+        )
+
+    with _default_dtype_float64():
+        cached = load_cgcnn(checkpoint)
+        during = embed()
+    after = embed()
+
+    assert load_cgcnn(checkpoint) is cached
+    assert floating_dtypes(cached) == {torch.float32}
+    assert torch.equal(during, expected)
+    assert torch.equal(after, expected)

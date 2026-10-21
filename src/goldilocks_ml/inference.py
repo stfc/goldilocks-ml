@@ -346,12 +346,16 @@ def required_artifacts(
     ``model.json``, which makes the record self-contained: one download runs
     the model. A file found there is preferred over the pinned record's copy
     and is verified against the same digest, so the two cannot drift.
+
+    Only a dependency supplied neither way is looked up in the local artifact
+    cache, whose default location is relative to the working directory, so a
+    self-contained record's dependencies resolve even where that directory has
+    been changed or deleted.
     """
     declared = record.get("requires_artifacts", ())
     if not declared:
         return dict(overrides or {})
 
-    from goldilocks_ml.artifacts import artifact_directory as default_directory
     from goldilocks_ml.artifacts import resolve
     from goldilocks_ml.protocol import ArtifactDependency
 
@@ -370,7 +374,7 @@ def required_artifacts(
             beside = Path(record_directory) / dependency.file
             if dependency.name not in supplied and beside.is_file():
                 supplied[dependency.name] = beside
-    return resolve(dependencies, default_directory(artifact_directory), supplied)
+    return resolve(dependencies, artifact_directory, supplied)
 
 
 def load_model(

@@ -5,13 +5,16 @@ from __future__ import annotations
 import csv
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
 from goldilocks_ml.cli import seal
 from goldilocks_ml.protocol import dataset_segment
 from goldilocks_ml.runs import dumps_toml
+
+if TYPE_CHECKING:
+    import torch
 
 FIXTURES = Path(__file__).parent / "fixtures"
 KDIST_SNAPSHOT = FIXTURES / "kdist"
@@ -203,6 +206,15 @@ def write_protocol(path: Path, document: dict[str, Any]) -> Path:
     """Serialise a protocol document to TOML on disk."""
     path.write_text(dumps_toml(document), encoding="utf-8")
     return path
+
+
+def floating_dtypes(module: torch.nn.Module) -> set[torch.dtype]:
+    """Return the dtypes of a module's floating-point parameters and buffers."""
+    return {
+        tensor.dtype
+        for tensor in module.state_dict().values()
+        if tensor.is_floating_point()
+    }
 
 
 @pytest.fixture
