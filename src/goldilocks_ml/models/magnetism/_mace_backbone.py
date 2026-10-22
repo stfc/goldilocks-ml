@@ -65,10 +65,14 @@ def _default_dtype_float64() -> Iterator[None]:
     trained that way), but ``torch.set_default_dtype`` is process-wide with
     no scoping of its own -- unlike ``safe_load``'s own ``torch.jit.load``
     monkeypatch below, ``MagneticMACECalculator(default_dtype="float64")``
-    sets it and leaves it set. Confirmed empirically: without this, any
-    float32-assuming model predicting later in the same process (e.g.
-    goldilocks_ml's own CGCNN classifier) starts building float64 tensors
-    against its float32 weights and fails on the first matmul.
+    sets it and leaves it set. Wrap only mace's own construction and calls
+    in this block, so that setting never outlives them.
+
+    It does not protect other models. ``_mace_lock`` serializes mace callers
+    only, so while one thread is inside this block every other thread in the
+    process sees the float64 default too. Each float32 model fixes its own
+    dtype when it is built instead (``load_cgcnn`` and the ``is_metal`` and
+    ``is_magnetic`` predictors) -- see goldilocks-ml#110.
 
     Without ``_mace_lock``, two threads racing through the save/restore
     below can also interleave: thread B reads the "previous" dtype while it

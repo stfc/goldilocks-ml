@@ -149,9 +149,8 @@ def _attempt(
     # `torch.set_default_dtype` -- the same hazard `_mace_backbone.py`'s own
     # calculator construction already guards against (see
     # `_default_dtype_float64`'s docstring). Left unguarded here, one relax()
-    # call would leave every later float32 prediction in the same process
-    # (e.g. the CGCNN `is_metal` classifier) broken until the process
-    # restarts -- see goldilocks-ml#98.
+    # call would leave torch's default dtype at float64 for the rest of the
+    # process -- see goldilocks-ml#98.
     with _default_dtype_float64():
         calculator = MagneticMACECalculator(
             models=[scf_model], device=device, default_dtype="float64"

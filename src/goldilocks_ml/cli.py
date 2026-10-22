@@ -328,9 +328,13 @@ def _train_classification(
 
 
 def build_features(
-    protocol: TrainingProtocol, snapshot: Snapshot, artifact_dir: Path
+    protocol: TrainingProtocol, snapshot: Snapshot, artifact_dir: Path | None
 ) -> tuple[Any, dict[str, Path]]:
-    """Resolve pinned artifacts, then build features for the whole snapshot."""
+    """Resolve pinned artifacts, then build features for the whole snapshot.
+
+    ``artifact_dir`` overrides the artifact cache location; ``None`` keeps the
+    default (``GOLDILOCKS_ARTIFACTS``, else ``local_data/artifacts``).
+    """
     resolved = artifact_store.resolve(protocol.features.depends_on, artifact_dir)
     contract = get_feature_contract(protocol.features.schema)
     features = contract(protocol, snapshot, resolved)
@@ -361,7 +365,7 @@ def execute(
     snapshot: Snapshot,
     output: Path,
     *,
-    artifact_dir: Path,
+    artifact_dir: Path | None,
     splits_source: Path | None,
     overwrite: bool,
 ) -> dict[str, Any]:
@@ -557,10 +561,9 @@ def _run(args: argparse.Namespace) -> None:
 
     protocol = load_protocol(args.protocol)
     snapshot = load_snapshot(args.dataset, protocol)
-    artifact_dir = artifact_store.artifact_directory(args.artifact_directory)
 
     if args.train_command == "validate":
-        features, _ = build_features(protocol, snapshot, artifact_dir)
+        features, _ = build_features(protocol, snapshot, args.artifact_directory)
         assignment = assign_splits(snapshot, protocol)
         sizes: dict[str, int] = {}
         for name in assignment.values():
@@ -578,7 +581,7 @@ def _run(args: argparse.Namespace) -> None:
         protocol,
         snapshot,
         args.output,
-        artifact_dir=artifact_dir,
+        artifact_dir=args.artifact_directory,
         splits_source=args.splits,
         overwrite=args.overwrite,
     )

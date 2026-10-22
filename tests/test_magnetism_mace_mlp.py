@@ -17,7 +17,7 @@ from typing import Any
 import numpy as np
 import pytest
 import torch
-from conftest import write_protocol
+from conftest import floating_dtypes, write_protocol
 from pymatgen.core import Lattice, Structure
 
 from goldilocks_ml.models.magnetism._mace_backbone import EMBEDDING_WIDTH
@@ -320,6 +320,32 @@ def test_the_backbone_artifact_must_be_supplied(
 
     with pytest.raises(ValueError, match="needs artifact"):
         load_model(directory, artifacts={})
+
+
+def test_a_classifier_loaded_under_a_float64_default_stays_float32(
+    tmp_path: Path, stub_embedding: None
+) -> None:
+    """mMACE holds torch's process-wide default dtype at float64 while it runs.
+
+    A request served on another thread meanwhile loads this head under that
+    default. The head must still be float32 and decide exactly as one loaded
+    outside that window, both inside it and after it closes.
+    """
+    from goldilocks_ml.inference import load_model
+    from goldilocks_ml.models.magnetism._mace_backbone import _default_dtype_float64
+
+    directory = saved_model(tmp_path)
+    artifacts = {"mace_backbone": tmp_path / "backbone.model"}
+    expected = load_model(directory, artifacts=artifacts).predict(a_structure())
+
+    with _default_dtype_float64():
+        model = load_model(directory, artifacts=artifacts)
+        during = model.predict(a_structure())
+    after = model.predict(a_structure())
+
+    assert floating_dtypes(model.model) == {torch.float32}
+    assert during.details["score"] == expected.details["score"]
+    assert after.details["score"] == expected.details["score"]
 
 
 def test_reordered_feature_columns_are_refused(
