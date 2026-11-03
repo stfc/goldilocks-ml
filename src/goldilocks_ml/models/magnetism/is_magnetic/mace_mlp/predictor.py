@@ -142,25 +142,11 @@ def load(
             "into the record and must be retrained or repaired"
         )
 
-    if MACE_BACKBONE not in artifacts:
-        raise ValueError(
-            f"the {schema} feature contract needs artifact: {MACE_BACKBONE}"
-        )
-    backbone = Path(artifacts[MACE_BACKBONE])
+    backbone = _verified_backbone(record, Path(directory), artifacts)
 
     weights_file = record["artifacts"]["estimator"]
     weights_path = Path(directory) / weights_file
-    pinned = record["artifacts"].get("estimator_sha256")
-    if not pinned:
-        raise ValueError(
-            f"the record does not pin a SHA-256 for {weights_file}; refusing to "
-            "load unverified weights"
-        )
-    digest = sha256_file(weights_path)
-    if digest != pinned:
-        raise ValueError(
-            f"{weights_file} has SHA-256 {digest}; its record pins {pinned}"
-        )
+    _check_digest(weights_path, record["artifacts"].get("estimator_sha256"))
 
     stored = torch.load(weights_path, map_location="cpu", weights_only=True)
     architecture = dict(record["architecture"])
@@ -184,6 +170,49 @@ def load(
         backbone=backbone,
         model_id=f"{RUNTIME}@{schema}",
     )
+
+
+def _check_digest(path: Path, pinned: str | None) -> None:
+    """Refuse a file its record pins no SHA-256 for, or pins another one for."""
+    if not pinned:
+        raise ValueError(
+            f"the record does not pin a SHA-256 for {path.name}; refusing to "
+            "load unverified weights"
+        )
+    digest = sha256_file(path)
+    if digest != pinned:
+        raise ValueError(f"{path.name} has SHA-256 {digest}; its record pins {pinned}")
+
+
+def _verified_backbone(
+    record: Mapping[str, Any], directory: Path, artifacts: Mapping[str, Path]
+) -> Path:
+    """Return the backbone's path once its digest is checked.
+
+    The backbone is a pickle, so it is checked before anything loads it. A
+    record that lists it in ``requires_artifacts`` was already checked while
+    its dependencies were resolved. A published record pins it in
+    ``artifacts.backbone_sha256`` instead, and may ship it beside
+    ``model.json`` under the name in ``artifacts.backbone``.
+    """
+    if MACE_BACKBONE in artifacts:
+        backbone = Path(artifacts[MACE_BACKBONE])
+    else:
+        name = record["artifacts"].get("backbone")
+        backbone = directory / name if name else None
+        if backbone is None or not backbone.is_file():
+            raise ValueError(
+                f"the {SCHEMA} feature contract needs artifact: {MACE_BACKBONE}"
+            )
+
+    pinned = record["artifacts"].get("backbone_sha256")
+    declared = any(
+        item.get("name") == MACE_BACKBONE
+        for item in record.get("requires_artifacts") or ()
+    )
+    if pinned or not declared:
+        _check_digest(backbone, pinned)
+    return backbone
 
 
 register_predictor(RUNTIME, load)
