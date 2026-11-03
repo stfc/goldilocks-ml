@@ -8,6 +8,20 @@ optimised (:class:`mace.modules.MagneticSCFMACE`, ``use_collinear=True``) --
 this is not a structure relaxation, and this project's own tooling never
 exercises the non-collinear path the backbone itself supports.
 
+A relaxed result is ``invalid`` when its energy is non-finite or past
+``MAX_ENERGY_PER_ATOM_EV``, when a moment leaves the backbone's learned domain,
+or when it sits further below the same structure at zero moment than the
+Stoner exchange energy allows (``MAX_EXCHANGE_EV_PER_UB2``). That last check
+was tested on 151 MatPES PBE structures relaxed from their
+``seed_moments_fm_fim`` seed (``scripts/fm_fim_relax_gain_survey.py``,
+goldilocks-ml#120). Of the 147 results the other checks accepted, it rejects
+four: bcc Fe, fcc Fe and hcp Co, which relaxed 1.6 to 2 uB above their DFT
+moments and 14.8 to 62.8 eV/atom below zero moment, and an unconverged Cr3Ga
+that gained 1.18 eV/atom from moments of at most 1.7 uB. fcc Fe's retry, 1.3
+uB above DFT and 6.7 eV/atom down, is rejected too. The other 143 are kept,
+including rare-earth compounds that gain up to 2.43 eV/atom from 4f moments
+(Dy5Ga3).
+
 What is dropped on the port: the CSV/XYZ writing and the DFT-comparison-table
 preparation in the source script are reporting glue for one ten-material
 study, not general library code. What is new: the backbone is loaded through
@@ -49,6 +63,13 @@ DOMAIN_VIOLATION_FACTOR = 1.05
 # `abs(energy) / natoms` above this is treated as a diverged relaxation
 # rather than a real total energy.
 MAX_ENERGY_PER_ATOM_EV = 100.0
+# The most a relaxed configuration may sit below the same structure at zero
+# moment: MAX_EXCHANGE_EV_PER_UB2 * sum(|m|^2) + MAGNETIC_GAIN_SLACK_EV_PER_ATOM
+# * natoms. The first term is the Stoner exchange energy I/4 * m^2 with
+# I = 1 eV, the top of the 3d range; the slack covers small moments. Past it,
+# the backbone's energy surface has broken down -- see goldilocks-ml#120.
+MAX_EXCHANGE_EV_PER_UB2 = 0.25
+MAGNETIC_GAIN_SLACK_EV_PER_ATOM = 0.5
 
 OK = "ok"
 CONVERGED_AFTER_RETRY = "converged_after_retry"
@@ -83,6 +104,7 @@ def domain_limits(raw_model: Any) -> dict[str, float]:
 
 def _validity_reasons(
     energy_ev: float,
+    zero_moment_energy_ev: float,
     moments: np.ndarray,
     symbols: list[str],
     limits: dict[str, float],
@@ -97,6 +119,17 @@ def _validity_reasons(
             f"unphysical |E/atom|={abs(energy_ev / natoms):.6g} "
             f"> {MAX_ENERGY_PER_ATOM_EV} eV"
         )
+    elif np.isfinite(zero_moment_energy_ev) and np.isfinite(moments).all():
+        gain = energy_ev - zero_moment_energy_ev
+        bound = (
+            MAX_EXCHANGE_EV_PER_UB2 * float(np.sum(np.square(moments)))
+            + MAGNETIC_GAIN_SLACK_EV_PER_ATOM * natoms
+        )
+        if gain < -bound:
+            reasons.append(
+                f"magnetic energy gain {gain / natoms:.4g} eV/atom exceeds the "
+                f"exchange bound of {bound / natoms:.4g} eV/atom"
+            )
     if not np.isfinite(moments).all():
         reasons.append("non-finite magnetic moment")
     norms = np.linalg.norm(moments, axis=1)
@@ -113,6 +146,26 @@ def _validity_reasons(
                 f"{DOMAIN_VIOLATION_FACTOR}*m_max={DOMAIN_VIOLATION_FACTOR * limit:.4g}"
             )
     return reasons
+
+
+def _zero_moment_energy(atoms: Any, *, raw_model: Any, device: str) -> float:
+    """Return the energy of ``atoms`` at zero moment, from one non-SCF pass."""
+    from mace.calculators.mace import MagneticMACECalculator
+    from mace.modules import MagneticSCFMACE
+
+    atoms = atoms.copy()
+    atoms.arrays[MAGMOM_KEY] = np.zeros((len(atoms), 3))
+    one_step_model = MagneticSCFMACE(
+        raw_model, n_scf_step=1, use_scf=False, scf_tol=1e-4, scf_logging=False
+    )
+    with _default_dtype_float64():
+        atoms.calc = MagneticMACECalculator(
+            models=[one_step_model],
+            device=device,
+            default_dtype="float64",
+            magmom_key=MAGMOM_KEY,
+        )
+        return float(atoms.get_potential_energy())
 
 
 def _attempt(
@@ -165,7 +218,12 @@ def _attempt(
     finally:
         hook.remove()
     moments = np.asarray(calculator.results["MACE_magmoms"], dtype=float).copy()
-    reasons = _validity_reasons(energy_ev, moments, symbols, limits)
+    zero_moment_energy_ev = _zero_moment_energy(
+        atoms, raw_model=raw_model, device=device
+    )
+    reasons = _validity_reasons(
+        energy_ev, zero_moment_energy_ev, moments, symbols, limits
+    )
     # `use_collinear` zeroes the x/y gradient, so only z counts.
     magforces = final_output["magforces"].detach().cpu().numpy()
     final_grad = float(np.linalg.norm(magforces[:, 2]))

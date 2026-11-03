@@ -1,8 +1,9 @@
-"""End-to-end test for the collinear FM/FiM moment relaxation.
+"""Tests for the collinear FM/FiM moment relaxation.
 
-Skip-guarded on the real backbone, like the classifier's own real-backbone
-test in ``tests/test_magnetism_mace_mlp.py``: the ~80 MB checkpoint is not
-present in CI.
+The end-to-end tests are skip-guarded on the real backbone, like the
+classifier's own real-backbone test in ``tests/test_magnetism_mace_mlp.py``:
+the ~80 MB checkpoint is not present in CI. The validity checks are tested
+without it.
 """
 
 from __future__ import annotations
@@ -15,10 +16,19 @@ from pymatgen.core import Lattice, Structure
 
 from goldilocks_ml.models.magnetism._mace_backbone import safe_load
 from goldilocks_ml.models.magnetism.magnetic_moments.fm_fim_relax.relax import (
+    CONVERGED_AFTER_RETRY,
+    INVALID,
+    MAGNETIC_GAIN_SLACK_EV_PER_ATOM,
+    MAX_EXCHANGE_EV_PER_UB2,
     OK,
     WARNING_NOT_CONVERGED,
     _attempt,
+    _validity_reasons,
+    domain_limits,
     relax,
+)
+from goldilocks_ml.models.magnetism.magnetic_moments.fm_fim_relax.seed_moments import (
+    seed_moments_fm_fim,
 )
 
 
@@ -116,3 +126,69 @@ def test_an_unfinished_relaxation_is_reported_as_not_converged() -> None:
 
     assert result.status == WARNING_NOT_CONVERGED
     assert "final magnetic gradient norm" in result.reasons[0]
+
+
+# Two Fe sites at 2 uB may gain at most this much per atom.
+_BOUND_EV_PER_ATOM = MAX_EXCHANGE_EV_PER_UB2 * 4.0 + MAGNETIC_GAIN_SLACK_EV_PER_ATOM
+
+
+def _gain_reasons(gain_ev_per_atom: float, zero_moment_energy_ev: float = -16.0):
+    """Validity reasons for two Fe sites at 2 uB with the given gain."""
+    moments = np.array([[0.0, 0.0, 2.0], [0.0, 0.0, 2.0]])
+    energy_ev = zero_moment_energy_ev + 2 * gain_ev_per_atom
+    return _validity_reasons(
+        energy_ev, zero_moment_energy_ev, moments, ["Fe", "Fe"], {"Fe": 5.0}
+    )
+
+
+def test_a_gain_inside_the_exchange_bound_is_valid() -> None:
+    assert _gain_reasons(-0.9 * _BOUND_EV_PER_ATOM) == []
+    # Ending above the zero-moment energy is a metastable state, not an error.
+    assert _gain_reasons(0.3) == []
+
+
+def test_a_gain_past_the_exchange_bound_is_invalid() -> None:
+    reasons = _gain_reasons(-1.1 * _BOUND_EV_PER_ATOM)
+
+    assert len(reasons) == 1
+    assert "magnetic energy gain" in reasons[0]
+
+
+def test_the_gain_is_skipped_without_a_finite_zero_moment_energy() -> None:
+    moments = np.array([[0.0, 0.0, 2.0], [0.0, 0.0, 2.0]])
+
+    reasons = _validity_reasons(
+        -116.0, float("nan"), moments, ["Fe", "Fe"], {"Fe": 5.0}
+    )
+
+    assert reasons == []
+
+
+def test_bcc_fe_from_its_seed_is_not_accepted_at_an_unphysical_moment() -> None:
+    """goldilocks-ml#120: MatPES mp-13 (bcc Fe, DFT 2.25 uB) seeded at 3.6 uB.
+
+    Without the gain check the retry stopped at 4.21 uB, 22.7 eV/atom below
+    the zero-moment energy, and passed as converged_after_retry.
+    """
+    checkpoint = _real_checkpoint()
+    structure = Structure(
+        Lattice(
+            [
+                [2.3361, 0.0001, -0.8258],
+                [-1.1681, 2.0230, -0.8261],
+                [1.1701, 2.0273, 3.3103],
+            ]
+        ),
+        ["Fe", "Fe"],
+        [[0.5, 0.5, 0.5], [0.0, 0.0, 0.0]],
+    )
+    seed = seed_moments_fm_fim(
+        structure, max_moment_by_symbol=domain_limits(safe_load(checkpoint))
+    )
+
+    result = relax(structure, seed, checkpoint=checkpoint, device="cpu")
+
+    accepted = result.status in (OK, CONVERGED_AFTER_RETRY)
+    assert not (accepted and np.abs(result.moments[:, 2]).max() > 4.0)
+    if result.status == INVALID:
+        assert any("magnetic energy gain" in reason for reason in result.reasons)
