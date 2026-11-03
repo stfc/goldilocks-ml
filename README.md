@@ -61,7 +61,9 @@ same record. Pass the backbone file when you load it:
 ```python
 model = load_model(
     "path/to/sgk1t-48m42",
-    artifacts={"mace_backbone": "path/to/sgk1t-48m42/mmace-matpes-pbe-pretrained.model"},
+    artifacts={
+        "mace_backbone": "path/to/sgk1t-48m42/mmace-matpes-pbe-pretrained.model"
+    },
 )
 ```
 
