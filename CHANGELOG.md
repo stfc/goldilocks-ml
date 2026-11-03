@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.1](https://github.com/stfc/goldilocks-ml/releases/tag/v0.3.1) — 2026-11-03
+
 ### Fixed
 
 - `fm_fim_relax.relax` accepted moments where the backbone's energy surface
