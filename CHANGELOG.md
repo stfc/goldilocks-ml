@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Changed
+
+- `torch` is pinned to 2.13.0 (was 2.10.0). On CPU the published models'
+  outputs are unchanged: `is_metal` and `is_magnetic` scores are identical on
+  600 MatPES structures, and `relax()` moments agree within 1e-3 uB. On Linux,
+  torch 2.13's default wheels use CUDA 13, so GPU use needs an NVIDIA driver
+  that supports it (R580 or later); with an older driver torch runs on CPU.
+
 ## [0.3.1](https://github.com/stfc/goldilocks-ml/releases/tag/v0.3.1) — 2026-11-03
 
 ### Changed
