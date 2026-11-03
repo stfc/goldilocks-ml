@@ -43,7 +43,7 @@ dependencies = [
     # sphericart-torch 2.x, which the published backbone was converted for.
     "mace-torch[magnetic]==0.3.17",
     "matminer==0.10.1",
-    "numpy==2.5.2",
+    "numpy==2.5.4",
     "pymatgen==2026.5.4",
     "scikit-learn==1.7.2",
     "sklearn-quantile==0.1.1",
