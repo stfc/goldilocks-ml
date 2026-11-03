@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.0](https://github.com/stfc/goldilocks-ml/releases/tag/v0.3.0) — 2026-11-03
+
 ### Changed
 
 - `is_magnetic` and `fm_fim_relax` run on `mace-torch[magnetic]==0.3.17` from
