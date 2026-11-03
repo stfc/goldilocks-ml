@@ -39,46 +39,17 @@ classifiers = [
 dependencies = [
     "data-collections-api==0.1.0",
     "dscribe==2.1.2",
+    # The is_magnetic backbone and fm_fim_relax. The `magnetic` extra brings
+    # sphericart-torch 2.x, which the published backbone was converted for.
+    "mace-torch[magnetic]==0.3.17",
     "matminer==0.10.1",
     "numpy==2.5.2",
     "pymatgen==2026.5.4",
     "scikit-learn==1.7.2",
     "sklearn-quantile==0.1.1",
-    # Pinned to 2.10.0, not the latest patched release: the lowest torch
-    # patched against GHSA-63cw-57p8-fm3p / CVE-2026-24747
-    # (torch.load(weights_only=True) arbitrary code execution, fixed
-    # >=2.10.0 -- this package's own inference.py loads every checkpoint
-    # with weights_only=True) that is also within is_magnetic's
-    # manually-installed sphericart-torch==1.0.9 requirement
-    # (torch>=2.3,<2.12). Verified: full test suite green, and the
-    # published is_metal/k_distance/k_index models produce identical
-    # predictions to a 2.13.0 pin on real structures (2026-09-18).
-    #
-    # Dependabot will try to bump this to 2.13.0+ for GHSA-rrmf-rvhw-rf47
-    # (low severity, requires locally calling torch.jit.script on untrusted
-    # input -- this package never does). Don't take that bump: 2.13.0 and
-    # sphericart-torch==1.0.9 are mutually exclusive (`uv pip install` of
-    # both together is unsatisfiable), and no sphericart-torch release both
-    # keeps the mMACE checkpoint's pickle-compatible class registration and
-    # supports torch>=2.12 -- see
-    # deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md. Ignored in
-    # .github/dependabot.yml for the same reason. (2026-09-21: this exact
-    # bump landed on main via an automatic Dependabot security PR and broke
-    # the documented is_magnetic manual install before anyone noticed --
-    # reverted here.)
     "torch==2.10.0",
     "torch-geometric==2.8.0.post1",
 ]
-# No `magnetism` extra, and no `models` extra either: everything above is a
-# hard dependency now. `mace`, the package `is_magnetic`'s backbone actually
-# imports, has no PyPI release (it's a research collaborator's fork -- see
-# deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md) and a package
-# published to PyPI cannot declare a direct git/URL dependency in its own
-# metadata, so there is no extra this project could publish that would ever
-# make `pip install goldilocks-ml[magnetism]` actually work. Pretending
-# otherwise (an extra that installs everything except the one dependency
-# that matters) was worse than not having one. See "Use the is_magnetic
-# classifier" in README.md for the manual install this needs instead.
 
 [project.urls]
 Homepage = "https://stfc.github.io/goldilocks-ml/"

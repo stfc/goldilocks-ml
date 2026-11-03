@@ -1,10 +1,8 @@
 """End-to-end test for the collinear FM/FiM moment relaxation.
 
-Deliberately mace-free except for this one skip-guarded test: the same
-pattern ``tests/test_magnetism_mace_mlp.py`` uses for the classifier's own
-real-backbone test, and for the same reason -- the ~80 MB checkpoint and the
-manually-installed mace/e3nn/sphericart stack (see "Use the is_magnetic
-classifier" in README.md) are not present in CI.
+Skip-guarded on the real backbone, like the classifier's own real-backbone
+test in ``tests/test_magnetism_mace_mlp.py``: the ~80 MB checkpoint is not
+present in CI.
 """
 
 from __future__ import annotations
@@ -15,23 +13,21 @@ import numpy as np
 import pytest
 from pymatgen.core import Lattice, Structure
 
+from goldilocks_ml.models.magnetism._mace_backbone import safe_load
 from goldilocks_ml.models.magnetism.magnetic_moments.fm_fim_relax.relax import (
     OK,
+    WARNING_NOT_CONVERGED,
+    _attempt,
     relax,
 )
 
 
 def _real_checkpoint() -> Path:
     checkpoint = Path(
-        "local_data/artifacts/UNPUBLISHED-PENDING-LICENCE/"
-        "mace_matpes_pbe_baseline_run-3.model"
+        "local_data/artifacts/1g8rw-q8128/mmace-matpes-pbe-pretrained.model"
     )
     if not checkpoint.is_file():
         pytest.skip("the mMACE backbone checkpoint is not present locally")
-    try:
-        import mace  # noqa: F401
-    except ImportError:
-        pytest.skip("mace is not installed")
     return checkpoint
 
 
@@ -94,3 +90,29 @@ def test_relax_holds_moments_collinear_on_the_real_backbone() -> None:
     assert result.moments[:, 0] == pytest.approx(0.0)
     assert result.moments[:, 1] == pytest.approx(0.0)
     assert (result.moments[:, 2] != 0.0).all()
+
+
+def test_an_unfinished_relaxation_is_reported_as_not_converged() -> None:
+    """mace returns no gradient history, so relax() reads the final magnetic
+    forces itself. One SCF step from a far seed cannot converge, and must
+    say so rather than pass as ``ok``.
+    """
+    checkpoint = _real_checkpoint()
+
+    structure = Structure(
+        Lattice.cubic(2.87), ["Fe", "Fe"], [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]]
+    )
+    moments = np.zeros((2, 3))
+    moments[:, 2] = 0.5
+
+    result = _attempt(
+        structure,
+        moments,
+        raw_model=safe_load(checkpoint),
+        device="cpu",
+        step_size=1e-4,
+        n_scf_step=1,
+    )
+
+    assert result.status == WARNING_NOT_CONVERGED
+    assert "final magnetic gradient norm" in result.reasons[0]

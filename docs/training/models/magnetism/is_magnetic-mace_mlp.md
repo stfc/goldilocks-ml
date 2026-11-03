@@ -23,7 +23,10 @@ CC-BY-4.0 by the training collaborator.
 ```python
 from goldilocks_ml.inference import load_model
 
-model = load_model("path/to/the/record")
+model = load_model(
+    "path/to/the/record",
+    artifacts={"mace_backbone": "path/to/the/record/mmace-matpes-pbe-pretrained.model"},
+)
 prediction = model.predict(structure)
 
 prediction.value  # True for a spin-polarised ground state

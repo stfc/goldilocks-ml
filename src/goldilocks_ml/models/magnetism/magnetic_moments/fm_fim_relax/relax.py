@@ -4,10 +4,9 @@ Ported from ``2-research/2-mace/1-magnetic-mace/scripts/run_all_cifs_magnetic_sc
 (``model_limits``, ``validity_checks``, the core of ``run_one``) and the
 two-attempt retry policy in ``notebooks/01_basic_magnetic_scf.ipynb``'s batch
 loop. Only atomic positions are fixed and only the per-atom moment vectors are
-optimised (:class:`mace.modules.MagneticSCFMACE`, ``use_collinear=True`,
-``constrain_magnitude=False`) -- this is not a structure relaxation, and this
-project's own tooling never exercises the non-collinear path the backbone
-itself supports.
+optimised (:class:`mace.modules.MagneticSCFMACE`, ``use_collinear=True``) --
+this is not a structure relaxation, and this project's own tooling never
+exercises the non-collinear path the backbone itself supports.
 
 What is dropped on the port: the CSV/XYZ writing and the DFT-comparison-table
 preparation in the source script are reporting glue for one ten-material
@@ -27,6 +26,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from goldilocks_ml.models.magnetism._mace_backbone import (
+    MAGMOM_KEY,
     _default_dtype_float64,
     safe_load,
 )
@@ -132,7 +132,6 @@ def _attempt(
         raw_model,
         use_scf=True,
         use_collinear=True,
-        constrain_magnitude=False,
         n_scf_step=n_scf_step,
         scf_step_size=step_size,
         scf_tol=1e-4,
@@ -142,25 +141,34 @@ def _attempt(
 
     atoms = AseAtomsAdaptor.get_atoms(structure)
     symbols = atoms.get_chemical_symbols()
-    atoms.arrays["dft_magmom"] = np.array(initial_moments, dtype=float, copy=True)
+    atoms.arrays[MAGMOM_KEY] = np.array(initial_moments, dtype=float, copy=True)
 
-    # `MagneticMACECalculator` without `default_dtype` makes mace auto-detect
-    # the checkpoint's dtype and call the process-wide, unscoped
-    # `torch.set_default_dtype` -- the same hazard `_mace_backbone.py`'s own
-    # calculator construction already guards against (see
-    # `_default_dtype_float64`'s docstring). Left unguarded here, one relax()
-    # call would leave torch's default dtype at float64 for the rest of the
-    # process -- see goldilocks-ml#98.
-    with _default_dtype_float64():
-        calculator = MagneticMACECalculator(
-            models=[scf_model], device=device, default_dtype="float64"
-        )
-        atoms.calc = calculator
-        energy_ev = float(atoms.get_potential_energy())
-        moments = np.asarray(atoms.arrays["dft_magmom"], dtype=float).copy()
+    # The SCF model's last forward pass evaluates the returned moments. Its
+    # magnetic forces give the final gradient, which the calculator does not
+    # return.
+    final_output: dict[str, Any] = {}
+    hook = scf_model.register_forward_hook(
+        lambda module, inputs, output: final_output.update(output)
+    )
+    # Runs under `_mace_lock`, one at a time with every other mace call in the
+    # process -- see `_default_dtype_float64` and goldilocks-ml#98.
+    try:
+        with _default_dtype_float64():
+            calculator = MagneticMACECalculator(
+                models=[scf_model],
+                device=device,
+                default_dtype="float64",
+                magmom_key=MAGMOM_KEY,
+            )
+            atoms.calc = calculator
+            energy_ev = float(atoms.get_potential_energy())
+    finally:
+        hook.remove()
+    moments = np.asarray(calculator.results["MACE_magmoms"], dtype=float).copy()
     reasons = _validity_reasons(energy_ev, moments, symbols, limits)
-    grad_history = calculator.results.get("grad_norm_history", np.array([]))
-    final_grad = float(grad_history[-1]) if len(grad_history) else float("nan")
+    # `use_collinear` zeroes the x/y gradient, so only z counts.
+    magforces = final_output["magforces"].detach().cpu().numpy()
+    final_grad = float(np.linalg.norm(magforces[:, 2]))
 
     if reasons:
         status = INVALID

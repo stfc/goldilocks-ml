@@ -1,9 +1,9 @@
 """Tests for the shared mace-backbone loading machinery.
 
-Deliberately mace-free: importing ``_mace_backbone`` never touches
-mace/e3nn/sphericart, only calling its loading functions does (see the
-module's own docstring), so this exercises ``_default_dtype_float64``
-directly without the manually-installed stack.
+Backbone-free: importing ``_mace_backbone`` never touches mace, only calling
+its loading functions does (see the module's own docstring), so this
+exercises ``_default_dtype_float64`` and the lock directly, without the
+checkpoint.
 """
 
 from __future__ import annotations
