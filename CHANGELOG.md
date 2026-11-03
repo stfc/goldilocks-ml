@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `fm_fim_relax.relax` accepted moments where the backbone's energy surface
+  breaks down. MatPES bcc Fe, fcc Fe and hcp Co relaxed 1.3 to 2 uB above
+  their DFT moments and 6.7 to 62.8 eV/atom below the zero-moment energy, and
+  passed as `ok` or `converged_after_retry`; goldilocks-core's ordering ranking
+  takes the lowest energy among such results. A result is now `invalid` when
+  it sits further below the zero-moment energy than the Stoner exchange energy
+  allows: 0.25 eV per uB^2 summed over sites, plus 0.5 eV/atom. Of 151 MatPES
+  structures relaxed from their seed, this rejects those three and an
+  unconverged Cr3Ga, and keeps the other 143 accepted results. See
+  [goldilocks-ml#120](https://github.com/stfc/goldilocks-ml/issues/120).
+
 ## [0.3.0](https://github.com/stfc/goldilocks-ml/releases/tag/v0.3.0) — 2026-11-03
 
 ### Changed
