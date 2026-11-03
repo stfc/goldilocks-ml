@@ -24,7 +24,7 @@ from goldilocks_ml.models.magnetism.magnetic_moments.fm_fim_relax.relax import (
 
 def _real_checkpoint() -> Path:
     checkpoint = Path(
-        "local_data/artifacts/1g8rw-q8128/mmace-matpes-pbe-pretrained.model"
+        "local_data/artifacts/sgk1t-48m42/mmace-matpes-pbe-pretrained.model"
     )
     if not checkpoint.is_file():
         pytest.skip("the mMACE backbone checkpoint is not present locally")

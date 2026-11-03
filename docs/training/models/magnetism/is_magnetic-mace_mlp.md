@@ -15,7 +15,7 @@ CC-BY-4.0 by the training collaborator.
 | --- | --- |
 | Predicts | `is_magnetic` — `magnetic` or `non_magnetic` |
 | Trained on | MatPES PBE (`materialyze/matpes/pbe-2025.2`), not Materials Project |
-| Record | [1g8rw-q8128](https://data-collections.psdi.ac.uk/records/1g8rw-q8128) |
+| Record | [sgk1t-48m42](https://data-collections.psdi.ac.uk/records/sgk1t-48m42) |
 | Source | ported from `2-research/2-mace/1-magnetic-mace` (outside this ecosystem) |
 
 ## Use it

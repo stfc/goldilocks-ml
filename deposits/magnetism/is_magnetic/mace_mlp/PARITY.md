@@ -1,9 +1,10 @@
 # Backbone parity: v1.0 (mace fork) against v2.0 (mace-torch 0.3.17)
 
-PSDI record `1g8rw-q8128` v2.0 replaces the backbone file. This compares the
-two versions on the same structures, each in the environment it was published
-for, through the public goldilocks-ml API: `embed_structures`, the
-`is_magnetic` predictor's scores, and `relax()`.
+v2.0 of the `is_magnetic` PSDI record (`sgk1t-48m42`; v1.0 is `1g8rw-q8128`)
+replaces the backbone file. This compares the two versions on the same
+structures, each in the environment it was published for, through the public
+goldilocks-ml API: `embed_structures`, the `is_magnetic` predictor's scores,
+and `relax()`.
 
 ```text
 v1.0       torch 2.10.0, mace-torch 0.3.12, sphericart-torch 1.0.9, e3nn 0.4.4

@@ -12,7 +12,7 @@
   },
   "metadata": {
     "title": "Goldilocks mMACE+MLP magnetism classifier",
-    "description": "<p>A frozen mMACE foundation model's pooled structure embedding, fed through a small MLP, predicting whether a periodic material's DFT ground state is spin-polarised. Trained on MatPES PBE (not Materials Project); test ROC-AUC 0.986 on an in-distribution held-out split. This record bundles the classifier and the mMACE backbone it depends on, licensed CC-BY-4.0 by the training collaborator.</p><p>External validation on an independent dataset (MP-ALOE) has not been run yet -- the metrics above are an in-distribution MatPES PBE test split. See the README's Status section before treating this as a default model.</p>",
+    "description": "<p>A frozen mMACE foundation model's pooled structure embedding, fed through a small MLP, predicting whether a periodic material's DFT ground state is magnetic. Trained on MatPES PBE; test ROC-AUC 0.986 on an in-distribution held-out split. This record bundles the classifier and the mMACE backbone it depends on, licensed CC-BY-4.0 by the training collaborator.</p>\n<p>&nbsp;</p>",
     "creators": [
       {
         "affiliations": [
@@ -70,34 +70,19 @@
       {
         "person_or_org": {
           "type": "personal",
-          "name": "Basak, Susmita",
-          "given_name": "Susmita",
-          "family_name": "Basak"
+          "name": "Ho, Cheuk Hin",
+          "given_name": "Cheuk Hin",
+          "family_name": "Ho",
+          "identifiers": [
+            {
+              "identifier": "0009-0001-8595-5775",
+              "scheme": "orcid"
+            }
+          ]
         },
         "role": {
-          "id": "projectmember"
-        },
-        "affiliations": [
-          {
-            "name": "UKRI STFC"
-          }
-        ]
-      },
-      {
-        "person_or_org": {
-          "type": "personal",
-          "name": "Cha, Jaehoon",
-          "given_name": "Jaehoon",
-          "family_name": "Cha"
-        },
-        "role": {
-          "id": "projectmember"
-        },
-        "affiliations": [
-          {
-            "name": "UKRI STFC"
-          }
-        ]
+          "id": "researcher"
+        }
       },
       {
         "person_or_org": {
@@ -105,22 +90,6 @@
           "name": "Teobaldi, Gilberto",
           "given_name": "Gilberto",
           "family_name": "Teobaldi"
-        },
-        "role": {
-          "id": "projectmember"
-        },
-        "affiliations": [
-          {
-            "name": "UKRI STFC"
-          }
-        ]
-      },
-      {
-        "person_or_org": {
-          "type": "personal",
-          "name": "Sparks, Willow",
-          "given_name": "Willow",
-          "family_name": "Sparks"
         },
         "role": {
           "id": "projectmember"

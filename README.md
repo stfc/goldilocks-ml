@@ -45,7 +45,7 @@ prediction.quantity  # 'k_distance'
 | k-index forest | which mesh on the ladder a crystal needs | [4050a-aas85](https://data-collections.psdi.ac.uk/records/4050a-aas85) |
 | CGCNN metallicity classifier | metal or insulator | [ba06w-n6a68](https://data-collections.psdi.ac.uk/records/ba06w-n6a68) |
 | CGCNN representation | 64 numbers describing a crystal | [m742g-g0k14](https://data-collections.psdi.ac.uk/records/m742g-g0k14) |
-| is_magnetic | whether a structure's DFT ground state is spin-polarised | [1g8rw-q8128](https://data-collections.psdi.ac.uk/records/1g8rw-q8128) |
+| is_magnetic | whether a structure's DFT ground state is spin-polarised | [sgk1t-48m42](https://data-collections.psdi.ac.uk/records/sgk1t-48m42) |
 
 The CGCNN representation record is a feature extractor for QRF95's own feature
 pipeline, not something you call `load_model(...).predict(...)` on directly --
@@ -60,8 +60,8 @@ same record. Pass the backbone file when you load it:
 
 ```python
 model = load_model(
-    "path/to/1g8rw-q8128",
-    artifacts={"mace_backbone": "path/to/1g8rw-q8128/mmace-matpes-pbe-pretrained.model"},
+    "path/to/sgk1t-48m42",
+    artifacts={"mace_backbone": "path/to/sgk1t-48m42/mmace-matpes-pbe-pretrained.model"},
 )
 ```
 

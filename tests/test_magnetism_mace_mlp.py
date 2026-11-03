@@ -362,10 +362,10 @@ def test_the_real_backbone_end_to_end(tmp_path: Path) -> None:
     """A coarse sanity check against the real checkpoint, when it is present.
 
     Never runs in CI: the ~80 MB backbone is downloaded from PSDI record
-    1g8rw-q8128, not committed.
+    sgk1t-48m42, not committed.
     """
     checkpoint = Path(
-        "local_data/artifacts/1g8rw-q8128/mmace-matpes-pbe-pretrained.model"
+        "local_data/artifacts/sgk1t-48m42/mmace-matpes-pbe-pretrained.model"
     )
     if not checkpoint.is_file():
         pytest.skip("the mMACE backbone checkpoint is not present locally")

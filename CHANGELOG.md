@@ -8,7 +8,9 @@
   PyPI, which `goldilocks-ml` now installs. The manual install of the
   `CheukHinHoJerry/mace` fork, `sphericart==1.0.9` and
   `sphericart-torch==1.0.9` is gone.
-- **Breaking:** PSDI record `1g8rw-q8128` v2.0 replaces the backbone with
+- **Breaking:** v2.0 of the `is_magnetic` PSDI record
+  ([sgk1t-48m42](https://data-collections.psdi.ac.uk/records/sgk1t-48m42);
+  v1.0 is `1g8rw-q8128`) replaces the backbone with
   `mmace-matpes-pbe-pretrained.model`: the same weights, re-exported by the
   training collaborator for upstream mace and converted for sphericart-torch
   2. v1.0's `mace_matpes_pbe_baseline_run-3.model` does not load with this
