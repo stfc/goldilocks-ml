@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.13' and sys_platform == 'win32'",
@@ -936,7 +936,7 @@ requires-dist = [
     { name = "mace-torch", extras = ["magnetic"], specifier = "==0.3.17" },
     { name = "matminer", specifier = "==0.10.1" },
     { name = "numpy", specifier = "==2.5.2" },
-    { name = "pymatgen", specifier = "==2026.5.4" },
+    { name = "pymatgen", specifier = "==2026.10.24" },
     { name = "scikit-learn", specifier = "==1.7.2" },
     { name = "sklearn-quantile", specifier = "==0.1.1" },
     { name = "torch", specifier = "==2.10.0" },
@@ -2750,19 +2750,19 @@ wheels = [
 
 [[package]]
 name = "pymatgen"
-version = "2026.5.4"
+version = "2026.10.24"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pymatgen-core" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0c/a1/727feae7083bb3b10ba9d43ccbbe83317d4654957a08cee52096ef86bfde/pymatgen-2026.5.4.tar.gz", hash = "sha256:4998d6084da72224c8025dc1e9645b2aab73896109a7ef1e05bd479a25a55b79", size = 743199, upload-time = "2026-05-04T22:03:24.675Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/64/42/a2441cdc5c6ab009821350f0ee427d116449970d010a6553d087b557de1f/pymatgen-2026.10.24.tar.gz", hash = "sha256:4a150905fe12e9f087e47647a6f18b898d778e21228c8233571f70e4803964f0", size = 782589, upload-time = "2026-10-23T23:04:15.763Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a2/3a/de29b0b6c1740098c3ccdd3fa69336dc39b5efc6840a55e30dcaea01a19b/pymatgen-2026.5.4-py3-none-any.whl", hash = "sha256:7815cd4310c6d5a465b0da14a1633479cf61366676e62764db17f7e2a20d1974", size = 829056, upload-time = "2026-05-04T22:03:22.327Z" },
+    { url = "https://files.pythonhosted.org/packages/4a/f0/0207ab3a15f86200f4fe798eb0f05eab0237380d8574b0d9f1ee107bc875/pymatgen-2026.10.24-py3-none-any.whl", hash = "sha256:bd341f2e0550ec38358de2c95a65cabd9f1efa433df48ed5b615cc2d0115d827", size = 829702, upload-time = "2026-10-23T22:39:14.807Z" },
 ]
 
 [[package]]
 name = "pymatgen-core"
-version = "2026.8.13"
+version = "2026.10.31"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "bibtexparser" },
@@ -2784,23 +2784,23 @@ dependencies = [
     { name = "tqdm" },
     { name = "uncertainties" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/89/50/5ae787e8546dd59f3904110b7c32919616bc9ffffa910d8ff252a78fc5e3/pymatgen_core-2026.8.13.tar.gz", hash = "sha256:b3966eab5bdb6fce83ac417e22e4bafe331f3380caef439cbb284c929cf9548c", size = 2596590, upload-time = "2026-08-13T23:22:08.868Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3a/43/93181005bf5fa814644737dd18868489fe1fa522c997b0477993be0a7b2b/pymatgen_core-2026.10.31.tar.gz", hash = "sha256:b37da51a77dd00b2b8babd2649933b70a9d5e066871581468bde982586d50916", size = 2666174, upload-time = "2026-10-31T06:29:45.371Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4d/14/f3de740352e3c6603d3947ae6b3ed10ad60e56c3cf3bdbc2acd9c33f1bc7/pymatgen_core-2026.8.13-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:843aebfad558650f1b06df290118266aa2ae885f70f7244d7c5fece47c03bea0", size = 2955831, upload-time = "2026-08-13T23:21:40.729Z" },
-    { url = "https://files.pythonhosted.org/packages/d8/90/ced2d28502634954b5cd64bb3ccc9e564c83c5ae97be5acab094aea4b0f7/pymatgen_core-2026.8.13-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:ffbf3bd31b8244e9cd0e83ee071bc7b5114fde2b631b57201acf662347d28796", size = 4473508, upload-time = "2026-08-13T23:21:42.784Z" },
-    { url = "https://files.pythonhosted.org/packages/7c/de/01a4d2aa03dcaac583f9d63971d85899e4217db0099b10be7a4f5286dc16/pymatgen_core-2026.8.13-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:4269609568722bfe11c70b4d6fde48a5b5881efdad0c7275668483dd4a6e476d", size = 4520921, upload-time = "2026-08-13T23:21:44.599Z" },
-    { url = "https://files.pythonhosted.org/packages/ef/56/c3429b5f21ab4c81b146bd8ec4af0dad9fda7f8e4b806e53965c249923fd/pymatgen_core-2026.8.13-cp312-cp312-win32.whl", hash = "sha256:3c11d24c5e4b5bb29ebcc9f0a2003d05ff25183d1468bc11da33ba4bee5089d9", size = 2882844, upload-time = "2026-08-13T23:21:46.144Z" },
-    { url = "https://files.pythonhosted.org/packages/4c/10/ebd8b53550c31733bb94d3c3710100974d3dab31017872196680183f1df4/pymatgen_core-2026.8.13-cp312-cp312-win_amd64.whl", hash = "sha256:3bcf08d340d2041afc06bbaedd367998cf39224f994780c917a7cd1a22429f12", size = 2924177, upload-time = "2026-08-13T23:21:47.793Z" },
-    { url = "https://files.pythonhosted.org/packages/ff/35/dc1eb465945cdc31aca9e2eeaba5648313ef9d7b2e82ba2a100449ce5ba5/pymatgen_core-2026.8.13-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:89ae6785dd124565134d63736a81491d3e2b15a41d2aef746fb09a2662d01a94", size = 2953729, upload-time = "2026-08-13T23:21:49.543Z" },
-    { url = "https://files.pythonhosted.org/packages/c6/84/0c33427b984fad8d474a7691cf48019f2e0a0a55dad1ea3b00b619e086f2/pymatgen_core-2026.8.13-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:47e214cf14776ead8d0a655821e08becf770e4229bdbb5ef3ce2ab193f6cb704", size = 4453394, upload-time = "2026-08-13T23:21:51.287Z" },
-    { url = "https://files.pythonhosted.org/packages/74/b3/b1e0977543c2ca02ca2a5512229d127b6ef93c55ddea31b461176a1f105d/pymatgen_core-2026.8.13-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:242f613fad68013b1748474a9b4e2361be20860e4b32be0ecc20dfb5f8e9227c", size = 4501606, upload-time = "2026-08-13T23:21:53.376Z" },
-    { url = "https://files.pythonhosted.org/packages/8a/40/44bfeee5053ba4f6324080a275c890971b6b84056ff744a979ba8399701e/pymatgen_core-2026.8.13-cp313-cp313-win32.whl", hash = "sha256:a449445dff340c42142576b6e0eb5547b82b13ef158f7b273dc81afa0eaa887b", size = 2882587, upload-time = "2026-08-13T23:21:55.18Z" },
-    { url = "https://files.pythonhosted.org/packages/33/a6/21270cc86552d2ba9c86b20d2261a0dd5c8907efbb2d5b09ac24e1a9fb64/pymatgen_core-2026.8.13-cp313-cp313-win_amd64.whl", hash = "sha256:34d79dcc46a979695f6ea3bd9e44e1d0fd5f88c85316342f47ba03fae890a6c1", size = 2923555, upload-time = "2026-08-13T23:21:56.9Z" },
-    { url = "https://files.pythonhosted.org/packages/5d/b3/2bd46775d5b96229a071cae840ab031033dd36b4286618dc99d76d60705b/pymatgen_core-2026.8.13-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:e856bec30350e3888b5ac8f4ae4b753f073b475ca17ba79357f9e8c25d50b61e", size = 2955735, upload-time = "2026-08-13T23:21:58.75Z" },
-    { url = "https://files.pythonhosted.org/packages/09/fa/f377e4a1b6cf337e7cbe7058ae88bf50b4d731a4b5c256e1dc7ce36feaa8/pymatgen_core-2026.8.13-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:8e039efbaffbb09c71a1db5942d8bbc9e06f795938efcb92128da950d824491f", size = 4450949, upload-time = "2026-08-13T23:22:00.582Z" },
-    { url = "https://files.pythonhosted.org/packages/a6/fc/a89c4220daf49dfb74877a005f90ce30963b5a8dc3e2cb3184acc84e4a00/pymatgen_core-2026.8.13-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:ef463d6e9816ca268554ddc506fe333eefa8fed1525c77147bfd8ea1b5130e74", size = 4486491, upload-time = "2026-08-13T23:22:02.699Z" },
-    { url = "https://files.pythonhosted.org/packages/51/64/2be6c802c167943b7cb4603cb1cd35d174b51ad0c2782afc540dfbf013d4/pymatgen_core-2026.8.13-cp314-cp314-win32.whl", hash = "sha256:d98b7272a8ea823e782c7ca16fa22fbb3b92fb969fbc4461730c10a2270a0caf", size = 2869651, upload-time = "2026-08-13T23:22:04.577Z" },
-    { url = "https://files.pythonhosted.org/packages/5b/bc/6b849f7f318348f2ebac4c2bf7e70e4e170aa91f38767de5e576e710e417/pymatgen_core-2026.8.13-cp314-cp314-win_amd64.whl", hash = "sha256:8967f817335bb3fb93720a46fbbf7d7f9807585e5a8848ef03b52dd14064f6cb", size = 2911571, upload-time = "2026-08-13T23:22:06.524Z" },
+    { url = "https://files.pythonhosted.org/packages/87/25/77743841e8f24d17c42e3878177fdee8bf69680e290003b7d585e1a2153e/pymatgen_core-2026.10.31-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:86a96b32c189036347da2fde1668dac98416e209a67a62273db9ec2807039164", size = 3022857, upload-time = "2026-10-31T06:29:15.383Z" },
+    { url = "https://files.pythonhosted.org/packages/aa/b3/ef106e662dce899eced9c18ec8cf8af62a2e0904f0ec881ee53e6940a248/pymatgen_core-2026.10.31-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:655d115412ba834b4255e47f7faab7bf3c87aa09019d41d6a0b0f018b9a78a3a", size = 4636588, upload-time = "2026-10-31T06:29:17.249Z" },
+    { url = "https://files.pythonhosted.org/packages/ac/88/01991e5197bf687ea35186c9898a50fc6744859e409d4f2381c8e60552f3/pymatgen_core-2026.10.31-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:0431d216850a118903a0ab62ca788752567f4f0e8f037b7c87f351f73365d477", size = 4683898, upload-time = "2026-10-31T06:29:19.365Z" },
+    { url = "https://files.pythonhosted.org/packages/90/96/5de0557d91fb1cd3d2ffc84ce51a8990289c17a71fbeb5323b3701f2a25a/pymatgen_core-2026.10.31-cp312-cp312-win32.whl", hash = "sha256:d66310100d90380c96eb7969ca66b57f32d2c950dde750ef3fc9e7c49fd0076b", size = 2932908, upload-time = "2026-10-31T06:29:21.226Z" },
+    { url = "https://files.pythonhosted.org/packages/1b/0c/affdf435181983604c331398a4520c2a48139c4895e036462d112a194d6d/pymatgen_core-2026.10.31-cp312-cp312-win_amd64.whl", hash = "sha256:134d5ec84db6683dc98dbd66fb5811fb04f24c2676c56d9cd5aefd7517ceb5ed", size = 2974183, upload-time = "2026-10-31T06:29:23.146Z" },
+    { url = "https://files.pythonhosted.org/packages/3e/dd/8717ef294df66f2ee2255056c66883e8ce22a768804d0ee5333c3c773849/pymatgen_core-2026.10.31-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:e2bd67689c696c22b9aeba920cdbab1529633d7368b1076afdace92e9a4f7bce", size = 3021281, upload-time = "2026-10-31T06:29:25.25Z" },
+    { url = "https://files.pythonhosted.org/packages/f9/72/4f51650e31fb2de23a717ae397561a0f92da9f9647d3f7992d61faa715d6/pymatgen_core-2026.10.31-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:e4ccc8173e979560c5c1ead8fb738059e4c76afa46f85b827b80f553541bcdeb", size = 4618965, upload-time = "2026-10-31T06:29:27.383Z" },
+    { url = "https://files.pythonhosted.org/packages/30/7d/b23d2700bb5f8e40f0758b99e6ebf285ce70d54c874ea49589613034574c/pymatgen_core-2026.10.31-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:be3cfbd2bdaa6a2c38321159347a7a5be6da8377ef8145b06af0ddbf70bce6d6", size = 4674398, upload-time = "2026-10-31T06:29:29.637Z" },
+    { url = "https://files.pythonhosted.org/packages/90/20/6bbb8c53bae61ad37d84e98779922f74dd7d7cd95481545a33510dc652a3/pymatgen_core-2026.10.31-cp313-cp313-win32.whl", hash = "sha256:ac42d303bfa536de9d4a045b4361c24556d56a6a0a68a27fd15cd26f6b332b79", size = 2932611, upload-time = "2026-10-31T06:29:31.48Z" },
+    { url = "https://files.pythonhosted.org/packages/9b/90/66ca360c3822d2f87c8b66f59f2e4c85d239dd744e9a5485a25102b6a6cc/pymatgen_core-2026.10.31-cp313-cp313-win_amd64.whl", hash = "sha256:99fd1a1b2df4dd7e3b7aadc6d24b73c7ec8d38372a61c45c791c5ff9a9b4a032", size = 2973359, upload-time = "2026-10-31T06:29:33.242Z" },
+    { url = "https://files.pythonhosted.org/packages/d9/77/3a34286349f030a3ac1ae2dfe9db55255093416b543e1bd0b2ef5d66cbec/pymatgen_core-2026.10.31-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:aefde8d9c17dd070eae608d3dbbe489e4bcfd4f97cef0b563dab079db46f9b2c", size = 3023291, upload-time = "2026-10-31T06:29:34.982Z" },
+    { url = "https://files.pythonhosted.org/packages/57/c5/0025088a72c4d924d9b48b8228c451233a06406008a527ab8b2d1fc7ea27/pymatgen_core-2026.10.31-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:d88f10c61ce1c3fb5aca3889e0db6e5129ced529b29c45939c2b0900cdfa5326", size = 4613299, upload-time = "2026-10-31T06:29:37.416Z" },
+    { url = "https://files.pythonhosted.org/packages/3d/5f/d52a6ffd1e6bc0516674c85fbbe2ec9e646ff0fcd443e9b54b49e2866cfc/pymatgen_core-2026.10.31-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:bc7d3a566004af8f869c9b1d8a9ccda15461b498ef67b97dea85e563bfd04d2d", size = 4652736, upload-time = "2026-10-31T06:29:39.392Z" },
+    { url = "https://files.pythonhosted.org/packages/7f/84/bb593f6fa08d46e50285858e7dd49b5ed7f4596d2f31f1022191a6ea5cdc/pymatgen_core-2026.10.31-cp314-cp314-win32.whl", hash = "sha256:5958cabb6c4a52ad8101500d4ee5d780dcc13bba072c822e80898a2ab214e077", size = 2920946, upload-time = "2026-10-31T06:29:41.414Z" },
+    { url = "https://files.pythonhosted.org/packages/de/33/571e4cd5e4e552d7153457e58d8b6678039c7863b9c3a133ac205f399e87/pymatgen_core-2026.10.31-cp314-cp314-win_amd64.whl", hash = "sha256:378f2b974d1b2c014202ae0341a751b4576185038f47c1dcde2f7fcd7a69966e", size = 2961711, upload-time = "2026-10-31T06:29:43.203Z" },
 ]
 
 [[package]]

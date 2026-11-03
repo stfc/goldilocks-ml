@@ -44,7 +44,7 @@ dependencies = [
     "mace-torch[magnetic]==0.3.17",
     "matminer==0.10.1",
     "numpy==2.5.2",
-    "pymatgen==2026.5.4",
+    "pymatgen==2026.10.24",
     "scikit-learn==1.7.2",
     "sklearn-quantile==0.1.1",
     "torch==2.10.0",
