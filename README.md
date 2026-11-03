@@ -56,16 +56,16 @@ page](https://stfc.github.io/goldilocks-ml/training/models/metallicity/represent
 ### Use the is_magnetic classifier
 
 `is_magnetic` reads the embedding of a frozen mMACE backbone that ships in the
-same record. Pass the backbone file when you load it:
+same record. `load_model` finds it beside `model.json` and checks its SHA-256
+before loading it:
 
 ```python
-model = load_model(
-    "path/to/sgk1t-48m42",
-    artifacts={
-        "mace_backbone": "path/to/sgk1t-48m42/mmace-matpes-pbe-pretrained.model"
-    },
-)
+model = load_model("path/to/sgk1t-48m42")
 ```
+
+To use a copy stored elsewhere, pass
+`artifacts={"mace_backbone": "path/to/mmace-matpes-pbe-pretrained.model"}`. It
+is checked the same way.
 
 ## Train one
 

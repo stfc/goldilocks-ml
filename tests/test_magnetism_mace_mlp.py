@@ -17,6 +17,7 @@ import torch
 from conftest import floating_dtypes, write_protocol
 from pymatgen.core import Lattice, Structure
 
+from goldilocks_ml.hashing import sha256_file
 from goldilocks_ml.models.magnetism._mace_backbone import EMBEDDING_WIDTH
 from goldilocks_ml.models.magnetism.is_magnetic.mace_mlp import (
     features as mace_features,
@@ -205,14 +206,32 @@ def fitted_classifier(**overrides: Any) -> MagneticMLPClassifier:
     return MagneticMLPClassifier(**fields)
 
 
-def saved_model(tmp_path: Path, **overrides: Any) -> Path:
-    """Write a classifier carrying a decision, and return its directory."""
+def fake_backbone(tmp_path: Path) -> Path:
+    """Write a stand-in backbone file; the embedding step is stubbed out."""
+    backbone = tmp_path / "backbone.model"
+    backbone.write_bytes(b"not a real backbone")
+    return backbone
+
+
+def saved_model(tmp_path: Path, *, pin_backbone: bool = True, **overrides: Any) -> Path:
+    """Write a classifier carrying a decision, and return its directory.
+
+    Like the published record, it names the backbone and pins its SHA-256 in
+    ``artifacts``; the backbone itself is ``fake_backbone(tmp_path)``.
+    """
     model = fitted_classifier(**overrides)
     if "decision" not in overrides:
         model = model.with_decision({"threshold": 0.5, "selected_on": "validation"})
     directory = tmp_path / "model"
     directory.mkdir()
     model.save(directory)
+    if pin_backbone:
+        backbone = fake_backbone(tmp_path)
+        record_path = directory / "model.json"
+        record = json.loads(record_path.read_text(encoding="utf-8"))
+        record["artifacts"]["backbone"] = backbone.name
+        record["artifacts"]["backbone_sha256"] = sha256_file(backbone)
+        record_path.write_text(json.dumps(record), encoding="utf-8")
     return directory
 
 
@@ -232,7 +251,7 @@ def test_a_served_classifier_decides_rather_than_scoring(
     from goldilocks_ml.inference import load_model
 
     directory = saved_model(tmp_path)
-    backbone = tmp_path / "mmace-matpes-pbe-pretrained.model"
+    backbone = tmp_path / "backbone.model"
 
     model = load_model(directory, artifacts={"mace_backbone": backbone})
     prediction = model.predict(a_structure())
@@ -254,7 +273,7 @@ def test_a_batch_decides_once_per_structure(
     from goldilocks_ml.inference import load_model
 
     directory = saved_model(tmp_path)
-    backbone = tmp_path / "mmace-matpes-pbe-pretrained.model"
+    backbone = tmp_path / "backbone.model"
     model = load_model(directory, artifacts={"mace_backbone": backbone})
 
     predictions = model.predict_batch([a_structure(), a_structure()])
@@ -277,7 +296,7 @@ def test_pending_validation_status_is_surfaced_as_a_warning(
         "external_validation_note": "MP-ALOE external validation not yet run.",
     }
     (directory / "model.json").write_text(json.dumps(record), encoding="utf-8")
-    backbone = tmp_path / "mmace-matpes-pbe-pretrained.model"
+    backbone = tmp_path / "backbone.model"
 
     model = load_model(directory, artifacts={"mace_backbone": backbone})
     prediction = model.predict(a_structure())
@@ -317,6 +336,75 @@ def test_the_backbone_artifact_must_be_supplied(
 
     with pytest.raises(ValueError, match="needs artifact"):
         load_model(directory, artifacts={})
+
+
+def test_a_backbone_beside_the_record_is_found_and_checked(
+    tmp_path: Path, stub_embedding: None
+) -> None:
+    from goldilocks_ml.inference import load_model
+
+    directory = saved_model(tmp_path)
+    (tmp_path / "backbone.model").rename(directory / "backbone.model")
+
+    prediction = load_model(directory).predict(a_structure())
+
+    assert isinstance(prediction.value, bool)
+
+
+def test_a_substituted_backbone_is_refused_before_it_is_unpickled(
+    tmp_path: Path, stub_embedding: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """goldilocks-ml#119: the backbone is a pickle, so check it first."""
+    from goldilocks_ml.inference import load_model
+    from goldilocks_ml.models.magnetism import _mace_backbone
+
+    unpickled: list[Path] = []
+    monkeypatch.setattr(
+        _mace_backbone, "safe_load", lambda path, *a: unpickled.append(path)
+    )
+    directory = saved_model(tmp_path)
+    backbone = tmp_path / "backbone.model"
+    backbone.write_bytes(b"a different file")
+
+    with pytest.raises(ValueError, match="its record pins"):
+        load_model(directory, artifacts={"mace_backbone": backbone})
+    assert unpickled == []
+
+
+def test_a_record_that_pins_no_backbone_is_refused(
+    tmp_path: Path, stub_embedding: None
+) -> None:
+    from goldilocks_ml.inference import load_model
+
+    directory = saved_model(tmp_path, pin_backbone=False)
+    backbone = fake_backbone(tmp_path)
+
+    with pytest.raises(ValueError, match="does not pin a SHA-256 for backbone.model"):
+        load_model(directory, artifacts={"mace_backbone": backbone})
+
+
+def test_a_backbone_in_requires_artifacts_is_checked_there(
+    tmp_path: Path, stub_embedding: None
+) -> None:
+    """A trained record pins its backbone as a dependency, not in artifacts."""
+    from goldilocks_ml.inference import load_model
+
+    backbone = fake_backbone(tmp_path)
+    pin = {
+        "name": "mace_backbone",
+        "record_id": "abcde-12345",
+        "file": backbone.name,
+        "sha256": sha256_file(backbone),
+    }
+    directory = saved_model(tmp_path, pin_backbone=False, requires_artifacts=(pin,))
+    beside = directory / backbone.name
+    beside.write_bytes(backbone.read_bytes())
+
+    assert isinstance(load_model(directory).predict(a_structure()).value, bool)
+
+    beside.write_bytes(b"a different file")
+    with pytest.raises(ValueError, match="the protocol pins"):
+        load_model(directory)
 
 
 def test_a_classifier_loaded_under_a_float64_default_stays_float32(

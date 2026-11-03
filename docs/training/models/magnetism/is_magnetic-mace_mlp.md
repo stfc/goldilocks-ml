@@ -23,14 +23,16 @@ CC-BY-4.0 by the training collaborator.
 ```python
 from goldilocks_ml.inference import load_model
 
-model = load_model(
-    "path/to/the/record",
-    artifacts={"mace_backbone": "path/to/the/record/mmace-matpes-pbe-pretrained.model"},
-)
+model = load_model("path/to/the/record")
 prediction = model.predict(structure)
 
 prediction.value  # True for a spin-polarised ground state
 ```
+
+The backbone, `mmace-matpes-pbe-pretrained.model`, ships in the same record.
+`load_model` finds it beside `model.json` and checks its SHA-256 before
+loading it, since loading it runs pickle code. To use a copy stored elsewhere,
+pass `artifacts={"mace_backbone": path}`; it is checked the same way.
 
 The decision threshold lives in the record and is applied for you. It is
 **0.324, not 0.5**.

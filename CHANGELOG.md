@@ -10,6 +10,16 @@
   torch 2.13's default wheels use CUDA 13, so GPU use needs an NVIDIA driver
   that supports it (R580 or later); with an older driver torch runs on CPU.
 
+### Fixed
+
+- `load_model` unpickled the `is_magnetic` backbone without checking it
+  against the SHA-256 its record pins (`artifacts.backbone_sha256`), so a
+  truncated download or the v1.0 backbone loaded as readily as the right
+  file. It is now checked before anything loads it, and a record that pins
+  no digest for it is refused. `load_model(record)` also finds the backbone
+  beside `model.json` without `artifacts=`. See
+  [goldilocks-ml#119](https://github.com/stfc/goldilocks-ml/issues/119).
+
 ## [0.3.1](https://github.com/stfc/goldilocks-ml/releases/tag/v0.3.1) — 2026-11-03
 
 ### Changed
