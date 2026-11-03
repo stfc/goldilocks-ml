@@ -4,6 +4,11 @@
 
 ## [0.3.1](https://github.com/stfc/goldilocks-ml/releases/tag/v0.3.1) — 2026-11-03
 
+### Changed
+
+- `numpy` is pinned to 2.5.4 (was 2.5.2). scikit-learn and pymatgen stay at
+  the versions the published forests were built with.
+
 ### Fixed
 
 - `fm_fim_relax.relax` accepted moments where the backbone's energy surface
