@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.2](https://github.com/stfc/goldilocks-ml/releases/tag/v0.3.2) — 2026-11-03
+
 ### Changed
 
 - `torch` is pinned to 2.13.0 (was 2.10.0). On CPU the published models'
