@@ -138,9 +138,13 @@ def _validate_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
         role = contributor.get("role")
         if not isinstance(role, dict) or not isinstance(role.get("id"), str):
             raise ValueError("each contributor must have a role id")
-        affiliations = contributor.get("affiliations")
+        # PSDI accepts a contributor with no affiliations; the
+        # is_magnetic record lists its external researcher that way.
+        if "affiliations" not in contributor:
+            continue
+        affiliations = contributor["affiliations"]
         if not isinstance(affiliations, list) or not affiliations:
-            raise ValueError("each contributor must have affiliations")
+            raise ValueError("contributor affiliations must be a non-empty list")
         if any(
             not isinstance(affiliation, dict)
             or not isinstance(affiliation.get("name"), str)
