@@ -6,14 +6,10 @@ module takes a ``pymatgen.core.structure.Structure`` directly rather than
 leaving every caller to build its own ASE ``Atoms``, so the feature contract,
 the predictor, and any future consumer of this embedding all see one seam.
 
-Needs ``mace``, ``e3nn``, ``sphericart`` and ``ase`` -- none of which install
-via a `pip`-able extra of this package (see "Use the is_magnetic classifier"
-in README.md for the manual steps; ``mace`` specifically is a research
-collaborator's fork with no PyPI release at all). Nothing at import time of
-*this* file touches those packages -- only calling :func:`embed_structures`
-does, so importing this module to read its docstring or constants never
-requires them, and a missing one raises a message naming the manual install
-steps rather than a bare ``ModuleNotFoundError`` here.
+Runs on ``mace-torch[magnetic]``, a dependency of this package. Nothing at
+import time of *this* file touches mace -- only calling
+:func:`embed_structures` does, so importing this module to read its constants
+stays cheap.
 
 The probe is deliberately uninformative: every call runs the backbone once at
 an all-zero magnetic moment, with SCF relaxation switched off (this is a
@@ -41,6 +37,10 @@ if TYPE_CHECKING:
 # three ways (mean, max, population std) over the atoms in the structure.
 EMBEDDING_WIDTH = 384
 
+# The `Atoms.arrays` key both this module and fm_fim_relax put the input
+# moments under, passed to `MagneticMACECalculator` as its `magmom_key`.
+MAGMOM_KEY = "dft_magmom"
+
 # Serializes every operation in this module that touches process-wide global
 # state or the shared cached `MACEEmbedder` instance: `_default_dtype_float64`
 # (three callers -- this module's calculator construction and embed step,
@@ -62,11 +62,13 @@ def _default_dtype_float64() -> Iterator[None]:
     """Run a block with torch's global default dtype set to float64.
 
     The backbone needs float64 for numerical stability (its checkpoint was
-    trained that way), but ``torch.set_default_dtype`` is process-wide with
-    no scoping of its own -- unlike ``safe_load``'s own ``torch.jit.load``
-    monkeypatch below, ``MagneticMACECalculator(default_dtype="float64")``
-    sets it and leaves it set. Wrap only mace's own construction and calls
-    in this block, so that setting never outlives them.
+    trained that way), but ``torch.set_default_dtype`` is process-wide.
+    ``MagneticMACECalculator`` sets float64 around its forward pass only, with
+    a save and restore that takes no lock: it collects results into tensors
+    built at whatever the default is outside that scope (float32 energies,
+    otherwise), and two threads running mace at once can restore each other's
+    value. Wrap mace's construction and calls in this block, so they run in
+    float64 and one at a time under ``_mace_lock``.
 
     It does not protect other models. ``_mace_lock`` serializes mace callers
     only, so while one thread is inside this block every other thread in the
@@ -152,7 +154,7 @@ class MACEEmbedder:
 
         atoms = atoms.copy()
         moments = np.zeros((len(atoms), 3), dtype=float)
-        atoms.arrays["dft_magmom"] = moments
+        atoms.arrays[MAGMOM_KEY] = moments
 
         with _mace_lock:
             self._buffer.clear()
@@ -188,14 +190,8 @@ class MACEEmbedder:
 def load_embedder(checkpoint: Path, device: str = "cpu") -> MACEEmbedder:
     """Load the frozen backbone once per checkpoint path and device."""
     import torch
-
-    try:
-        from mace.calculators.mace import MagneticMACECalculator
-        from mace.modules import MagneticSCFMACE
-    except ModuleNotFoundError as error:
-        from goldilocks_ml.registry import MAGNETISM_INSTALL_HINT
-
-        raise ValueError(f"is_magnetic needs mace; {MAGNETISM_INSTALL_HINT}") from error
+    from mace.calculators.mace import MagneticMACECalculator
+    from mace.modules import MagneticSCFMACE
 
     torch.serialization.add_safe_globals([slice])
     raw_model = safe_load(Path(checkpoint), device)
@@ -206,7 +202,10 @@ def load_embedder(checkpoint: Path, device: str = "cpu") -> MACEEmbedder:
     )
     with _default_dtype_float64():
         calculator = MagneticMACECalculator(
-            models=[one_step_model], device=device, default_dtype="float64"
+            models=[one_step_model],
+            device=device,
+            default_dtype="float64",
+            magmom_key=MAGMOM_KEY,
         )
     return MACEEmbedder(raw_model, calculator)
 

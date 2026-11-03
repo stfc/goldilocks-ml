@@ -10,9 +10,9 @@ record here: the frozen mMACE backbone `is_magnetic/mace_mlp` depends on is
 bundled directly into that same record rather than published on its own, so
 one PSDI upload contains both.
 
-**Published, but not a default model.** [1g8rw-q8128](https://data-collections.psdi.ac.uk/records/1g8rw-q8128).
+**Published, but not a default model.** [sgk1t-48m42](https://data-collections.psdi.ac.uk/records/sgk1t-48m42).
 External validation on MP-ALOE has not been run -- see
-`is_magnetic/mace_mlp/VENDORING_TODO.md`. `ordering` and `magnetic_moments`
+`is_magnetic/mace_mlp/README.md`. `ordering` and `magnetic_moments`
 are not here at all: no model backs either of them yet, and adding a
 directory with nothing loadable in it would be a promise this build cannot
 keep.

@@ -1,11 +1,8 @@
 """Tests for the ``is_magnetic`` classifier and its embedding feature contract.
 
-Deliberately mace-free except for one skip-guarded end-to-end test: every
-other test here monkeypatches the embedding step, mirroring
-``tests/test_inference.py``'s ``stub_features`` fixture for QRF95. The
-``mace``/``e3nn``/``sphericart`` stack has no installable extra of its own
-(see "Use the is_magnetic classifier" in README.md), and this suite must
-pass without it installed.
+Backbone-free except for one skip-guarded end-to-end test: every other test
+here monkeypatches the embedding step, mirroring ``tests/test_inference.py``'s
+``stub_features`` fixture for QRF95. The ~80 MB backbone is not present in CI.
 """
 
 from __future__ import annotations
@@ -235,7 +232,7 @@ def test_a_served_classifier_decides_rather_than_scoring(
     from goldilocks_ml.inference import load_model
 
     directory = saved_model(tmp_path)
-    backbone = tmp_path / "mace_matpes_pbe_baseline_run-3.model"
+    backbone = tmp_path / "mmace-matpes-pbe-pretrained.model"
 
     model = load_model(directory, artifacts={"mace_backbone": backbone})
     prediction = model.predict(a_structure())
@@ -257,7 +254,7 @@ def test_a_batch_decides_once_per_structure(
     from goldilocks_ml.inference import load_model
 
     directory = saved_model(tmp_path)
-    backbone = tmp_path / "mace_matpes_pbe_baseline_run-3.model"
+    backbone = tmp_path / "mmace-matpes-pbe-pretrained.model"
     model = load_model(directory, artifacts={"mace_backbone": backbone})
 
     predictions = model.predict_batch([a_structure(), a_structure()])
@@ -280,7 +277,7 @@ def test_pending_validation_status_is_surfaced_as_a_warning(
         "external_validation_note": "MP-ALOE external validation not yet run.",
     }
     (directory / "model.json").write_text(json.dumps(record), encoding="utf-8")
-    backbone = tmp_path / "mace_matpes_pbe_baseline_run-3.model"
+    backbone = tmp_path / "mmace-matpes-pbe-pretrained.model"
 
     model = load_model(directory, artifacts={"mace_backbone": backbone})
     prediction = model.predict(a_structure())
@@ -364,21 +361,14 @@ def test_reordered_feature_columns_are_refused(
 def test_the_real_backbone_end_to_end(tmp_path: Path) -> None:
     """A coarse sanity check against the real checkpoint, when it is present.
 
-    Never runs in CI: the ~80 MB backbone is undistributed (see
-    deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md), and mace/
-    e3nn/sphericart -- manual installs, see README.md -- are not installed
-    there.
+    Never runs in CI: the ~80 MB backbone is downloaded from PSDI record
+    sgk1t-48m42, not committed.
     """
     checkpoint = Path(
-        "local_data/artifacts/UNPUBLISHED-PENDING-LICENCE/"
-        "mace_matpes_pbe_baseline_run-3.model"
+        "local_data/artifacts/sgk1t-48m42/mmace-matpes-pbe-pretrained.model"
     )
     if not checkpoint.is_file():
         pytest.skip("the mMACE backbone checkpoint is not present locally")
-    try:
-        import mace  # noqa: F401
-    except ImportError:
-        pytest.skip("mace is not installed")
 
     from goldilocks_ml.models.magnetism._mace_backbone import embed_structures
 

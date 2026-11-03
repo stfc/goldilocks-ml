@@ -23,12 +23,9 @@ input files.
 pip install goldilocks-ml
 ```
 
-That installs everything, including PyTorch, pymatgen and the rest of the
-scientific stack the real models need -- there's no separate extra to
+That installs everything, including PyTorch, pymatgen, mace and the rest of
+the scientific stack the real models need -- there's no separate extra to
 remember.
-
-`is_magnetic` needs one more, manual step on top of that -- see [Use the
-is_magnetic classifier](#use-the-is_magnetic-classifier) below.
 
 ## Use a published model
 
@@ -48,7 +45,7 @@ prediction.quantity  # 'k_distance'
 | k-index forest | which mesh on the ladder a crystal needs | [4050a-aas85](https://data-collections.psdi.ac.uk/records/4050a-aas85) |
 | CGCNN metallicity classifier | metal or insulator | [ba06w-n6a68](https://data-collections.psdi.ac.uk/records/ba06w-n6a68) |
 | CGCNN representation | 64 numbers describing a crystal | [m742g-g0k14](https://data-collections.psdi.ac.uk/records/m742g-g0k14) |
-| is_magnetic | whether a structure's DFT ground state is spin-polarised | [1g8rw-q8128](https://data-collections.psdi.ac.uk/records/1g8rw-q8128) |
+| is_magnetic | whether a structure's DFT ground state is spin-polarised | [sgk1t-48m42](https://data-collections.psdi.ac.uk/records/sgk1t-48m42) |
 
 The CGCNN representation record is a feature extractor for QRF95's own feature
 pipeline, not something you call `load_model(...).predict(...)` on directly --
@@ -58,27 +55,17 @@ page](https://stfc.github.io/goldilocks-ml/training/models/metallicity/represent
 
 ### Use the is_magnetic classifier
 
-`is_magnetic` reads a frozen mMACE backbone's embedding, which needs `mace`
-on top of the install above -- and there is no extra for this one:
+`is_magnetic` reads the embedding of a frozen mMACE backbone that ships in the
+same record. Pass the backbone file when you load it:
 
-```bash
-uv sync
-uv pip install ase==3.28.0 e3nn==0.4.4 sphericart==1.0.9 sphericart-torch==1.0.9
-uv pip install "mace-torch @ git+https://github.com/CheukHinHoJerry/mace.git@19cdf6692c48e068a24e06cfe1ffc670e8aea3dd"
+```python
+model = load_model(
+    "path/to/sgk1t-48m42",
+    artifacts={
+        "mace_backbone": "path/to/sgk1t-48m42/mmace-matpes-pbe-pretrained.model"
+    },
+)
 ```
-
-That `mace-torch` is a research collaborator's fork, not the upstream
-package of the same name on PyPI (`ACEsuit/mace`). The backbone was trained
-against an earlier commit on the same branch (`ac8ff4764122ced0d57198fe2f9ba170c9fcd16d`);
-this later commit is pinned instead because it also implements the collinear
-moment relaxation the magnetic-ordering-ranking feature needs, and is
-confirmed to produce bit-identical classifier embeddings to the training
-commit on real structures -- see item 2 of the file below for the full
-verification. A package published to PyPI cannot declare a direct git
-dependency in its own metadata, so this can't become a normal extra; it has
-to stay a manual step. See
-[`deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md`](deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md)
-for the full story.
 
 ## Train one
 

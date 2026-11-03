@@ -8,9 +8,9 @@
       "sha256": "b575832a9bfdc2a089d81704a09e0578e2ace62f720fc72c2092f845bcd23d2b"
     },
     {
-      "name": "mace_matpes_pbe_baseline_run-3.model",
-      "size_bytes": 84430851,
-      "sha256": "bdf6b8ccad5585eefd49ef5bcc4d8fab260abc04626ec4940d49a3dea310acb6"
+      "name": "mmace-matpes-pbe-pretrained.model",
+      "size_bytes": 84437213,
+      "sha256": "fb43d7aadc63cbfbd00550a17e109553b6c051d6d6f4ab6ebd741849d92dc8bf"
     }
   ],
   "inference_requirements": {
@@ -20,8 +20,11 @@
     "target_contract": "goldilocks.is_magnetic.dft_max_site_magmom_0p5ub.v1",
     "decision_threshold": 0.323869526386261,
     "requires": [
-      "The mace fork's architecture classes must be importable at their original module paths to unpickle mace_matpes_pbe_baseline_run-3.model. Pinned commit: CheukHinHoJerry/mace @ 19cdf6692c48e068a24e06cfe1ffc670e8aea3dd (a later commit on the same branch than the one that trained the checkpoint, ac8ff4764122ced0d57198fe2f9ba170c9fcd16d; confirmed to produce bit-identical classifier embeddings on real structures, and required for the magnetic-ordering-ranking feature's collinear moment relaxation). There is no pip extra for this -- PyPI's own upload validation rejects a direct git dependency, and 'mace-torch' as a PyPI project name is already taken by upstream ACEsuit/mace -- see 'Use the is_magnetic classifier' in README.md for the manual install."
+      "mace-torch[magnetic] to unpickle mmace-matpes-pbe-pretrained.model; goldilocks-ml installs it"
     ],
-    "torch": "2.10.0"
+    "torch": "2.10.0",
+    "mace_torch": "0.3.17",
+    "sphericart_torch": "2.0.4",
+    "e3nn": "0.4.4"
   }
 }

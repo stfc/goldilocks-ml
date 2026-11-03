@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
+### Changed
+
+- `is_magnetic` and `fm_fim_relax` run on `mace-torch[magnetic]==0.3.17` from
+  PyPI, which `goldilocks-ml` now installs. The manual install of the
+  `CheukHinHoJerry/mace` fork, `sphericart==1.0.9` and
+  `sphericart-torch==1.0.9` is gone.
+- **Breaking:** v2.0 of the `is_magnetic` PSDI record
+  ([sgk1t-48m42](https://data-collections.psdi.ac.uk/records/sgk1t-48m42);
+  v1.0 is `1g8rw-q8128`) replaces the backbone with
+  `mmace-matpes-pbe-pretrained.model`: the same weights, re-exported by the
+  training collaborator for upstream mace and converted for sphericart-torch
+  2. v1.0's `mace_matpes_pbe_baseline_run-3.model` does not load with this
+  release; download v2.0. `is_magnetic` embeddings and scores are
+  bit-identical to v1.0's on 13,156 MatPES structures. `relax()` gives the same
+  result on 20 of 21 structures: mace 0.3.17 caps a moment above the element's
+  `m_max`, so a relaxation whose line search strays past `m_max` can end
+  elsewhere. See `deposits/magnetism/is_magnetic/mace_mlp/PARITY.md` and
+  [goldilocks-ml#117](https://github.com/stfc/goldilocks-ml/issues/117).
+- Dependabot no longer ignores `torch`. The `<2.12` cap came from
+  `sphericart-torch` 1.0.9, which is no longer installed.
+
+### Removed
+
+- `goldilocks_ml.registry.MAGNETISM_INSTALL_HINT`. A missing mace now raises
+  a plain `ModuleNotFoundError`, since it is an ordinary dependency.
+
 ### Fixed
+
+- The `is_magnetic` model card and docs page called `load_model` without the
+  backbone, which raises `ValueError`. Both now pass it as
+  `artifacts={"mace_backbone": ...}`.
 
 - The float32 models (the `is_metal` classifier, the CGCNN embedding in
   `k_distance`'s features, and the `is_magnetic` head) took their dtype from

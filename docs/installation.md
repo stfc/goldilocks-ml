@@ -4,27 +4,10 @@
 pip install goldilocks-ml
 ```
 
-That installs everything, including PyTorch, pymatgen and the rest of the
-scientific stack the real models need. It's enough to [use a published
-model](inference.md) and to train with the built-in reference trainers or
-the real ones.
-
-### The is_magnetic classifier needs one more, manual step
-
-`is_magnetic` reads a frozen mMACE backbone's embedding, which needs `mace`
-on top of the install above. There is no extra for it: the `mace-torch` this
-needs is a research collaborator's fork (`CheukHinHoJerry/mace`, not the
-upstream `ACEsuit/mace` package of the same name on PyPI), which has no PyPI
-release at all -- and a package published to PyPI cannot declare a direct
-git dependency in its own metadata regardless. Install it by hand:
-
-```bash
-pip install ase==3.28.0 e3nn==0.4.4 sphericart==1.0.9 sphericart-torch==1.0.9
-pip install "mace-torch @ git+https://github.com/CheukHinHoJerry/mace.git@19cdf6692c48e068a24e06cfe1ffc670e8aea3dd"
-```
-
-See `deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md` in the
-repository for the full story on that pinned commit.
+That installs everything, including PyTorch, pymatgen, mace and the rest of
+the scientific stack the real models need. It's enough to [use a published
+model](inference.md), `is_magnetic` included, and to train with the built-in
+reference trainers or the real ones.
 
 ## Check it worked
 

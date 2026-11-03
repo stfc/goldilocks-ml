@@ -166,32 +166,13 @@ _BUILTIN_FEATURES = {
     "crystal_graph.v1": f"{_CGCNN}.graphs",
     "mace_probe_embedding.v1": f"{_MAGNETIC_MLP}.features",
 }
-# No installable extra covers these: `ase`/`e3nn`/`sphericart`/
-# `sphericart_torch` only ever exist here for is_magnetic's mace backbone
-# (everything else this package needs is an unconditional dependency), and
-# `mace` itself has no PyPI release at all (a research collaborator's fork --
-# see `deposits/magnetism/is_magnetic/mace_mlp/VENDORING_TODO.md`). A missing
-# one of these means "follow the manual install steps", not "run uv sync".
-_MAGNETISM_DEPENDENCIES = {"ase", "e3nn", "mace", "sphericart", "sphericart_torch"}
-MAGNETISM_INSTALL_HINT = (
-    "see 'Use the is_magnetic classifier' in README.md for the manual "
-    "install steps (the mace fork it depends on has no PyPI release)"
-)
 
 
 def _load_builtin(name: str, modules: Mapping[str, str]) -> None:
     module = modules.get(name)
     if module is None:
         return
-    try:
-        import_module(module)
-    except ModuleNotFoundError as error:
-        missing = (error.name or "").split(".")[0]
-        if missing in _MAGNETISM_DEPENDENCIES:
-            raise ValueError(
-                f"{name!r} needs {missing}; {MAGNETISM_INSTALL_HINT}"
-            ) from error
-        raise
+    import_module(module)
 
 
 def register_trainer(name: str, trainer: Trainer) -> None:

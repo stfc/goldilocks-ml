@@ -10,8 +10,8 @@
   "artifacts": {
     "estimator": "is_magnetic.pt",
     "estimator_sha256": "b575832a9bfdc2a089d81704a09e0578e2ace62f720fc72c2092f845bcd23d2b",
-    "backbone": "mace_matpes_pbe_baseline_run-3.model",
-    "backbone_sha256": "bdf6b8ccad5585eefd49ef5bcc4d8fab260abc04626ec4940d49a3dea310acb6"
+    "backbone": "mmace-matpes-pbe-pretrained.model",
+    "backbone_sha256": "fb43d7aadc63cbfbd00550a17e109553b6c051d6d6f4ab6ebd741849d92dc8bf"
   },
   "classes": {
     "negative": "non_magnetic",
@@ -467,7 +467,7 @@
     }
   },
   "validation_status": {
-    "backbone_licence_note": "The mace_matpes_pbe_baseline_run-3.model backbone this depends on is licensed CC-BY-4.0 by the training collaborator (CheukHinHoJerry), which also covers this classifier as a derivative.",
+    "backbone_licence_note": "The mmace-matpes-pbe-pretrained.model backbone this depends on is licensed CC-BY-4.0 by the training collaborator (CheukHinHoJerry), which also covers this classifier as a derivative.",
     "backbone_licence_status": "confirmed",
     "external_validation": "pending",
     "external_validation_note": "MP-ALOE external validation has not been run. The metrics in training.test_metrics are an in-distribution MatPES PBE test split only. Do not treat this release as is_default until MP-ALOE validation is recorded here."

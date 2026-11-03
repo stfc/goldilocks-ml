@@ -163,6 +163,22 @@ def test_load_deposition_preserves_valid_contributors(tmp_path: Path) -> None:
     assert deposition.metadata["metadata"]["contributors"] == [_valid_contributor()]
 
 
+def test_load_deposition_accepts_a_contributor_without_affiliations(
+    tmp_path: Path,
+) -> None:
+    directory, artifacts = _write_deposition(tmp_path)
+    metadata_path = directory / "metadata.json"
+    metadata = json.loads(metadata_path.read_text())
+    contributor = _valid_contributor()
+    del contributor["affiliations"]
+    metadata["metadata"]["contributors"] = [contributor]
+    metadata_path.write_text(json.dumps(metadata))
+
+    deposition = load_deposition(directory, artifacts)
+
+    assert deposition.metadata["metadata"]["contributors"] == [contributor]
+
+
 @pytest.mark.parametrize(
     ("contributors", "message"),
     [
