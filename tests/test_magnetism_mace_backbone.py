@@ -1,9 +1,9 @@
 """Tests for the shared mace-backbone loading machinery.
 
-Backbone-free: importing ``_mace_backbone`` never touches mace, only calling
-its loading functions does (see the module's own docstring), so this
-exercises ``_default_dtype_float64`` and the lock directly, without the
-checkpoint.
+The lock tests use fakes. The forward-pass tests run on a small magnetic MACE
+with random weights, built from the released backbone's interaction blocks,
+so they need no checkpoint; they also run on the released backbone when it is
+present locally.
 """
 
 from __future__ import annotations
@@ -11,15 +11,29 @@ from __future__ import annotations
 import threading
 import time
 from pathlib import Path
+from typing import Any
 
+import numpy as np
 import pytest
 import torch
+from pymatgen.core import Lattice, Structure
+from pymatgen.io.ase import AseAtomsAdaptor
 
+from goldilocks_ml.models.magnetism import _mace_backbone
 from goldilocks_ml.models.magnetism._mace_backbone import (
+    MAGMOM_KEY,
     MACEEmbedder,
     _default_dtype_float64,
     _mace_lock,
+    _zero_moment_forward,
     safe_load,
+)
+from goldilocks_ml.models.magnetism.magnetic_moments.fm_fim_relax.relax import (
+    _zero_moment_energy,
+)
+
+RELEASED_BACKBONE = Path(
+    "local_data/artifacts/sgk1t-48m42/mmace-matpes-pbe-pretrained.model"
 )
 
 
@@ -108,9 +122,9 @@ def test_safe_load_serializes_the_jit_load_monkeypatch(
 
 
 class _FakeProductLayer:
-    """Stands in for ``raw_model.products[-1]``: a real ``nn.Module`` forward
-    hook registered on the object every ``embed()`` call shares, since
-    ``load_embedder`` caches one ``MACEEmbedder`` per checkpoint."""
+    """Stands in for ``raw_model.products[-1]``: the module every ``embed()``
+    call hooks, shared because ``load_embedder`` caches one ``MACEEmbedder``
+    per checkpoint."""
 
     def __init__(self) -> None:
         self._hooks: list[list[object]] = []
@@ -132,85 +146,74 @@ class _FakeProductLayer:
 
 
 class _FakeAtoms:
-    """Stands in for an ASE ``Atoms`` + calculator pair, with a controllable
-    delay so two ``embed()`` calls can be forced to overlap in time."""
+    """Stands in for an ASE ``Atoms``: the value the fake forward pass emits,
+    and how long it takes, so two ``embed()`` calls can be forced to overlap."""
 
-    def __init__(self, layer: _FakeProductLayer, value: float, delay: float) -> None:
-        self.layer = layer
+    def __init__(self, value: float, delay: float) -> None:
         self.value = value
         self.delay = delay
-        self.arrays: dict[str, object] = {}
-        self.calc: object = None
-
-    def __len__(self) -> int:
-        return 2
-
-    def copy(self) -> _FakeAtoms:
-        return self
-
-    def get_potential_energy(self) -> float:
-        time.sleep(self.delay)
-        self.layer.fire((torch.full((2, 8), self.value),))
-        return 0.0
 
 
-def test_embed_holds_the_lock_for_its_whole_body() -> None:
-    """Regression test for a race far worse than a crash: two ``embed()``
-    calls sharing the same cached ``MACEEmbedder`` instance (as
-    ``load_embedder``'s cache does for every real caller) could silently
-    return *each other's* embeddings with no error at all, if the shared
-    hook/buffer were only locked around the inference step rather than the
-    whole method -- one thread's stale, not-yet-removed hook could fire
-    during another thread's forward pass and overwrite the shared buffer
-    before the first thread read it back. A timing-based repro of that exact
-    interleaving is inherently flaky (the vulnerable window is a few
-    Python statements wide, not something a ``time.sleep`` mismatch reliably
-    hits); what actually matters, and what this asserts directly, is that
-    ``embed()`` cannot make *any* progress -- not even clearing the shared
-    buffer -- until it holds ``_mace_lock``, by holding the lock externally
-    and confirming a concurrent call blocks before touching shared state.
+def _fake_forward(layer: _FakeProductLayer, calls: list[_FakeAtoms]) -> Any:
+    def forward(atoms: _FakeAtoms, raw_model: object, device: str) -> dict:
+        calls.append(atoms)
+        time.sleep(atoms.delay)
+        layer.fire((torch.full((2, 8), atoms.value),))
+        return {}
+
+    return forward
+
+
+def test_embed_holds_the_lock_for_its_whole_body(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression test for goldilocks-ml#100: two ``embed()`` calls sharing
+    the cached ``MACEEmbedder`` could silently return each other's
+    embeddings when only the forward pass was locked, because one thread's
+    not-yet-removed hook could fire during the other's forward pass. A
+    timing-based repro is flaky; this asserts directly that ``embed()``
+    neither registers its hook nor runs the forward pass until it holds
+    ``_mace_lock``.
     """
     layer = _FakeProductLayer()
     raw_model = type("RawModel", (), {"products": [None, layer]})()
-
-    class FakeCalculator:
-        def reset(self) -> None:
-            pass
-
-    embedder = MACEEmbedder(raw_model, FakeCalculator())
-    embedder._buffer["sentinel"] = "untouched"
+    calls: list[_FakeAtoms] = []
+    monkeypatch.setattr(
+        _mace_backbone, "_zero_moment_forward", _fake_forward(layer, calls)
+    )
+    embedder = MACEEmbedder(raw_model)
 
     with _mace_lock:
-        thread = threading.Thread(
-            target=embedder.embed, args=(_FakeAtoms(layer, 1.0, 0.0),)
-        )
+        thread = threading.Thread(target=embedder.embed, args=(_FakeAtoms(1.0, 0.0),))
         thread.start()
         thread.join(timeout=0.2)
         still_blocked = thread.is_alive()
-        buffer_untouched = embedder._buffer.get("sentinel") == "untouched"
+        untouched = not layer._hooks and not calls
 
     thread.join(timeout=1.0)
     assert still_blocked, "embed() made progress without holding _mace_lock"
-    assert buffer_untouched
+    assert untouched
+    assert len(calls) == 1
+    assert not layer._hooks, "embed() left its hook on the shared layer"
 
 
-def test_embed_produces_correct_results_under_concurrent_load() -> None:
-    """Sanity check that the lock above doesn't just block, it still lets
-    concurrent callers each get their own correct result once serialized."""
+def test_embed_produces_correct_results_under_concurrent_load(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Concurrent callers of one cached ``MACEEmbedder`` each get their own
+    features, the slower one included."""
     layer = _FakeProductLayer()
     raw_model = type("RawModel", (), {"products": [None, layer]})()
-
-    class FakeCalculator:
-        def reset(self) -> None:
-            pass
-
-    embedder = MACEEmbedder(raw_model, FakeCalculator())
+    monkeypatch.setattr(
+        _mace_backbone, "_zero_moment_forward", _fake_forward(layer, [])
+    )
+    embedder = MACEEmbedder(raw_model)
     results: dict[str, object] = {}
     started = threading.Barrier(2)
 
     def run(name: str, value: float, delay: float) -> None:
         started.wait()
-        results[name] = embedder.embed(_FakeAtoms(layer, value, delay))
+        results[name] = embedder.embed(_FakeAtoms(value, delay))
 
     a = threading.Thread(target=run, args=("A", 1.0, 0.2))
     b = threading.Thread(target=run, args=("B", 2.0, 0.05))
@@ -221,3 +224,161 @@ def test_embed_produces_correct_results_under_concurrent_load() -> None:
 
     assert results["A"][0] == pytest.approx(1.0)  # type: ignore[index]
     assert results["B"][0] == pytest.approx(2.0)  # type: ignore[index]
+
+
+def _tiny_backbone() -> torch.nn.Module:
+    """A two-layer magnetic MACE with random weights, built from the released
+    backbone's interaction blocks, for the elements of ``FIXTURES``."""
+    torch.serialization.add_safe_globals([slice])  # e3nn unpickles one on import
+    from e3nn import o3
+    from mace import modules
+
+    numbers = [8, 11, 17, 26, 27, 28]  # O Na Cl Fe Co Ni
+    torch.manual_seed(140)
+    with _default_dtype_float64():
+        return modules.MagneticScaleShiftMACE(
+            r_max=4.5,
+            num_bessel=4,
+            num_polynomial_cutoff=5,
+            max_ell=2,
+            m_max=[0.5, 0.5, 0.5, 3.0, 2.0, 1.5],
+            num_mag_radial_basis=4,
+            max_m_ell=1,
+            interaction_cls=modules.interaction_classes[
+                "MagneticRealAgnosticResidueSpinOrbitCoupledDensityInteractionBlock"
+            ],
+            interaction_cls_first=modules.interaction_classes[
+                "MagneticRealAgnosticSpinOrbitCoupledDensityInteractionBlock"
+            ],
+            num_interactions=2,
+            num_elements=len(numbers),
+            hidden_irreps=o3.Irreps("8x0e + 8x1o"),
+            MLP_irreps=o3.Irreps("8x0e"),
+            atomic_energies=np.zeros(len(numbers)),
+            avg_num_neighbors=10.0,
+            atomic_numbers=numbers,
+            correlation=2,
+            gate=torch.nn.functional.silu,
+            atomic_inter_scale=1.0,
+            atomic_inter_shift=0.0,
+            pair_repulsion=True,
+            distance_transform="Agnesi",
+        )
+
+
+@pytest.fixture(scope="module", params=["tiny", "released"])
+def backbone(request: pytest.FixtureRequest) -> torch.nn.Module:
+    if request.param == "tiny":
+        return _tiny_backbone()
+    if not RELEASED_BACKBONE.is_file():
+        pytest.skip("the mMACE backbone checkpoint is not present locally")
+    torch.serialization.add_safe_globals([slice])
+    return safe_load(RELEASED_BACKBONE)
+
+
+_BCC_FE = Structure(Lattice.cubic(2.87), ["Fe", "Fe"], [[0, 0, 0], [0.5, 0.5, 0.5]])
+FIXTURES = {
+    "bcc-Fe": _BCC_FE,
+    "bcc-Fe-54-atoms": _BCC_FE * (3, 3, 3),
+    "rocksalt-NaCl-primitive": Structure(
+        Lattice.from_parameters(3.99, 3.99, 3.99, 60, 60, 60),
+        ["Na", "Cl"],
+        [[0, 0, 0], [0.5, 0.5, 0.5]],
+    ),
+    "hcp-Co": Structure(
+        Lattice.hexagonal(2.507, 4.07),
+        ["Co", "Co"],
+        [[1 / 3, 2 / 3, 0.25], [2 / 3, 1 / 3, 0.75]],
+    ),
+    "triclinic-NiO": Structure(
+        Lattice.from_parameters(4.1, 4.4, 5.3, 81.0, 97.0, 104.0),
+        ["Ni", "Ni", "O", "O"],
+        [[0, 0, 0], [0.5, 0.5, 0.1], [0.27, 0.31, 0.44], [0.71, 0.64, 0.58]],
+    ),
+}
+
+
+def _calculator_path(raw_model: Any, atoms: Any) -> tuple[np.ndarray, float]:
+    """goldilocks-ml 0.3.2's embedding and zero-moment energy: the same hook
+    and pooling, with the forward pass run by ``MagneticMACECalculator``."""
+    from mace.calculators.mace import MagneticMACECalculator
+    from mace.modules import MagneticSCFMACE
+
+    one_step_model = MagneticSCFMACE(
+        raw_model, n_scf_step=1, use_scf=False, scf_tol=1e-4, scf_logging=False
+    )
+    with _default_dtype_float64():
+        calculator = MagneticMACECalculator(
+            models=[one_step_model],
+            device="cpu",
+            default_dtype="float64",
+            magmom_key=MAGMOM_KEY,
+        )
+    atoms = atoms.copy()
+    atoms.arrays[MAGMOM_KEY] = np.zeros((len(atoms), 3))
+    captured: dict[str, torch.Tensor] = {}
+
+    def hook(module: Any, inputs: Any, output: Any) -> None:
+        features = output[0] if isinstance(output, tuple) else output
+        captured["features"] = features.detach().cpu()
+
+    handle = raw_model.products[-1].register_forward_hook(hook)
+    try:
+        with _default_dtype_float64():
+            atoms.calc = calculator
+            energy = float(atoms.get_potential_energy())
+    finally:
+        handle.remove()
+    features = captured["features"]
+    pooled = torch.cat(
+        [
+            features.mean(dim=0),
+            features.max(dim=0).values,
+            features.std(dim=0, unbiased=False),
+        ]
+    )
+    return pooled.numpy().astype(np.float32), energy
+
+
+@pytest.mark.parametrize("name", list(FIXTURES))
+def test_the_forward_pass_matches_the_calculator_path_bit_for_bit(
+    backbone: torch.nn.Module, name: str
+) -> None:
+    """goldilocks-ml#140: the embedding and ``relax()``'s zero-moment energy
+    no longer go through ``MagneticMACECalculator``, which also computed
+    forces and stress. Both must be unchanged, to the last bit."""
+    atoms = AseAtomsAdaptor.get_atoms(FIXTURES[name])
+    expected_embedding, expected_energy = _calculator_path(backbone, atoms)
+    assert np.any(expected_embedding != 0)
+
+    embedding = MACEEmbedder(backbone).embed(atoms)
+    energy = _zero_moment_energy(atoms, raw_model=backbone, device="cpu")
+
+    assert embedding.dtype == np.float32
+    assert np.array_equal(embedding, expected_embedding)
+    assert energy == expected_energy
+    assert torch.get_default_dtype() == torch.float32
+
+
+def test_the_forward_pass_builds_no_autograd_graph() -> None:
+    """The embedding and the zero-moment energy run the backbone with
+    gradients off, and ask it for no forces, stress or magnetic forces."""
+    raw_model = _tiny_backbone()
+    atoms = AseAtomsAdaptor.get_atoms(FIXTURES["bcc-Fe"])
+    grad_enabled: list[bool] = []
+    handle = raw_model.products[-1].register_forward_hook(
+        lambda module, inputs, output: grad_enabled.append(torch.is_grad_enabled())
+    )
+    try:
+        output = _zero_moment_forward(atoms, raw_model, "cpu")
+        MACEEmbedder(raw_model).embed(atoms)
+        _zero_moment_energy(atoms, raw_model=raw_model, device="cpu")
+    finally:
+        handle.remove()
+
+    assert grad_enabled == [False, False, False]
+    assert output["energy"].grad_fn is None
+    assert output["forces"] is None
+    assert output["stress"] is None
+    assert output["magforces"] is None
+    assert torch.is_grad_enabled()

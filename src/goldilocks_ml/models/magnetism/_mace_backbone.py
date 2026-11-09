@@ -11,9 +11,9 @@ import time of *this* file touches mace -- only calling
 :func:`embed_structures` does, so importing this module to read its constants
 stays cheap.
 
-The probe is deliberately uninformative: every call runs the backbone once at
-an all-zero magnetic moment, with SCF relaxation switched off (this is a
-classification embedding, not the magnetic-moment relaxation in
+The probe is deliberately uninformative: every call runs the backbone forward
+once at an all-zero magnetic moment, with no SCF relaxation and no gradients
+(this is a classification embedding, not the magnetic-moment relaxation in
 :mod:`goldilocks_ml.models.magnetism.magnetic_moments`, which shares this same
 backbone-loading machinery but turns SCF on). No element-specific magnetic
 guess and no DFT label leak into the embedding through the probe itself.
@@ -43,9 +43,9 @@ MAGMOM_KEY = "dft_magmom"
 
 # Serializes every operation in this module that touches process-wide global
 # state or the shared cached `MACEEmbedder` instance: `_default_dtype_float64`
-# (three callers -- this module's calculator construction and embed step,
-# plus magnetic_moments.fm_fim_relax.relax's), `safe_load`'s `torch.jit.load`
-# monkeypatch, and `MACEEmbedder.embed`'s hook registration + buffer. Each of
+# (used by `_zero_moment_forward` here and by
+# magnetic_moments.fm_fim_relax.relax), `safe_load`'s `torch.jit.load`
+# monkeypatch, and `MACEEmbedder.embed`'s hook on the shared backbone. Each of
 # those is documented at its own use below; all three share this one lock
 # because they are the same underlying problem (mace mutates or shares
 # process-wide state with no synchronisation of its own) and goldilocks-core
@@ -125,52 +125,82 @@ def safe_load(path: Path, device: str = "cpu") -> Any:
             torch.jit.load = original_jit_load
 
 
+def _zero_moment_forward(atoms: Any, raw_model: Any, device: str) -> dict[str, Any]:
+    """Run the backbone forward once on ``atoms`` at zero moment, without gradients.
+
+    Builds the same input ``MagneticMACECalculator`` builds for ``atoms``, but
+    asks for no forces, stress or magnetic forces, so no autograd graph is
+    built. Returns the backbone's output dict; ``"energy"`` is in eV.
+    """
+    import torch
+    from mace import data as mace_data
+    from mace.tools import torch_geometric, utils
+
+    atoms = atoms.copy()
+    atoms.arrays[MAGMOM_KEY] = np.zeros((len(atoms), 3), dtype=float)
+
+    # The calculator's defaults, so the batch matches the one it builds.
+    heads = list(raw_model.heads)
+    head = (
+        heads[0]
+        if len(heads) == 1
+        else next(name for name in heads if name.lower() == "default")
+    )
+    keyspec = mace_data.KeySpecification(
+        info_keys={"total_spin": "spin", "total_charge": "charge"},
+        arrays_keys={"charges": "Qs", "magmom": MAGMOM_KEY},
+    )
+    z_table = utils.AtomicNumberTable([int(z) for z in raw_model.atomic_numbers])
+
+    with _default_dtype_float64(), torch.no_grad():
+        config = mace_data.config_from_atoms(
+            atoms, key_specification=keyspec, head_name=head
+        )
+        data = mace_data.AtomicData.from_config(
+            config, z_table=z_table, cutoff=float(raw_model.r_max), heads=heads
+        )
+        loader = torch_geometric.dataloader.DataLoader(
+            dataset=[data], batch_size=1, shuffle=False, drop_last=False
+        )
+        batch = next(iter(loader)).to(device)
+        return raw_model(
+            batch.to_dict(),
+            training=False,
+            compute_force=False,
+            compute_stress=False,
+        )
+
+
 class MACEEmbedder:
-    """Pool one non-SCF, all-zero-moment forward pass into a structure vector."""
+    """Pool one zero-moment forward pass into a structure vector."""
 
-    def __init__(self, raw_model: Any, calculator: Any) -> None:
+    def __init__(self, raw_model: Any, device: str = "cpu") -> None:
         self.raw_model = raw_model
-        self.calculator = calculator
-        self._buffer: dict[str, Any] = {}
-
-    def _hook(self, module: Any, inputs: Any, output: Any) -> None:
-        features = output[0] if isinstance(output, tuple) else output
-        self._buffer["features"] = features.detach().cpu()
+        self.device = device
 
     def embed(self, atoms: Any) -> np.ndarray:
         """Return the pooled embedding for one ASE ``Atoms``.
 
-        The whole body is locked, not just the forward pass: ``load_embedder``
-        hands the *same* cached instance to every caller, so ``self._buffer``
-        and the hook registered on ``self.raw_model.products[-1]`` are shared
-        mutable state across concurrent callers. Locking only the inference
-        step still let one thread's stale, not-yet-removed hook fire during
-        another thread's forward pass and overwrite the shared buffer before
-        the first thread read it back -- silently returning another request's
-        embedding instead of raising. Confirmed with a forced two-thread
-        interleaving using fake hooks standing in for the real ones.
+        ``load_embedder`` hands the same cached instance, and so the same
+        ``raw_model.products[-1]``, to every caller. The hook is registered,
+        fired and removed under ``_mace_lock``, and writes into a buffer local
+        to this call, so concurrent callers never see each other's features.
         """
         import torch
 
-        atoms = atoms.copy()
-        moments = np.zeros((len(atoms), 3), dtype=float)
-        atoms.arrays[MAGMOM_KEY] = moments
+        captured: dict[str, Any] = {}
+
+        def hook(module: Any, inputs: Any, output: Any) -> None:
+            features = output[0] if isinstance(output, tuple) else output
+            captured["features"] = features.detach().cpu()
 
         with _mace_lock:
-            self._buffer.clear()
-            handle = self.raw_model.products[-1].register_forward_hook(self._hook)
+            handle = self.raw_model.products[-1].register_forward_hook(hook)
             try:
-                with _default_dtype_float64():
-                    # Force a fresh forward pass even when the same Atoms
-                    # object is embedded twice: ASE calculators otherwise
-                    # skip recomputation for a structure they consider
-                    # unchanged since the last call.
-                    self.calculator.reset()
-                    atoms.calc = self.calculator
-                    atoms.get_potential_energy()
+                _zero_moment_forward(atoms, self.raw_model, self.device)
             finally:
                 handle.remove()
-            features = self._buffer.get("features")
+        features = captured.get("features")
 
         if features is None:
             raise RuntimeError("the product-layer hook produced no embedding")
@@ -190,24 +220,9 @@ class MACEEmbedder:
 def load_embedder(checkpoint: Path, device: str = "cpu") -> MACEEmbedder:
     """Load the frozen backbone once per checkpoint path and device."""
     import torch
-    from mace.calculators.mace import MagneticMACECalculator
-    from mace.modules import MagneticSCFMACE
 
     torch.serialization.add_safe_globals([slice])
-    raw_model = safe_load(Path(checkpoint), device)
-    # A single, non-SCF forward pass: this embedding never relaxes moments, it
-    # only probes the frozen backbone once at zero moment.
-    one_step_model = MagneticSCFMACE(
-        raw_model, n_scf_step=1, use_scf=False, scf_tol=1e-4, scf_logging=False
-    )
-    with _default_dtype_float64():
-        calculator = MagneticMACECalculator(
-            models=[one_step_model],
-            device=device,
-            default_dtype="float64",
-            magmom_key=MAGMOM_KEY,
-        )
-    return MACEEmbedder(raw_model, calculator)
+    return MACEEmbedder(safe_load(Path(checkpoint), device), device)
 
 
 def embed_structures(

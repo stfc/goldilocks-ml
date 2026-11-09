@@ -15,12 +15,15 @@ import json
 from pathlib import Path
 
 import numpy as np
+from mace.calculators.mace import MagneticMACECalculator
+from mace.modules import MagneticSCFMACE
 from pymatgen.core import Structure
 from pymatgen.io.ase import AseAtomsAdaptor
 
 from goldilocks_ml.models.magnetism._mace_backbone import (
+    MAGMOM_KEY,
     _default_dtype_float64,
-    load_embedder,
+    safe_load,
 )
 from goldilocks_ml.models.magnetism.magnetic_moments.fm_fim_relax.relax import (
     domain_limits,
@@ -39,8 +42,17 @@ def main() -> None:
 
     entries = {e["id"]: e for e in json.loads(args.structures.read_text())}
     structure = Structure.from_dict(entries[args.id]["structure"])
-    embedder = load_embedder(args.backbone)
-    calculator = embedder.calculator
+    raw_model = safe_load(args.backbone)
+    one_step_model = MagneticSCFMACE(
+        raw_model, n_scf_step=1, use_scf=False, scf_tol=1e-4, scf_logging=False
+    )
+    with _default_dtype_float64():
+        calculator = MagneticMACECalculator(
+            models=[one_step_model],
+            device="cpu",
+            default_dtype="float64",
+            magmom_key=MAGMOM_KEY,
+        )
     output: dict = {}
     calculator.models[0].register_forward_hook(lambda m, i, o: output.update(o))
 
@@ -49,7 +61,7 @@ def main() -> None:
         atoms = AseAtomsAdaptor.get_atoms(structure)
         moments = np.zeros((len(atoms), 3))
         moments[:, 2] = value
-        atoms.arrays["dft_magmom"] = moments
+        atoms.arrays[MAGMOM_KEY] = moments
         with _default_dtype_float64():
             calculator.reset()
             atoms.calc = calculator
@@ -57,7 +69,7 @@ def main() -> None:
         magforce = float(output["magforces"].detach()[0, 2])
         rows.append({"moment": value, "energy_ev": energy, "magforce_z": magforce})
 
-    limits = domain_limits(embedder.raw_model)
+    limits = domain_limits(raw_model)
     m_max = {site.specie.symbol: limits[site.specie.symbol] for site in structure}
     (args.out_dir / "scan.json").write_text(
         json.dumps({"id": args.id, "m_max": m_max, "rows": rows}, indent=1)

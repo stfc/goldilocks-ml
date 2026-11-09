@@ -42,6 +42,7 @@ import numpy as np
 from goldilocks_ml.models.magnetism._mace_backbone import (
     MAGMOM_KEY,
     _default_dtype_float64,
+    _zero_moment_forward,
     safe_load,
 )
 
@@ -149,23 +150,8 @@ def _validity_reasons(
 
 
 def _zero_moment_energy(atoms: Any, *, raw_model: Any, device: str) -> float:
-    """Return the energy of ``atoms`` at zero moment, from one non-SCF pass."""
-    from mace.calculators.mace import MagneticMACECalculator
-    from mace.modules import MagneticSCFMACE
-
-    atoms = atoms.copy()
-    atoms.arrays[MAGMOM_KEY] = np.zeros((len(atoms), 3))
-    one_step_model = MagneticSCFMACE(
-        raw_model, n_scf_step=1, use_scf=False, scf_tol=1e-4, scf_logging=False
-    )
-    with _default_dtype_float64():
-        atoms.calc = MagneticMACECalculator(
-            models=[one_step_model],
-            device=device,
-            default_dtype="float64",
-            magmom_key=MAGMOM_KEY,
-        )
-        return float(atoms.get_potential_energy())
+    """Return the energy of ``atoms`` at zero moment, from one forward pass."""
+    return float(_zero_moment_forward(atoms, raw_model, device)["energy"].item())
 
 
 def _attempt(
