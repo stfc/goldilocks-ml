@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.3](https://github.com/stfc/goldilocks-ml/releases/tag/v0.3.3) — 2026-11-09
+
 ### Changed
 
 - The `is_magnetic` backbone embedding and `relax()`'s zero-moment energy run
@@ -11,6 +13,10 @@
   to 2.0 GB at 54 atoms and from 5.4 to 3.8 GB at 128, and a call is 2 to 4
   times faster. See
   [goldilocks-ml#140](https://github.com/stfc/goldilocks-ml/issues/140).
+- `torch-geometric` is pinned to 2.8.1 (was 2.8.0.post1). The published
+  models' outputs are unchanged: `is_metal`, `k_distance` and `is_magnetic`
+  predictions are identical to 0.3.2's on 300 matbench `mp_is_metal`
+  structures.
 
 ## [0.3.2](https://github.com/stfc/goldilocks-ml/releases/tag/v0.3.2) — 2026-11-03
 
