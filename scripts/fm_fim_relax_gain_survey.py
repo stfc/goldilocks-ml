@@ -30,13 +30,9 @@ import numpy as np
 from pymatgen.core import Structure
 from pymatgen.io.ase import AseAtomsAdaptor
 
-from goldilocks_ml.models.magnetism._mace_backbone import (
-    MAGMOM_KEY,
-    _default_dtype_float64,
-    load_embedder,
-    safe_load,
-)
+from goldilocks_ml.models.magnetism._mace_backbone import safe_load
 from goldilocks_ml.models.magnetism.magnetic_moments.fm_fim_relax.relax import (
+    _zero_moment_energy,
     domain_limits,
     relax,
 )
@@ -52,7 +48,6 @@ MAX_ATOMS = 24
 records_path, structures_path, backbone, out = map(Path, sys.argv[1:5])
 raw = safe_load(backbone)
 limits = domain_limits(raw)
-calculator = load_embedder(backbone).calculator
 
 
 def label(m: float) -> str | None:
@@ -102,12 +97,9 @@ with out.open("w") as handle:
         )
         started = time.perf_counter()
         result = relax(structure, seed, checkpoint=backbone)
-        atoms = AseAtomsAdaptor.get_atoms(structure)
-        atoms.arrays[MAGMOM_KEY] = np.zeros((len(atoms), 3))
-        with _default_dtype_float64():
-            calculator.reset()
-            atoms.calc = calculator
-            zero_energy = float(atoms.get_potential_energy())
+        zero_energy = _zero_moment_energy(
+            AseAtomsAdaptor.get_atoms(structure), raw_model=raw, device="cpu"
+        )
         dft = [abs(float(site.properties.get("magmom", 0.0))) for site in structure]
         row = {
             "id": key,

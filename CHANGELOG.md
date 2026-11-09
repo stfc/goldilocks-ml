@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Changed
+
+- The `is_magnetic` backbone embedding and `relax()`'s zero-moment energy run
+  the mMACE backbone forward once under `torch.no_grad()`, instead of through
+  `MagneticMACECalculator`, which also computed forces and stress. Both
+  results are bit-identical. On bcc Fe on macOS, peak memory falls from 3.2
+  to 2.0 GB at 54 atoms and from 5.4 to 3.8 GB at 128, and a call is 2 to 4
+  times faster. See
+  [goldilocks-ml#140](https://github.com/stfc/goldilocks-ml/issues/140).
+
 ## [0.3.2](https://github.com/stfc/goldilocks-ml/releases/tag/v0.3.2) — 2026-11-03
 
 ### Changed
