@@ -10,6 +10,26 @@
   `ValueError` for a device other than `"cpu"`. See
   [goldilocks-ml#144](https://github.com/stfc/goldilocks-ml/issues/144).
 
+### Changed
+
+- `relax()` relaxes moments by its own L-BFGS descent, with no line search.
+  Each step moves no moment by more than 0.05 uB and must lower the energy.
+  It converges when the largest per-atom |dE/dm| is below 0.01 eV/uB. It
+  replaces mace's `MagneticSCFMACE` (LBFGS with a strong-Wolfe line search)
+  and the two-attempt retry. The line search could
+  jump into the backbone's breakdown region (for Fe, above about 4.1 uB), so
+  2-atom bcc Fe came back `invalid` while its 2x2x2 supercell converged, and
+  goldilocks-core ranked an antiferromagnet first. A cell and its supercell
+  now relax alike. See
+  [goldilocks-ml#143](https://github.com/stfc/goldilocks-ml/issues/143).
+
+### Removed
+
+- The `converged_after_retry` status, and `CONVERGED_AFTER_RETRY`,
+  `DEFAULT_STEP_SIZE`, `DEFAULT_N_SCF_STEP`, `RETRY_STEP_SIZE`,
+  `RETRY_N_SCF_STEP` and `GRADIENT_NORM_TOLERANCE` from `fm_fim_relax.relax`.
+  `GRADIENT_TOLERANCE` is the new per-atom convergence threshold.
+
 ## [0.3.3](https://github.com/stfc/goldilocks-ml/releases/tag/v0.3.3) — 2026-11-09
 
 ### Changed

@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 EMBEDDING_WIDTH = 384
 
 # The `Atoms.arrays` key both this module and fm_fim_relax put the input
-# moments under, passed to `MagneticMACECalculator` as its `magmom_key`.
+# moments under when building the backbone's batch.
 MAGMOM_KEY = "dft_magmom"
 
 # Serializes every operation in this module that touches process-wide global
@@ -125,19 +125,14 @@ def safe_load(path: Path, device: str = "cpu") -> Any:
             torch.jit.load = original_jit_load
 
 
-def _zero_moment_forward(atoms: Any, raw_model: Any, device: str) -> dict[str, Any]:
-    """Run the backbone forward once on ``atoms`` at zero moment, without gradients.
+def _atoms_to_batch(atoms: Any, raw_model: Any, device: str) -> dict[str, Any]:
+    """Build the backbone's input for ``atoms``, moments under ``MAGMOM_KEY``.
 
-    Builds the same input ``MagneticMACECalculator`` builds for ``atoms``, but
-    asks for no forces, stress or magnetic forces, so no autograd graph is
-    built. Returns the backbone's output dict; ``"energy"`` is in eV.
+    The same batch ``MagneticMACECalculator`` builds, as a dict of float64
+    tensors on ``device``.
     """
-    import torch
     from mace import data as mace_data
     from mace.tools import torch_geometric, utils
-
-    atoms = atoms.copy()
-    atoms.arrays[MAGMOM_KEY] = np.zeros((len(atoms), 3), dtype=float)
 
     # The calculator's defaults, so the batch matches the one it builds.
     heads = list(raw_model.heads)
@@ -152,7 +147,7 @@ def _zero_moment_forward(atoms: Any, raw_model: Any, device: str) -> dict[str, A
     )
     z_table = utils.AtomicNumberTable([int(z) for z in raw_model.atomic_numbers])
 
-    with _default_dtype_float64(), torch.no_grad():
+    with _default_dtype_float64():
         config = mace_data.config_from_atoms(
             atoms, key_specification=keyspec, head_name=head
         )
@@ -162,9 +157,23 @@ def _zero_moment_forward(atoms: Any, raw_model: Any, device: str) -> dict[str, A
         loader = torch_geometric.dataloader.DataLoader(
             dataset=[data], batch_size=1, shuffle=False, drop_last=False
         )
-        batch = next(iter(loader)).to(device)
+        return next(iter(loader)).to(device).to_dict()
+
+
+def _zero_moment_forward(atoms: Any, raw_model: Any, device: str) -> dict[str, Any]:
+    """Run the backbone forward once on ``atoms`` at zero moment, without gradients.
+
+    Asks for no forces, stress or magnetic forces, so no autograd graph is
+    built. Returns the backbone's output dict; ``"energy"`` is in eV.
+    """
+    import torch
+
+    atoms = atoms.copy()
+    atoms.arrays[MAGMOM_KEY] = np.zeros((len(atoms), 3), dtype=float)
+
+    with _default_dtype_float64(), torch.no_grad():
         return raw_model(
-            batch.to_dict(),
+            _atoms_to_batch(atoms, raw_model, device),
             training=False,
             compute_force=False,
             compute_stress=False,

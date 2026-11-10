@@ -16,6 +16,7 @@ from typing import Any
 import numpy as np
 import pytest
 import torch
+from conftest import tiny_magnetic_backbone
 from pymatgen.core import Lattice, Structure
 from pymatgen.io.ase import AseAtomsAdaptor
 
@@ -226,50 +227,10 @@ def test_embed_produces_correct_results_under_concurrent_load(
     assert results["B"][0] == pytest.approx(2.0)  # type: ignore[index]
 
 
-def _tiny_backbone() -> torch.nn.Module:
-    """A two-layer magnetic MACE with random weights, built from the released
-    backbone's interaction blocks, for the elements of ``FIXTURES``."""
-    torch.serialization.add_safe_globals([slice])  # e3nn unpickles one on import
-    from e3nn import o3
-    from mace import modules
-
-    numbers = [8, 11, 17, 26, 27, 28]  # O Na Cl Fe Co Ni
-    torch.manual_seed(140)
-    with _default_dtype_float64():
-        return modules.MagneticScaleShiftMACE(
-            r_max=4.5,
-            num_bessel=4,
-            num_polynomial_cutoff=5,
-            max_ell=2,
-            m_max=[0.5, 0.5, 0.5, 3.0, 2.0, 1.5],
-            num_mag_radial_basis=4,
-            max_m_ell=1,
-            interaction_cls=modules.interaction_classes[
-                "MagneticRealAgnosticResidueSpinOrbitCoupledDensityInteractionBlock"
-            ],
-            interaction_cls_first=modules.interaction_classes[
-                "MagneticRealAgnosticSpinOrbitCoupledDensityInteractionBlock"
-            ],
-            num_interactions=2,
-            num_elements=len(numbers),
-            hidden_irreps=o3.Irreps("8x0e + 8x1o"),
-            MLP_irreps=o3.Irreps("8x0e"),
-            atomic_energies=np.zeros(len(numbers)),
-            avg_num_neighbors=10.0,
-            atomic_numbers=numbers,
-            correlation=2,
-            gate=torch.nn.functional.silu,
-            atomic_inter_scale=1.0,
-            atomic_inter_shift=0.0,
-            pair_repulsion=True,
-            distance_transform="Agnesi",
-        )
-
-
 @pytest.fixture(scope="module", params=["tiny", "released"])
 def backbone(request: pytest.FixtureRequest) -> torch.nn.Module:
     if request.param == "tiny":
-        return _tiny_backbone()
+        return tiny_magnetic_backbone()
     if not RELEASED_BACKBONE.is_file():
         pytest.skip("the mMACE backbone checkpoint is not present locally")
     torch.serialization.add_safe_globals([slice])
@@ -363,7 +324,7 @@ def test_the_forward_pass_matches_the_calculator_path_bit_for_bit(
 def test_the_forward_pass_builds_no_autograd_graph() -> None:
     """The embedding and the zero-moment energy run the backbone with
     gradients off, and ask it for no forces, stress or magnetic forces."""
-    raw_model = _tiny_backbone()
+    raw_model = tiny_magnetic_backbone()
     atoms = AseAtomsAdaptor.get_atoms(FIXTURES["bcc-Fe"])
     grad_enabled: list[bool] = []
     handle = raw_model.products[-1].register_forward_hook(
