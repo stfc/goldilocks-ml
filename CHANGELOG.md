@@ -4,14 +4,15 @@
 
 ### Changed
 
-- `relax()` relaxes moments by steepest descent. Each step moves no moment by
-  more than 0.05 uB and must lower the energy. It converges when the largest
-  per-atom |dE/dm| is below 0.01 eV/uB. It replaces mace's `MagneticSCFMACE`
-  (LBFGS with a line search) and the two-attempt retry. The line search could
+- `relax()` relaxes moments by its own L-BFGS descent, with no line search.
+  Each step moves no moment by more than 0.05 uB and must lower the energy.
+  It converges when the largest per-atom |dE/dm| is below 0.01 eV/uB. It
+  replaces mace's `MagneticSCFMACE` (LBFGS with a strong-Wolfe line search)
+  and the two-attempt retry. The line search could
   jump into the backbone's breakdown region (for Fe, above about 4.1 uB), so
   2-atom bcc Fe came back `invalid` while its 2x2x2 supercell converged, and
   goldilocks-core ranked an antiferromagnet first. A cell and its supercell
-  now relax alike, and a relaxation takes about ten backbone evaluations. See
+  now relax alike. See
   [goldilocks-ml#143](https://github.com/stfc/goldilocks-ml/issues/143).
 
 ### Removed

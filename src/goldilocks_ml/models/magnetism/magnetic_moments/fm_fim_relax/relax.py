@@ -4,15 +4,15 @@ Atomic positions stay fixed; only the z component of each site's moment is
 optimised, so a collinear seed stays collinear. This is not a structure
 relaxation.
 
-The optimiser is a steepest descent on the backbone's energy. Each step moves
-no moment by more than ``MAX_STEP_UB`` and is accepted only if the energy
-drops, so the descent cannot cross an energy barrier: it ends in the basin
-its seed is in. That matters because the backbone's energy surface breaks
-down inside its learned moment domain (for Fe, above about 4.1 uB, where
-``m_max`` is 5.15 uB), and a line search that extrapolates can jump into
-that region (goldilocks-ml#143). It converges when the largest per-atom
-|dE/dm| is below ``GRADIENT_TOLERANCE``, so a cell and its supercell
-relax alike.
+The optimiser is an L-BFGS descent on the backbone's energy, without a line
+search. Each step moves no moment by more than ``MAX_STEP_UB`` and is
+accepted only if the energy drops, so the descent cannot cross an energy
+barrier: it ends in the basin its seed is in. That matters because the
+backbone's energy surface breaks down inside its learned moment domain (for
+Fe, above about 4.1 uB, where ``m_max`` is 5.15 uB), and a line search that
+extrapolates can jump into that region (goldilocks-ml#143). It converges
+when the largest per-atom |dE/dm| is below ``GRADIENT_TOLERANCE``, so a cell
+and its supercell relax alike.
 
 A relaxed result is ``invalid`` when its energy is non-finite or past
 ``MAX_ENERGY_PER_ATOM_EV``, when a moment leaves the backbone's learned domain,
@@ -46,10 +46,12 @@ if TYPE_CHECKING:
 
 # The descent: the largest change to any moment in one step (uB), the
 # largest per-atom |dE/dm| (eV/uB) at which it stops as converged, the step
-# length of the first step (uB^2/eV), and how long it may run.
+# length of a gradient step (uB^2/eV), how many past steps the L-BFGS
+# direction uses, and how long it may run.
 MAX_STEP_UB = 0.05
 GRADIENT_TOLERANCE = 1e-2
 INITIAL_STEP_LENGTH = 1e-2
+LBFGS_HISTORY = 10
 MAX_STEPS = 500
 MAX_HALVINGS = 20
 # A relaxed moment more than this multiple of the backbone's own learned
@@ -150,20 +152,26 @@ def _zero_moment_energy(atoms: Any, *, raw_model: Any, device: str) -> float:
 def _descend(
     evaluate: Callable[[np.ndarray], tuple[float, np.ndarray]], start: np.ndarray
 ) -> tuple[np.ndarray, float, np.ndarray]:
-    """Minimise ``evaluate`` from ``start`` by capped steepest descent.
+    """Minimise ``evaluate`` from ``start`` by a capped, energy-decreasing L-BFGS.
 
-    ``evaluate`` maps per-site z moments to the energy and its gradient. Each
-    step is ``-length * gradient`` with a Barzilai-Borwein length, scaled down
-    so no site moves more than ``MAX_STEP_UB``, and halved until the energy
-    drops. Returns the last accepted moments, energy and gradient.
+    ``evaluate`` maps per-site z moments to the energy and its gradient. The
+    step follows the L-BFGS direction over the last ``LBFGS_HISTORY`` steps
+    (the gradient, scaled by ``INITIAL_STEP_LENGTH``, when there is none or
+    it does not point downhill). It is scaled down so no site moves more
+    than ``MAX_STEP_UB``, and halved until the energy drops. Returns the last
+    accepted moments, energy and gradient.
     """
     moments = np.array(start, dtype=float)
     energy, gradient = evaluate(moments)
-    length = INITIAL_STEP_LENGTH
+    steps: list[np.ndarray] = []
+    changes: list[np.ndarray] = []
     for _ in range(MAX_STEPS):
         if np.abs(gradient).max() < GRADIENT_TOLERANCE:
             break
-        step = -length * gradient
+        step = -_inverse_hessian_times(gradient, steps, changes)
+        if float(step @ gradient) >= 0:
+            steps, changes = [], []
+            step = -INITIAL_STEP_LENGTH * gradient
         largest = np.abs(step).max()
         if largest > MAX_STEP_UB:
             step *= MAX_STEP_UB / largest
@@ -174,10 +182,33 @@ def _descend(
             step = step / 2
         else:
             break
-        curvature = float(step @ (trial_gradient - gradient))
-        length = float(step @ step) / curvature if curvature > 0 else 2 * length
+        change = trial_gradient - gradient
+        if float(step @ change) > 0:
+            steps, changes = (
+                [*steps, step][-LBFGS_HISTORY:],
+                [*changes, change][-LBFGS_HISTORY:],
+            )
         moments, energy, gradient = moments + step, trial_energy, trial_gradient
     return moments, energy, gradient
+
+
+def _inverse_hessian_times(
+    gradient: np.ndarray, steps: list[np.ndarray], changes: list[np.ndarray]
+) -> np.ndarray:
+    """The L-BFGS two-loop recursion: the inverse-Hessian estimate times
+    ``gradient``, from past steps and the gradient changes they caused."""
+    if not steps:
+        return INITIAL_STEP_LENGTH * gradient
+    q = gradient.copy()
+    alphas = []
+    for s, y in zip(reversed(steps), reversed(changes), strict=True):
+        alpha = float(s @ q) / float(y @ s)
+        q -= alpha * y
+        alphas.append(alpha)
+    r = q * float(steps[-1] @ changes[-1]) / float(changes[-1] @ changes[-1])
+    for s, y, alpha in zip(steps, changes, reversed(alphas), strict=True):
+        r += s * (alpha - float(y @ r) / float(y @ s))
+    return r
 
 
 def _energy_and_gradient(
