@@ -217,6 +217,51 @@ def floating_dtypes(module: torch.nn.Module) -> set[torch.dtype]:
     }
 
 
+def tiny_magnetic_backbone() -> torch.nn.Module:
+    """A two-layer magnetic MACE with random weights, built from the released
+    backbone's interaction blocks, for O, Na, Cl, Fe, Co and Ni."""
+    import numpy as np
+    import torch
+
+    from goldilocks_ml.models.magnetism._mace_backbone import _default_dtype_float64
+
+    torch.serialization.add_safe_globals([slice])  # e3nn unpickles one on import
+    from e3nn import o3
+    from mace import modules
+
+    numbers = [8, 11, 17, 26, 27, 28]  # O Na Cl Fe Co Ni
+    torch.manual_seed(140)
+    with _default_dtype_float64():
+        return modules.MagneticScaleShiftMACE(
+            r_max=4.5,
+            num_bessel=4,
+            num_polynomial_cutoff=5,
+            max_ell=2,
+            m_max=[0.5, 0.5, 0.5, 3.0, 2.0, 1.5],
+            num_mag_radial_basis=4,
+            max_m_ell=1,
+            interaction_cls=modules.interaction_classes[
+                "MagneticRealAgnosticResidueSpinOrbitCoupledDensityInteractionBlock"
+            ],
+            interaction_cls_first=modules.interaction_classes[
+                "MagneticRealAgnosticSpinOrbitCoupledDensityInteractionBlock"
+            ],
+            num_interactions=2,
+            num_elements=len(numbers),
+            hidden_irreps=o3.Irreps("8x0e + 8x1o"),
+            MLP_irreps=o3.Irreps("8x0e"),
+            atomic_energies=np.zeros(len(numbers)),
+            avg_num_neighbors=10.0,
+            atomic_numbers=numbers,
+            correlation=2,
+            gate=torch.nn.functional.silu,
+            atomic_inter_scale=1.0,
+            atomic_inter_shift=0.0,
+            pair_repulsion=True,
+            distance_transform="Agnesi",
+        )
+
+
 @pytest.fixture
 def snapshot_dir(tmp_path: Path) -> Path:
     """Return a fresh snapshot directory path."""
