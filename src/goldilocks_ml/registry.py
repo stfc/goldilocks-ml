@@ -132,10 +132,24 @@ Trainer = Callable[["TrainingProtocol", TrainingContext], FittedModel]
 FeatureContract = Callable[
     ["TrainingProtocol", "Snapshot", Mapping[str, Path]], FeatureMatrix
 ]
-# The serving counterpart of a trainer: it reads back what that trainer wrote
-# and returns something that predicts from a structure. Registered under the
-# same name, so an artifact's own record says which one to use.
-Predictor = Callable[[Mapping[str, Any], Path, Mapping[str, Path]], "StructureModel"]
+
+
+class Predictor(Protocol):
+    """The serving counterpart of a trainer: it reads back what that trainer
+    wrote and returns something that predicts from a structure. Registered
+    under the runtime id an artifact's own record names. ``device`` is the
+    torch device to run on; a runtime that cannot use it raises ValueError.
+    """
+
+    def __call__(
+        self,
+        record: Mapping[str, Any],
+        directory: Path,
+        artifacts: Mapping[str, Path],
+        *,
+        device: str = "cpu",
+    ) -> StructureModel: ...
+
 
 _TRAINERS: dict[str, Trainer] = {}
 _FEATURES: dict[str, FeatureContract] = {}

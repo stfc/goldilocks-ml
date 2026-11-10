@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from goldilocks_ml.hashing import sha256_file
-from goldilocks_ml.inference import ModelPrediction, contract_for
+from goldilocks_ml.inference import ModelPrediction, contract_for, require_cpu
 from goldilocks_ml.models.k_points.k_index.screen.trainer import (
     RUNTIME,
     RUNTIME_VERSION,
@@ -90,9 +90,14 @@ class DenseMeshScreenPredictor:
 
 
 def load(
-    record: Mapping[str, Any], directory: Path, artifacts: Mapping[str, Path]
+    record: Mapping[str, Any],
+    directory: Path,
+    artifacts: Mapping[str, Path],
+    *,
+    device: str = "cpu",
 ) -> DenseMeshScreenPredictor:
     """Load an integrity-checked screen without trusting its pickle."""
+    require_cpu(RUNTIME, device)
     from goldilocks_ml.models.k_points.k_index.qrf import features
 
     if artifacts:
