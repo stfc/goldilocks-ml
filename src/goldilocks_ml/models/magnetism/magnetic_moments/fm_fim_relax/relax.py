@@ -1,38 +1,32 @@
 """Relax a collinear initial moment guess on a frozen mMACE potential energy surface.
 
-Ported from ``2-research/2-mace/1-magnetic-mace/scripts/run_all_cifs_magnetic_scf.py``
-(``model_limits``, ``validity_checks``, the core of ``run_one``) and the
-two-attempt retry policy in ``notebooks/01_basic_magnetic_scf.ipynb``'s batch
-loop. Only atomic positions are fixed and only the per-atom moment vectors are
-optimised (:class:`mace.modules.MagneticSCFMACE`, ``use_collinear=True``) --
-this is not a structure relaxation, and this project's own tooling never
-exercises the non-collinear path the backbone itself supports.
+Atomic positions stay fixed; only the z component of each site's moment is
+optimised, so a collinear seed stays collinear. This is not a structure
+relaxation.
+
+The optimiser is a steepest descent on the backbone's energy. Each step moves
+no moment by more than ``MAX_STEP_UB`` and is accepted only if the energy
+drops, so the descent cannot cross an energy barrier: it ends in the basin
+its seed is in. That matters because the backbone's energy surface breaks
+down inside its learned moment domain (for Fe, above about 4.1 uB, where
+``m_max`` is 5.15 uB), and a line search that extrapolates can jump into
+that region (goldilocks-ml#143). It converges when the largest per-atom
+|dE/dm| is below ``GRADIENT_TOLERANCE``, so a cell and its supercell
+relax alike.
 
 A relaxed result is ``invalid`` when its energy is non-finite or past
 ``MAX_ENERGY_PER_ATOM_EV``, when a moment leaves the backbone's learned domain,
 or when it sits further below the same structure at zero moment than the
-Stoner exchange energy allows (``MAX_EXCHANGE_EV_PER_UB2``). That last check
-was tested on 151 MatPES PBE structures relaxed from their
-``seed_moments_fm_fim`` seed (``scripts/fm_fim_relax_gain_survey.py``,
-goldilocks-ml#120). Of the 147 results the other checks accepted, it rejects
-four: bcc Fe, fcc Fe and hcp Co, which relaxed 1.6 to 2 uB above their DFT
-moments and 14.8 to 62.8 eV/atom below zero moment, and an unconverged Cr3Ga
-that gained 1.18 eV/atom from moments of at most 1.7 uB. fcc Fe's retry, 1.3
-uB above DFT and 6.7 eV/atom down, is rejected too. The other 143 are kept,
-including rare-earth compounds that gain up to 2.43 eV/atom from 4f moments
-(Dy5Ga3).
+Stoner exchange energy allows (``MAX_EXCHANGE_EV_PER_UB2``, goldilocks-ml#120).
 
-What is dropped on the port: the CSV/XYZ writing and the DFT-comparison-table
-preparation in the source script are reporting glue for one ten-material
-study, not general library code. What is new: the backbone is loaded through
-:func:`goldilocks_ml.models.magnetism._mace_backbone.safe_load`, which the
-source classifier code uses but this one script did not, for the same reason
-the ported ``_mace_backbone`` module exists at all -- one loading path, not
-three copies of it.
+Ported from ``2-research/2-mace/1-magnetic-mace/scripts/run_all_cifs_magnetic_scf.py``
+(``model_limits``, ``validity_checks``); the source's LBFGS loop and its
+two-attempt retry policy were replaced by the descent above.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -41,6 +35,7 @@ import numpy as np
 
 from goldilocks_ml.models.magnetism._mace_backbone import (
     MAGMOM_KEY,
+    _atoms_to_batch,
     _default_dtype_float64,
     _zero_moment_forward,
     safe_load,
@@ -49,15 +44,14 @@ from goldilocks_ml.models.magnetism._mace_backbone import (
 if TYPE_CHECKING:
     from pymatgen.core.structure import Structure
 
-# The source project's own retry policy: a conservative retry after a step
-# size this large fails to converge cleanly (notebooks/01, cell 17).
-DEFAULT_STEP_SIZE = 0.01
-DEFAULT_N_SCF_STEP = 50
-RETRY_STEP_SIZE = 0.001
-RETRY_N_SCF_STEP = 200
-# A gradient norm above this after the SCF loop stops is reported as
-# unconverged rather than accepted silently.
-GRADIENT_NORM_TOLERANCE = 1e-2
+# The descent: the largest change to any moment in one step (uB), the
+# largest per-atom |dE/dm| (eV/uB) at which it stops as converged, the step
+# length of the first step (uB^2/eV), and how long it may run.
+MAX_STEP_UB = 0.05
+GRADIENT_TOLERANCE = 1e-2
+INITIAL_STEP_LENGTH = 1e-2
+MAX_STEPS = 500
+MAX_HALVINGS = 20
 # A relaxed moment more than this multiple of the backbone's own learned
 # per-element moment-magnitude domain is treated as unphysical.
 DOMAIN_VIOLATION_FACTOR = 1.05
@@ -73,7 +67,6 @@ MAX_EXCHANGE_EV_PER_UB2 = 0.25
 MAGNETIC_GAIN_SLACK_EV_PER_ATOM = 0.5
 
 OK = "ok"
-CONVERGED_AFTER_RETRY = "converged_after_retry"
 WARNING_NOT_CONVERGED = "warning_not_converged"
 INVALID = "invalid"
 
@@ -154,78 +147,67 @@ def _zero_moment_energy(atoms: Any, *, raw_model: Any, device: str) -> float:
     return float(_zero_moment_forward(atoms, raw_model, device)["energy"].item())
 
 
-def _attempt(
-    structure: Structure,
-    initial_moments: np.ndarray,
-    *,
-    raw_model: Any,
-    device: str,
-    step_size: float,
-    n_scf_step: int,
-) -> MomentRelaxationResult:
-    from mace.calculators.mace import MagneticMACECalculator
-    from mace.modules import MagneticSCFMACE
-    from pymatgen.io.ase import AseAtomsAdaptor
+def _descend(
+    evaluate: Callable[[np.ndarray], tuple[float, np.ndarray]], start: np.ndarray
+) -> tuple[np.ndarray, float, np.ndarray]:
+    """Minimise ``evaluate`` from ``start`` by capped steepest descent.
 
-    scf_model = MagneticSCFMACE(
-        raw_model,
-        use_scf=True,
-        use_collinear=True,
-        n_scf_step=n_scf_step,
-        scf_step_size=step_size,
-        scf_tol=1e-4,
-        scf_logging=False,
-    )
-    limits = domain_limits(raw_model)
+    ``evaluate`` maps per-site z moments to the energy and its gradient. Each
+    step is ``-length * gradient`` with a Barzilai-Borwein length, scaled down
+    so no site moves more than ``MAX_STEP_UB``, and halved until the energy
+    drops. Returns the last accepted moments, energy and gradient.
+    """
+    moments = np.array(start, dtype=float)
+    energy, gradient = evaluate(moments)
+    length = INITIAL_STEP_LENGTH
+    for _ in range(MAX_STEPS):
+        if np.abs(gradient).max() < GRADIENT_TOLERANCE:
+            break
+        step = -length * gradient
+        largest = np.abs(step).max()
+        if largest > MAX_STEP_UB:
+            step *= MAX_STEP_UB / largest
+        for _ in range(MAX_HALVINGS):
+            trial_energy, trial_gradient = evaluate(moments + step)
+            if np.isfinite(trial_energy) and trial_energy < energy:
+                break
+            step = step / 2
+        else:
+            break
+        curvature = float(step @ (trial_gradient - gradient))
+        length = float(step @ step) / curvature if curvature > 0 else 2 * length
+        moments, energy, gradient = moments + step, trial_energy, trial_gradient
+    return moments, energy, gradient
 
-    atoms = AseAtomsAdaptor.get_atoms(structure)
-    symbols = atoms.get_chemical_symbols()
-    atoms.arrays[MAGMOM_KEY] = np.array(initial_moments, dtype=float, copy=True)
 
-    # The SCF model's last forward pass evaluates the returned moments. Its
-    # magnetic forces give the final gradient, which the calculator does not
-    # return.
-    final_output: dict[str, Any] = {}
-    hook = scf_model.register_forward_hook(
-        lambda module, inputs, output: final_output.update(output)
-    )
-    # Runs under `_mace_lock`, one at a time with every other mace call in the
-    # process -- see `_default_dtype_float64` and goldilocks-ml#98.
-    try:
-        with _default_dtype_float64():
-            calculator = MagneticMACECalculator(
-                models=[scf_model],
-                device=device,
-                default_dtype="float64",
-                magmom_key=MAGMOM_KEY,
+def _energy_and_gradient(
+    atoms: Any, moments: np.ndarray, raw_model: Any, device: str
+) -> Callable[[np.ndarray], tuple[float, np.ndarray]]:
+    """Return the backbone's energy (eV) and dE/dm_z (eV/uB) as a function of
+    the per-site z moments, with x and y held at ``moments``'s."""
+    import torch
+
+    atoms = atoms.copy()
+    atoms.arrays[MAGMOM_KEY] = np.array(moments, dtype=float)
+    batch = _atoms_to_batch(atoms, raw_model, device)
+
+    def evaluate(z: np.ndarray) -> tuple[float, np.ndarray]:
+        with _default_dtype_float64(), torch.enable_grad():
+            magmom = torch.as_tensor(moments, dtype=torch.float64, device=device)
+            magmom = magmom.clone()
+            magmom[:, 2] = torch.as_tensor(z, dtype=torch.float64, device=device)
+            magmom.requires_grad_(True)
+            output = raw_model(
+                {**batch, "magmom": magmom},
+                training=False,
+                compute_force=False,
+                compute_stress=False,
             )
-            atoms.calc = calculator
-            energy_ev = float(atoms.get_potential_energy())
-    finally:
-        hook.remove()
-    moments = np.asarray(calculator.results["MACE_magmoms"], dtype=float).copy()
-    zero_moment_energy_ev = _zero_moment_energy(
-        atoms, raw_model=raw_model, device=device
-    )
-    reasons = _validity_reasons(
-        energy_ev, zero_moment_energy_ev, moments, symbols, limits
-    )
-    # `use_collinear` zeroes the x/y gradient, so only z counts.
-    magforces = final_output["magforces"].detach().cpu().numpy()
-    final_grad = float(np.linalg.norm(magforces[:, 2]))
+            energy = output["energy"][0]
+            (gradient,) = torch.autograd.grad(energy, magmom)
+        return float(energy.detach()), gradient[:, 2].cpu().numpy()
 
-    if reasons:
-        status = INVALID
-    elif np.isfinite(final_grad) and final_grad > GRADIENT_NORM_TOLERANCE:
-        status = WARNING_NOT_CONVERGED
-        reasons.append(
-            f"final magnetic gradient norm {final_grad:.6g} > {GRADIENT_NORM_TOLERANCE}"
-        )
-    else:
-        status = OK
-    return MomentRelaxationResult(
-        moments=moments, energy_ev=energy_ev, status=status, reasons=tuple(reasons)
-    )
+    return evaluate
 
 
 def relax(
@@ -235,40 +217,44 @@ def relax(
     checkpoint: Path,
     device: str = "cpu",
 ) -> MomentRelaxationResult:
-    """Relax one collinear initial moment guess, retrying once at a smaller step.
+    """Relax one collinear initial moment guess on the backbone at ``checkpoint``.
 
-    Mirrors the source project's own batch policy: an attempt at
-    ``scf_step_size=0.01, n_scf_step=50`` that fails validity or the gradient
-    norm floor is retried once at ``0.001, 200``. The retry's own outcome is
-    returned whether or not it improves things -- this never tries a third
-    configuration.
+    ``initial_moments`` is ``(N, 3)`` in bohr magnetons. Only the z components
+    move. The result is ``ok`` when the descent converged, ``invalid`` when a
+    validity check fails, and ``warning_not_converged`` otherwise.
     """
+    from pymatgen.io.ase import AseAtomsAdaptor
+
     raw_model = safe_load(Path(checkpoint), device)
+    atoms = AseAtomsAdaptor.get_atoms(structure)
+    initial = np.array(initial_moments, dtype=float, copy=True)
 
-    first = _attempt(
-        structure,
-        initial_moments,
-        raw_model=raw_model,
-        device=device,
-        step_size=DEFAULT_STEP_SIZE,
-        n_scf_step=DEFAULT_N_SCF_STEP,
-    )
-    if first.status == OK:
-        return first
+    evaluate = _energy_and_gradient(atoms, initial, raw_model, device)
+    relaxed_z, energy_ev, gradient = _descend(evaluate, initial[:, 2])
+    moments = initial.copy()
+    moments[:, 2] = relaxed_z
 
-    retry = _attempt(
-        structure,
-        initial_moments,
-        raw_model=raw_model,
-        device=device,
-        step_size=RETRY_STEP_SIZE,
-        n_scf_step=RETRY_N_SCF_STEP,
+    zero_moment_energy_ev = _zero_moment_energy(
+        atoms, raw_model=raw_model, device=device
     )
-    if retry.status == OK:
-        return MomentRelaxationResult(
-            moments=retry.moments,
-            energy_ev=retry.energy_ev,
-            status=CONVERGED_AFTER_RETRY,
-            reasons=retry.reasons,
+    reasons = _validity_reasons(
+        energy_ev,
+        zero_moment_energy_ev,
+        moments,
+        atoms.get_chemical_symbols(),
+        domain_limits(raw_model),
+    )
+    largest_gradient = float(np.abs(gradient).max())
+    if reasons:
+        status = INVALID
+    elif not largest_gradient < GRADIENT_TOLERANCE:
+        status = WARNING_NOT_CONVERGED
+        reasons.append(
+            f"largest magnetic gradient {largest_gradient:.6g} eV/uB "
+            f"> {GRADIENT_TOLERANCE}"
         )
-    return retry
+    else:
+        status = OK
+    return MomentRelaxationResult(
+        moments=moments, energy_ev=energy_ev, status=status, reasons=tuple(reasons)
+    )
