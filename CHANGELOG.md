@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.4.0](https://github.com/stfc/goldilocks-ml/releases/tag/v0.4.0) — 2026-11-10
+
 ### Added
 
 - `load_model(..., device="cuda")` runs the `is_magnetic` mMACE embedding on
