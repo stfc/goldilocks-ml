@@ -46,6 +46,8 @@ class MagneticPredictor:
     record: Mapping[str, Any]
     backbone: Path
     model_id: str
+    # Where the mMACE embedding runs; the MLP head stays on the CPU.
+    device: str = "cpu"
 
     def predict(self, structure: Structure) -> ModelPrediction:
         """Return whether one structure is magnetic."""
@@ -57,7 +59,9 @@ class MagneticPredictor:
             return []
 
         rows = torch.tensor(
-            embed_structures(list(structures), checkpoint=self.backbone),
+            embed_structures(
+                list(structures), checkpoint=self.backbone, device=self.device
+            ),
             dtype=torch.float32,
         )
         scores = class_scores(self.model, rows, self.scaler_mean, self.scaler_scale)
@@ -107,9 +111,16 @@ class MagneticPredictor:
 
 
 def load(
-    record: Mapping[str, Any], directory: Path, artifacts: Mapping[str, Path]
+    record: Mapping[str, Any],
+    directory: Path,
+    artifacts: Mapping[str, Path],
+    *,
+    device: str = "cpu",
 ) -> MagneticPredictor:
-    """Build a predictor from a stored record, checking what it declares."""
+    """Build a predictor from a stored record, checking what it declares.
+
+    ``device`` is where the mMACE embedding runs.
+    """
     version = record.get("runtime", {}).get("version")
     if version != RUNTIME_VERSION:
         raise ValueError(
@@ -169,6 +180,7 @@ def load(
         record=record,
         backbone=backbone,
         model_id=f"{RUNTIME}@{schema}",
+        device=device,
     )
 
 

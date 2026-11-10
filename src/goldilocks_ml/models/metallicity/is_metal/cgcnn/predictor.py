@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from goldilocks_ml.hashing import sha256_file
-from goldilocks_ml.inference import ModelPrediction, contract_for
+from goldilocks_ml.inference import ModelPrediction, contract_for, require_cpu
 from goldilocks_ml.models.metallicity.is_metal.cgcnn.trainer import (
     RUNTIME,
     RUNTIME_VERSION,
@@ -91,9 +91,14 @@ class MetallicityPredictor:
 
 
 def load(
-    record: Mapping[str, Any], directory: Path, artifacts: Mapping[str, Path]
+    record: Mapping[str, Any],
+    directory: Path,
+    artifacts: Mapping[str, Path],
+    *,
+    device: str = "cpu",
 ) -> MetallicityPredictor:
     """Build a predictor from a stored record, checking what it declares."""
+    require_cpu(RUNTIME, device)
     import torch
 
     from goldilocks_ml.models.k_points.k_distance.qrf.embedding import CGCNN

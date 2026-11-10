@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- `load_model(..., device="cuda")` runs the `is_magnetic` mMACE embedding on
+  that torch device; its classifier head stays on the CPU. The default,
+  `"cpu"`, gives the same results as before. Every other runtime raises
+  `ValueError` for a device other than `"cpu"`. See
+  [goldilocks-ml#144](https://github.com/stfc/goldilocks-ml/issues/144).
+
 ## [0.3.3](https://github.com/stfc/goldilocks-ml/releases/tag/v0.3.3) — 2026-11-09
 
 ### Changed

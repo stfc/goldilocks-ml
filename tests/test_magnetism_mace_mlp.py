@@ -267,6 +267,31 @@ def test_a_served_classifier_decides_rather_than_scoring(
     assert (prediction.details["label"] == "magnetic") is prediction.value
 
 
+@pytest.mark.parametrize("device", [None, "cuda"])
+def test_the_embedding_runs_on_the_device_load_model_is_given(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, device: str | None
+) -> None:
+    """goldilocks-ml#144: goldilocks-core runs the mMACE embedding on cuda."""
+    from goldilocks_ml.inference import load_model
+
+    seen: list[str] = []
+
+    def fake_embed_structures(structures: Any, **kwargs: Any) -> np.ndarray:
+        seen.append(kwargs["device"])
+        return np.zeros((len(structures), EMBEDDING_WIDTH), dtype=np.float32)
+
+    monkeypatch.setattr(mace_predictor, "embed_structures", fake_embed_structures)
+    directory = saved_model(tmp_path)
+    options = {} if device is None else {"device": device}
+
+    model = load_model(
+        directory, artifacts={"mace_backbone": tmp_path / "backbone.model"}, **options
+    )
+    model.predict(a_structure())
+
+    assert seen == [device or "cpu"]
+
+
 def test_a_batch_decides_once_per_structure(
     tmp_path: Path, stub_embedding: None
 ) -> None:

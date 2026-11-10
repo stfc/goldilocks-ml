@@ -570,3 +570,32 @@ def test_an_unknown_index_convention_basis_is_refused() -> None:
 
     with pytest.raises(ValueError, match="unknown index_convention.basis"):
         broken.check_value(())
+
+
+@pytest.mark.parametrize(
+    ("module", "runtime"),
+    [
+        (
+            "goldilocks_ml.models.k_points.k_distance.qrf.predictor",
+            "k_points.k_distance.qrf",
+        ),
+        ("goldilocks_ml.models.k_points.k_index.qrf.predictor", "k_points.k_index.qrf"),
+        (
+            "goldilocks_ml.models.k_points.k_index.screen.predictor",
+            "k_points.k_index.screen",
+        ),
+        (
+            "goldilocks_ml.models.metallicity.is_metal.cgcnn.predictor",
+            "metallicity.is_metal.cgcnn",
+        ),
+    ],
+)
+def test_a_cpu_only_runtime_refuses_another_device(module: str, runtime: str) -> None:
+    """goldilocks-ml#144: only is_magnetic takes a device; the rest say so
+    rather than run on the CPU when asked for cuda."""
+    from importlib import import_module
+
+    load = import_module(module).load
+
+    with pytest.raises(ValueError, match=runtime):
+        load({}, Path("unused"), {}, device="cuda")

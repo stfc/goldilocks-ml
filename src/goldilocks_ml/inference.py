@@ -377,12 +377,22 @@ def required_artifacts(
     return resolve(dependencies, artifact_directory, supplied)
 
 
+def require_cpu(runtime: str, device: str) -> None:
+    """Refuse a device other than the CPU for a runtime that cannot use one."""
+    if device != "cpu":
+        raise ValueError(
+            f"the {runtime} runtime runs on the CPU only; it cannot use "
+            f"device={device!r}"
+        )
+
+
 def load_model(
     directory: Path,
     *,
     artifacts: Mapping[str, Path] | None = None,
     artifact_directory: Path | None = None,
     model_id: str | None = None,
+    device: str = "cpu",
 ) -> StructureModel:
     """Load a model from a directory a training run or a deposit produced.
 
@@ -390,6 +400,11 @@ def load_model(
     ``model.json``. Everything the record declares is checked here, so a
     consumer too old for an artifact is told what it is missing rather than
     predicting from the wrong feature vector.
+
+    ``device`` is the torch device the model runs on. Only the
+    ``is_magnetic`` runtime accepts one other than ``"cpu"``: its mMACE
+    embedding runs there, and its classifier head stays on the CPU. Every
+    other runtime raises ``ValueError`` for a device other than ``"cpu"``.
     """
     directory = Path(directory)
     record = read_record(directory)
@@ -429,7 +444,7 @@ def load_model(
     )
     runtime = record.get("runtime", {})
     predictor = get_predictor(runtime.get("id"))
-    model = predictor(record, directory, resolved)
+    model = predictor(record, directory, resolved, device=device)
     if model_id is not None:
         return replace_model_id(model, model_id)
     return model

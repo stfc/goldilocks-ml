@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from goldilocks_ml.hashing import sha256_file
-from goldilocks_ml.inference import ModelPrediction, contract_for
+from goldilocks_ml.inference import ModelPrediction, contract_for, require_cpu
 from goldilocks_ml.models.k_points.k_distance.qrf.trainer import (
     CALIBRATION_METHOD,
     ENDPOINT_ADJUSTMENT,
@@ -133,9 +133,14 @@ class QRF95Predictor:
 
 
 def load(
-    record: Mapping[str, Any], directory: Path, artifacts: Mapping[str, Path]
+    record: Mapping[str, Any],
+    directory: Path,
+    artifacts: Mapping[str, Path],
+    *,
+    device: str = "cpu",
 ) -> QRF95Predictor:
     """Build a predictor from a stored record, checking what it declares."""
+    require_cpu(RUNTIME, device)
     from goldilocks_ml.models.k_points.k_distance.qrf import features as qrf_features
 
     version = record.get("runtime", {}).get("version")
