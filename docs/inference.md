@@ -58,9 +58,9 @@ model = load_model("path/to/sgk1t-48m42", device="cuda")
 The small classifier on top stays on the CPU. Every other model runs on the
 CPU only and raises `ValueError` for any `device` other than `"cpu"`.
 
-Check `torch.cuda.is_available()` before asking for `"cuda"`. Without a usable
-GPU, `load_model` still succeeds, but the first prediction fails with an error
-from PyTorch.
+If PyTorch sees no CUDA GPU, `load_model` raises `ValueError` and says so. It
+also refuses `"mps"`: the backbone runs in float64, which Apple GPUs do not
+support.
 
 ## If loading fails
 
@@ -74,6 +74,7 @@ wrong. The usual causes:
 | `sha256` | a file in the record does not match its recorded digest |
 | `decision` | a classifier with no threshold cannot produce a label |
 | `runs on the CPU only` | that model has no GPU path; leave out `device` or pass `"cpu"` |
+| `no CUDA GPU is available` | PyTorch sees no GPU; pass `"cpu"`, or check the driver ([Installation](installation.md#gpu)) |
 
 A digest mismatch means the record is not the one it claims to be. Re-download
 it rather than working around the error.

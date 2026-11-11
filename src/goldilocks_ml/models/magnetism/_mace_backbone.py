@@ -96,6 +96,40 @@ def _default_dtype_float64() -> Iterator[None]:
             torch.set_default_dtype(previous)
 
 
+def check_device(device: str) -> None:
+    """Raise ``ValueError`` unless the backbone can run on ``device``.
+
+    The backbone runs in float64, so it runs on the CPU or a CUDA GPU. This
+    is checked when a model is loaded, before the backbone itself is: on a
+    machine without CUDA, ``torch.load(map_location="cuda")`` fails later
+    with an error that does not say so.
+    """
+    import torch
+
+    try:
+        parsed = torch.device(device)
+    except RuntimeError as error:
+        raise ValueError(f"device={device!r} is not a torch device") from error
+    if parsed.type == "cpu":
+        return
+    if parsed.type != "cuda":
+        raise ValueError(
+            f"the mMACE backbone runs in float64 on the CPU or a CUDA GPU; it "
+            f"cannot use device={device!r}"
+        )
+    if not torch.cuda.is_available():
+        raise ValueError(
+            f"device={device!r} asks for CUDA, but no CUDA GPU is available "
+            "to PyTorch on this machine"
+        )
+    count = torch.cuda.device_count()
+    if parsed.index is not None and parsed.index >= count:
+        raise ValueError(
+            f"device={device!r} asks for CUDA GPU {parsed.index}, but PyTorch "
+            f"sees {count}"
+        )
+
+
 def safe_load(path: Path, device: str = "cpu") -> Any:
     """Load a whole pickled mMACE model, forcing embedded TorchScript onto device.
 

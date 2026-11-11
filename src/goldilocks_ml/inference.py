@@ -402,9 +402,10 @@ def load_model(
     predicting from the wrong feature vector.
 
     ``device`` is the torch device the model runs on. Only the
-    ``is_magnetic`` runtime accepts one other than ``"cpu"``: its mMACE
-    embedding runs there, and its classifier head stays on the CPU. Every
-    other runtime raises ``ValueError`` for a device other than ``"cpu"``.
+    ``is_magnetic`` runtime accepts one other than ``"cpu"``, a CUDA device:
+    its mMACE embedding runs there, and its classifier head stays on the CPU.
+    It raises ``ValueError`` if that device is not available. Every other
+    runtime raises ``ValueError`` for a device other than ``"cpu"``.
     """
     directory = Path(directory)
     record = read_record(directory)
