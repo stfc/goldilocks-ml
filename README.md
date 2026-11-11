@@ -67,6 +67,10 @@ To use a copy stored elsewhere, pass
 `artifacts={"mace_backbone": "path/to/mmace-matpes-pbe-pretrained.model"}`. It
 is checked the same way.
 
+To run the backbone on a GPU, pass `device="cuda"`. Only `is_magnetic` can use
+one; see [Run on a
+GPU](https://stfc.github.io/goldilocks-ml/inference/#run-on-a-gpu).
+
 ## Train one
 
 A training job is one TOML file, not a notebook. This runs offline in a clean
@@ -105,18 +109,13 @@ uv run mkdocs build --strict
 uv build
 ```
 
-`--group docs` is what actually installs `mkdocs`/`mkdocs-material` -- CI runs
-lint/tests and the docs build as two separate jobs with their own `uv sync`
-(`.github/workflows/ci.yml` and `docs.yml`), so leaving it out here previously
-worked in CI but failed the moment someone ran this exact sequence locally.
+`--group docs` installs MkDocs for the documentation build. Run ruff on the
+whole tree, as CI does: it also checks the Python in the documentation's code
+blocks.
 
-The lint and format checks cover the whole tree, including Python inside
-fenced blocks in the documentation. Narrowing them to `src tests` passes
-locally and fails in CI.
-
-The GitHub Pages workflow builds documentation on every pull request and
-deploys it after changes reach `main`. A repository administrator must select
-**GitHub Actions** as the Pages source once before the first deployment.
+Pull requests build the documentation, and changes on `main` deploy it to
+GitHub Pages. A repository administrator must select **GitHub Actions** as the
+Pages source once, before the first deployment.
 
 ## Licence
 

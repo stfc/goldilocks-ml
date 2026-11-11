@@ -1,5 +1,7 @@
 # Installation
 
+Goldilocks ML needs Python 3.12 or newer.
+
 ```bash
 pip install goldilocks-ml
 ```
@@ -17,6 +19,15 @@ goldilocks-ml --help
 ```
 
 You should see the two things this tool does: `train` and `publish`.
+
+## GPU
+
+You don't need one. Every model runs on the CPU, and only `is_magnetic` can
+use a GPU — see [Run on a GPU](inference.md#run-on-a-gpu).
+
+PyTorch comes from PyPI's default wheels. On Linux these are built for CUDA 13,
+so a GPU needs an NVIDIA driver that supports it (R580 or later). With an older
+driver, PyTorch sees no GPU.
 
 ## Working on Goldilocks ML itself
 
