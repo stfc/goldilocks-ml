@@ -16,7 +16,7 @@ CC-BY-4.0 by the training collaborator.
 | Predicts | `is_magnetic` — `magnetic` or `non_magnetic` |
 | Trained on | MatPES PBE (`materialyze/matpes/pbe-2025.2`), not Materials Project |
 | Record | [sgk1t-48m42](https://data-collections.psdi.ac.uk/records/sgk1t-48m42) |
-| Source | ported from `2-research/2-mace/1-magnetic-mace` (outside this ecosystem) |
+| Backbone | `mmace-matpes-pbe-pretrained.model`, frozen, shipped in the record |
 
 ## Use it
 
@@ -36,6 +36,16 @@ pass `artifacts={"mace_backbone": path}`; it is checked the same way.
 
 The decision threshold lives in the record and is applied for you. It is
 **0.324, not 0.5**.
+
+## Cost
+
+Each prediction runs the backbone once over the whole cell. On a laptop CPU,
+once the backbone has loaded, a 54-atom cell takes about half a second and
+peaks at 2 GB of memory; a 128-atom cell takes about a second and 4 GB. Memory
+grows with the number of atoms.
+
+To run the backbone on a GPU, pass `device="cuda"` to `load_model`. See [Run on
+a GPU](../../../inference.md#run-on-a-gpu).
 
 ## How good it is
 
@@ -67,26 +77,17 @@ A prediction for a structure whose true answer would land in that gap is
 **extrapolation, not interpolation** — the model was never shown an example
 like it, in either class.
 
-## What is not modelled
+## What it does not tell you
 
-`ordering` (a label: `NM`/`FM`/`AFM`/`FiM`) and `magnetic_moments` (one value
-per site) are not here. The mechanism to declare either as a contract exists
-(`ContractSpec.labels`, `ContractSpec.index_convention`); what is missing is a
-model. Antiferromagnetic sublattice detection in particular has no
-implementation anywhere in the project this was ported from to build on —
-only an FM/ferrimagnetic-only initial-moment guess
-(`goldilocks_ml.models.magnetism.magnetic_moments.fm_fim_relax.seed_moments`)
-and a ported moment relaxation on the same frozen backbone
-(`...fm_fim_relax.relax`), collinear only, on a fixed geometry, never a
-ground-state search.
+It answers yes or no. It does not say how the spins are arranged (ferro-,
+antiferro- or ferrimagnetic) or what moment each site carries. The
+[Magnetism](index.md) page describes the moment tools Goldilocks Core uses for
+those, and how far to trust them.
 
 ## When to be careful
 
-- **A prediction near the decision threshold, or near the 0.05–0.5 uB dead
+- **A prediction near the decision threshold, or near the 0.05–0.5 μB dead
   zone, is not confident.** Treat it as unverified and check with a real
   spin-polarised calculation.
 - **The score is not a probability**, and 0.5 is not its decision point. Use
   `prediction.value`, not your own threshold.
-- **External validation is still pending.** Do not depend on this as a
-  default model until it is recorded — see the warning at the top of this
-  page.

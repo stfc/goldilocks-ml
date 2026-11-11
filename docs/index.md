@@ -36,6 +36,7 @@ permanent identifier, so others can cite it and check they have the same file.
 | [k-index forest](training/models/k_points/k_index-qrf.md) | which mesh on the ladder a crystal needs | [4050a-aas85](https://data-collections.psdi.ac.uk/records/4050a-aas85) |
 | [Metallicity classifier](training/models/metallicity/is_metal-cgcnn.md) | metal or insulator | [ba06w-n6a68](https://data-collections.psdi.ac.uk/records/ba06w-n6a68) |
 | [CGCNN representation](training/models/metallicity/representation-cgcnn.md) | 64 numbers describing a crystal | [m742g-g0k14](https://data-collections.psdi.ac.uk/records/m742g-g0k14) |
+| [is_magnetic](training/models/magnetism/is_magnetic-mace_mlp.md) | whether the DFT ground state is spin-polarised | [sgk1t-48m42](https://data-collections.psdi.ac.uk/records/sgk1t-48m42) |
 
 [All models](training/models/index.md), including the ones trained here and not
 yet published.

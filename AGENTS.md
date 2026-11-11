@@ -7,12 +7,16 @@ Offline model development, evaluation, and artifact publication for Goldilocks.
 Use `uv` for every Python environment and package operation.
 
 ```bash
-uv sync --group dev
+uv sync --group dev --group docs
 uv run pytest
-uv run ruff check src tests
-uv run ruff format --check src tests
+uv run ruff check .
+uv run ruff format --check .
+uv run mkdocs build --strict
 uv build
 ```
+
+These are the checks CI runs. Lint the whole tree, not just `src tests`: CI
+also checks the Python in the documentation's code blocks.
 
 Only document commands that exist in the current branch. Add project-specific
 training and evaluation commands here when their CLI is implemented.

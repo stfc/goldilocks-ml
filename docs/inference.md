@@ -1,6 +1,6 @@
 # Use a model
 
-Hand a model a structure, get one number back.
+Hand a model a structure, get one answer back.
 
 ```python
 from goldilocks_ml.inference import load_model
@@ -46,6 +46,22 @@ prediction.warnings  # e.g. an unusually wide interval for this structure
 Show `warnings` to whoever is running the calculation. It is how a model says
 "this structure does not look like what I was trained on".
 
+## Run on a GPU
+
+`is_magnetic` spends nearly all its time in its mMACE backbone, and that part
+can run on a GPU:
+
+```python
+model = load_model("path/to/sgk1t-48m42", device="cuda")
+```
+
+The small classifier on top stays on the CPU. Every other model runs on the
+CPU only and raises `ValueError` for any `device` other than `"cpu"`.
+
+Check `torch.cuda.is_available()` before asking for `"cuda"`. Without a usable
+GPU, `load_model` still succeeds, but the first prediction fails with an error
+from PyTorch.
+
 ## If loading fails
 
 `load_model` checks the record before it will serve it, and names what is
@@ -57,11 +73,7 @@ wrong. The usual causes:
 | `feature contract` / `columns` | upgrade `goldilocks-ml` to a version that knows it |
 | `sha256` | a file in the record does not match its recorded digest |
 | `decision` | a classifier with no threshold cannot produce a label |
+| `runs on the CPU only` | that model has no GPU path; leave out `device` or pass `"cpu"` |
 
 A digest mismatch means the record is not the one it claims to be. Re-download
 it rather than working around the error.
-
-## Installing less
-
-`goldilocks_ml.inference` imports without PyTorch or pymatgen. Those load only
-when a prediction is actually made, and a missing one is reported by name.

@@ -33,9 +33,10 @@ notebooks with outputs, accidental formatting, and unexplained metric changes.
 Run the checks that exist in the current branch, normally:
 
 ```bash
-uv run ruff check src tests
-uv run ruff format --check src tests
+uv run ruff check .
+uv run ruff format --check .
 uv run pytest
+uv run mkdocs build --strict
 uv build
 ```
 
