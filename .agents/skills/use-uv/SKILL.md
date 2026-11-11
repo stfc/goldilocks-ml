@@ -8,10 +8,10 @@ description: Use uv for all Python package management in this project. Use when 
 Use `uv` for every Python package and environment operation.
 
 ```bash
-uv sync --group dev
+uv sync --group dev --group docs
 uv run pytest
-uv run ruff check src tests
-uv run ruff format --check src tests
+uv run ruff check .
+uv run ruff format --check .
 uv run python -c "..."
 uv add <package>
 uv add --group dev <package>
