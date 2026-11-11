@@ -18,7 +18,10 @@ import torch
 
 from goldilocks_ml.hashing import sha256_file
 from goldilocks_ml.inference import ModelPrediction, contract_for
-from goldilocks_ml.models.magnetism._mace_backbone import embed_structures
+from goldilocks_ml.models.magnetism._mace_backbone import (
+    check_device,
+    embed_structures,
+)
 from goldilocks_ml.models.magnetism.is_magnetic.mace_mlp.features import (
     MACE_BACKBONE,
     SCHEMA,
@@ -119,8 +122,10 @@ def load(
 ) -> MagneticPredictor:
     """Build a predictor from a stored record, checking what it declares.
 
-    ``device`` is where the mMACE embedding runs.
+    ``device`` is where the mMACE embedding runs: ``"cpu"`` or a CUDA device.
+    An unusable one is refused here, not at the first prediction.
     """
+    check_device(device)
     version = record.get("runtime", {}).get("version")
     if version != RUNTIME_VERSION:
         raise ValueError(

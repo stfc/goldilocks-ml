@@ -267,6 +267,12 @@ def test_a_served_classifier_decides_rather_than_scoring(
     assert (prediction.details["label"] == "magnetic") is prediction.value
 
 
+def _one_cuda_gpu(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make PyTorch report one CUDA GPU, so device tests run without one."""
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 1)
+
+
 @pytest.mark.parametrize("device", [None, "cuda"])
 def test_the_embedding_runs_on_the_device_load_model_is_given(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, device: str | None
@@ -281,6 +287,7 @@ def test_the_embedding_runs_on_the_device_load_model_is_given(
         return np.zeros((len(structures), EMBEDDING_WIDTH), dtype=np.float32)
 
     monkeypatch.setattr(mace_predictor, "embed_structures", fake_embed_structures)
+    _one_cuda_gpu(monkeypatch)
     directory = saved_model(tmp_path)
     options = {} if device is None else {"device": device}
 
@@ -290,6 +297,69 @@ def test_the_embedding_runs_on_the_device_load_model_is_given(
     model.predict(a_structure())
 
     assert seen == [device or "cpu"]
+
+
+def test_cuda_is_refused_when_the_model_loads_if_there_is_no_gpu(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, stub_embedding: None
+) -> None:
+    """goldilocks-ml#149: without CUDA, torch.load(map_location="cuda") failed
+    at the first prediction with an error that did not say so."""
+    from goldilocks_ml.inference import load_model
+
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    directory = saved_model(tmp_path)
+
+    with pytest.raises(ValueError, match="no CUDA GPU is available"):
+        load_model(
+            directory,
+            artifacts={"mace_backbone": tmp_path / "backbone.model"},
+            device="cuda",
+        )
+
+
+@pytest.mark.parametrize(
+    ("device", "message"),
+    [
+        ("bogus", "is not a torch device"),
+        ("mps", "float64 on the CPU or a CUDA GPU"),
+        ("cuda:3", "sees 1"),
+    ],
+)
+def test_an_unusable_device_is_refused_when_the_model_loads(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    stub_embedding: None,
+    device: str,
+    message: str,
+) -> None:
+    from goldilocks_ml.inference import load_model
+
+    _one_cuda_gpu(monkeypatch)
+    directory = saved_model(tmp_path)
+
+    with pytest.raises(ValueError, match=message):
+        load_model(
+            directory,
+            artifacts={"mace_backbone": tmp_path / "backbone.model"},
+            device=device,
+        )
+
+
+def test_a_numbered_cuda_device_that_exists_is_accepted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, stub_embedding: None
+) -> None:
+    from goldilocks_ml.inference import load_model
+
+    _one_cuda_gpu(monkeypatch)
+    directory = saved_model(tmp_path)
+
+    model = load_model(
+        directory,
+        artifacts={"mace_backbone": tmp_path / "backbone.model"},
+        device="cuda:0",
+    )
+
+    assert model.device == "cuda:0"
 
 
 def test_a_batch_decides_once_per_structure(

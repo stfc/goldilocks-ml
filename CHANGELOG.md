@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `load_model(..., device="cuda")` on the `is_magnetic` record refuses the
+  device when the model loads if PyTorch sees no CUDA GPU, or not the GPU
+  index asked for. It used to load, and the first prediction then failed with
+  an unrelated PyTorch error. An unparsable device string and `"mps"` are
+  refused the same way. `"cpu"`, the default, is unchanged. See
+  [goldilocks-ml#149](https://github.com/stfc/goldilocks-ml/issues/149).
+
 ## [0.4.0](https://github.com/stfc/goldilocks-ml/releases/tag/v0.4.0) — 2026-11-10
 
 ### Added
